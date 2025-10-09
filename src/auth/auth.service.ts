@@ -5,6 +5,9 @@ import { LoginDto } from './dto/login.dto';
 import { SignupDto, VerifyEmailDto } from './dto/signup.dto';
 import { EmailService } from '../email/email.service';
 import * as bcrypt from 'bcrypt';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -50,6 +53,95 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  private getOtpExpiryMinutes(): number {
+    return Number(process.env.OTP_EXP_MINUTES || 5);
+  }
+
+  async forgotPassword(email: string) {
+    if (!email) throw new BadRequestException('email required');
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      // Return generic message to avoid user enumeration
+      return { ok: true, message: 'If the email is registered and verified, an OTP will be sent' };
+    }
+
+    if (!user.isVerified) {
+      return { ok: false, message: 'email not verified' };
+    }
+
+    const otp = await this.generateVerificationCode();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + this.getOtpExpiryMinutes() * 60 * 1000);
+
+    await this.usersService.update(user.id, {
+      verificationCode: otpHash,
+      verificationCodeExpiry: expiresAt,
+    });
+
+    try {
+      await this.emailService.sendVerificationEmail(user.email, otp);
+    } catch (err) {
+      console.error('sendOtpEmail error', err);
+      return { ok: false, error: 'failed to send email' };
+    }
+
+    return { ok: true, message: 'OTP sent if account exists and is verified' };
+  }
+
+  async verifyOtp(email: string, otp: string) {
+    if (!email || !otp) throw new BadRequestException('email and otp required');
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user || !user.verificationCode || !user.verificationCodeExpiry) {
+      throw new BadRequestException('invalid or expired otp');
+    }
+
+    const expiry = new Date(user.verificationCodeExpiry);
+    if (expiry.getTime() < Date.now()) {
+      throw new BadRequestException('invalid or expired otp');
+    }
+
+    const match = await bcrypt.compare(otp, user.verificationCode);
+    if (!match) throw new BadRequestException('invalid otp');
+
+    // consume OTP
+    await this.usersService.update(user.id, {
+      verificationCode: undefined,
+      verificationCodeExpiry: undefined,
+    });
+
+    return { ok: true, message: 'otp verified' };
+  }
+
+  async resetPassword(email: string, otp: string, newPassword: string) {
+    if (!email || !otp || !newPassword) throw new BadRequestException('email, otp and newPassword required');
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user || !user.verificationCode || !user.verificationCodeExpiry) {
+      throw new BadRequestException('invalid or expired otp');
+    }
+
+    const expiry = new Date(user.verificationCodeExpiry);
+    if (expiry.getTime() < Date.now()) {
+      throw new BadRequestException('invalid or expired otp');
+    }
+
+    const match = await bcrypt.compare(otp, user.verificationCode);
+    if (!match) throw new BadRequestException('invalid otp');
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.usersService.update(user.id, { password: hashed });
+
+    // consume OTP
+    await this.usersService.update(user.id, {
+      verificationCode: undefined,
+      verificationCodeExpiry: undefined,
+    });
+
+    return { ok: true, message: 'password reset successful' };
+  }
+
   async signup(signupDto: SignupDto) {
     // Kiểm tra email đã tồn tại
     const existingUser = await this.usersService.findByEmail(signupDto.email);
@@ -62,8 +154,8 @@ export class AuthService {
       // Nếu email tồn tại nhưng chưa xác thực -> cập nhật password và gửi mã xác thực mới
       const hashedPassword = await bcrypt.hash(signupDto.password, 10);
       const verificationCode = await this.generateVerificationCode();
-      const verificationCodeExpiry = new Date();
-      verificationCodeExpiry.setMinutes(verificationCodeExpiry.getMinutes() + 6);
+  const verificationCodeExpiry = new Date();
+  verificationCodeExpiry.setMinutes(verificationCodeExpiry.getMinutes() + 5);
 
       await this.usersService.update(existingUser.id, {
         password: hashedPassword,
@@ -94,8 +186,8 @@ export class AuthService {
 
     // Tạo mã xác thực
     const verificationCode = await this.generateVerificationCode();
-    const verificationCodeExpiry = new Date();
-    verificationCodeExpiry.setMinutes(verificationCodeExpiry.getMinutes() + 6);
+  const verificationCodeExpiry = new Date();
+  verificationCodeExpiry.setMinutes(verificationCodeExpiry.getMinutes() + 5);
 
     // Tạo user mới
     const newUser = await this.usersService.create({
@@ -138,11 +230,11 @@ export class AuthService {
       throw new BadRequestException('Invalid verification code');
     }
 
-    if (new Date() > user.verificationCodeExpiry) {
+    if (!user.verificationCodeExpiry || new Date() > new Date(user.verificationCodeExpiry)) {
       // Tạo mã xác thực mới nếu mã cũ đã hết hạn
       const newVerificationCode = await this.generateVerificationCode();
       const newExpiry = new Date();
-      newExpiry.setMinutes(newExpiry.getMinutes() + 6);
+      newExpiry.setMinutes(newExpiry.getMinutes() + 5);
 
       await this.usersService.update(user.id, {
         verificationCode: newVerificationCode,
@@ -187,8 +279,8 @@ export class AuthService {
 
     // Tạo mã mới và gửi
     const newVerificationCode = await this.generateVerificationCode();
-    const newExpiry = new Date();
-    newExpiry.setMinutes(newExpiry.getMinutes() + 6);
+  const newExpiry = new Date();
+  newExpiry.setMinutes(newExpiry.getMinutes() + 5);
 
     await this.usersService.update(user.id, {
       verificationCode: newVerificationCode,
