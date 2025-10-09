@@ -1,18 +1,23 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Request, NotFoundException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto, VerifyEmailDto } from './dto/signup.dto';
 import { ResendCodeDto } from './dto/resend.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { UsersService } from '../users/users.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('auth')
+@ApiBearerAuth('jwt')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Post('signup')
   async signup(@Body() signupDto: SignupDto) {
@@ -63,5 +68,23 @@ export class AuthController {
   @Get('profile')
   getProfile() {
     return { message: 'Profile accessed successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  @ApiBearerAuth()
+  async getCurrentUser(@Request() req: any) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new NotFoundException('User not authenticated');
+    }
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { password, verificationCode, ...safeUser } = user as any;
+    return safeUser;
   }
 }
