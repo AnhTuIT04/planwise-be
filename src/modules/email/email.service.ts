@@ -1,0 +1,113 @@
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as nodemailer from "nodemailer";
+
+import { AppConfig } from "@/config/app.config";
+import { SendEmailDto } from "./dto/send-email.dto";
+
+@Injectable()
+export class EmailService {
+  private readonly emailUser: string;
+  private readonly emailPass: string;
+
+  constructor(private readonly configService: ConfigService) {
+    const { EMAIL_VERIFIER_USER, EMAIL_VERIFIER_PASS } = this.configService.get<AppConfig>("env")!;
+    this.emailUser = EMAIL_VERIFIER_USER;
+    this.emailPass = EMAIL_VERIFIER_PASS;
+  }
+
+  /** Create a reusable transporter instance for Gmail SMTP */
+  private emailTransport() {
+    return nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false, // Use TLS
+      auth: {
+        user: this.emailUser,
+        pass: this.emailPass,
+      },
+    });
+  }
+
+  /** Send a generic HTML email */
+  async sendEmail(dto: SendEmailDto) {
+    const { recipients, subject, html } = dto;
+    const transporter = this.emailTransport();
+
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: `"PlanWise" <${this.emailUser}>`,
+      to: recipients,
+      subject,
+      html,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      throw new InternalServerErrorException("Failed to send email.");
+    }
+  }
+
+  /** Helper for building consistent OTP email HTML */
+  private buildOtpHtml(title: string, intro: string, code: string, footerNote?: string) {
+    return `
+    <body style="font-family: Arial, sans-serif; background-color: #f6f9fc; padding: 20px; margin: 0;">
+      <table width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 8px; padding: 24px;">
+        <tr>
+          <td>
+            <h2 style="color: #333333; text-align: center;">${title}</h2>
+            <p style="font-size: 15px; color: #555555;">${intro}</p>
+
+            <div style="text-align: center; margin: 24px 0;">
+              <div style="display: inline-block; background-color: #f2f4f7; color: #111111; padding: 14px 28px; border-radius: 6px; font-size: 24px; font-weight: bold; letter-spacing: 3px;">
+                ${code}
+              </div>
+            </div>
+
+            <p style="color: #555555; font-size: 14px;">This OTP will expire in <strong>5 minutes</strong>.</p>
+            ${footerNote ? `<p style="color: #777777; font-size: 13px; margin-top: 12px;">${footerNote}</p>` : ""}
+
+            <p style="margin-top: 32px; color: #444444;">Best regards,<br /><strong>The PlanWise Team</strong></p>
+          </td>
+        </tr>
+      </table>
+    </body>`;
+  }
+
+  /** Send OTP for account verification */
+  async sendVerificationEmail(email: string, otp: string) {
+    const html = this.buildOtpHtml(
+      "Verify Your PlanWise Account",
+      `Hello,<br /><br />
+      Thank you for signing up with <strong>PlanWise</strong>.<br />
+      Please use the OTP below to verify your email and complete registration.`,
+      otp,
+      `If you didn't request this, please ignore this email.`,
+    );
+
+    await this.sendEmail({
+      recipients: [email],
+      subject: "Your PlanWise Email Verification OTP",
+      html,
+    });
+  }
+
+  /** Send OTP for password reset */
+  async sendPasswordResetEmail(email: string, otp: string) {
+    const html = this.buildOtpHtml(
+      "Reset Your PlanWise Password",
+      `Hello,<br /><br />
+      We received a request to reset the password for your <strong>PlanWise</strong> account.<br />
+      Please use the OTP below to proceed with resetting your password.`,
+      otp,
+      `If you didn't request a password reset, you can safely ignore this message.`,
+    );
+
+    await this.sendEmail({
+      recipients: [email],
+      subject: "Your PlanWise Password Reset OTP",
+      html,
+    });
+  }
+}

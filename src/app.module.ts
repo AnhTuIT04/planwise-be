@@ -1,30 +1,37 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { EmailModule } from './email/email.module';
-import { ScheduleModule } from '@nestjs/schedule';
+import { Module } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
+import { ConfigModule } from "@nestjs/config";
+
+import { AppController } from "@/app.controller";
+import { configuration } from "@/config/app.config";
+import { DatabaseModule } from "@/modules/database/database.module";
+import { CacheModule } from "@/modules/cache/cache.module";
+import { JwtGuard } from "@/modules/auth/guards/jwt.guard";
+import { EmailModule } from "./modules/email/email.module";
+import { AuthModule } from "./modules/auth/auth.module";
+import { UsersModule } from "./modules/users/users.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
+      cache: true,
       isGlobal: true,
+      envFilePath: ".env",
+      load: [configuration],
+      expandVariables: true,
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env.DATABASE_URL,
-      autoLoadEntities: true,
-      synchronize: true, // Không nên dùng trong production
-    }),
-    ScheduleModule.forRoot(),
+    DatabaseModule,
+    CacheModule,
+    EmailModule,
     AuthModule,
     UsersModule,
-    EmailModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtGuard,
+    },
+  ],
 })
 export class AppModule {}
