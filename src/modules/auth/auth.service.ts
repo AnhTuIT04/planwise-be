@@ -194,4 +194,33 @@ export class AuthService {
       message: "User data retrieved successfully.",
     };
   }
+
+  async validateOAuthUser(provider: 'google' | 'github', profile: any) {
+  // Extract needed info from Google profile
+  const email = profile.emails[0].value;
+  const name = profile.displayName;
+  const avatar = profile.photos?.[0]?.value;
+
+  let user = await this.usersService.createOrUpdate(email, {
+    email,
+    name,
+    avatarUrl: avatar,
+    verified: true,
+
+    accounts: { create: {
+        provider
+      },
+    },
+    
+  });
+
+  return user;
+}
+
+async signOAuthToken(user) {
+  const payload = { sub: user.id, email: user.email };
+  const accessToken = this.jwtService.sign(payload);
+  return accessToken;
+}
+
 }

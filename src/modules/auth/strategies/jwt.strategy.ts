@@ -11,7 +11,7 @@ import { JwtPayloadDTO } from "../dto/jwt-payload.dto";
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([(req: Request) => req.cookies.accessToken]),
+      jwtFromRequest: ExtractJwt.fromExtractors([(req: Request) => {return req.cookies.accessToken}]),
       ignoreExpiration: false,
       secretOrKey: configService.get<AppConfig>("env")!.JWT_SECRET,
     });
