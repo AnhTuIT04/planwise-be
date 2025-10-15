@@ -1,7 +1,8 @@
-import { Controller, Post, Res, Body, UseGuards, Get, Request, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Res, Body, UseGuards, Get, Req, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
+import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
 
 import { AppConfig } from "@/config/app.config";
 import { Public } from "@/common/decorators/public.decorator";
@@ -18,10 +19,11 @@ import { ResetPasswordDTO } from "./dto/reset-password.dto";
 export class AuthController {
   private setAccessTokenToCookie(res: Response, accessToken: string) {
     const { NODE_ENV } = this.configService.get<AppConfig>("env")!;
+    console.log({tokennnnn: accessToken});
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "none", 
     });
   }
 
@@ -93,6 +95,57 @@ export class AuthController {
   }
 
   // -------------------------------
+  // GOOGLE OAUTH
+  // -------------------------------
+
+  @Get("google")
+  @Public()
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({ summary: "Initiate Google OAuth login" })
+  async googleAuth() {
+    // Hello world
+  }
+
+  @Get("google/callback")
+  @Public()
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({ summary: "Google OAuth callback" })
+  async googleCallback(@Req() req, @Res() res: Response) {
+    // `req.user` comes from GoogleStrategy.validate()
+    const { user } = req;
+    const accessToken = await this.authService.signOAuthToken(user);
+
+    this.setAccessTokenToCookie(res, accessToken);
+    return res.redirect(this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")!);
+  }
+
+  // -------------------------------
+  // GITHUB OAUTH
+  // -------------------------------
+
+  @Get("github")
+  @Public()
+  @UseGuards(GithubAuthGuard)
+  @ApiOperation({ summary: "Initiate GitHub OAuth login" })
+  async githubAuth() {
+    // Redirects automatically to GitHub
+  }
+
+  @Get("github/callback")
+  @Public()
+  @UseGuards(GithubAuthGuard)
+  @ApiOperation({ summary: "GitHub OAuth callback" })
+
+  async githubCallback(@Req() req, @Res() res: Response) {
+    const { user } = req;
+    const accessToken = await this.authService.signOAuthToken(user);
+
+    const redirectUrl = `${this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")}?status=success`;
+    this.setAccessTokenToCookie(res, accessToken);
+    return res.redirect(redirectUrl);
+  }
+
+  // -------------------------------
   // SIGN IN / SIGN OUT
   // -------------------------------
 
@@ -102,7 +155,6 @@ export class AuthController {
   @ApiOperation({ summary: "Sign in with verified email and password" })
   async signin(@Body() signInDto: SignInDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.signin(signInDto);
-
     this.setAccessTokenToCookie(res, accessToken);
     return res.json({ user, message: "Signed in successfully." });
   }
@@ -122,6 +174,7 @@ export class AuthController {
   @Get("me")
   @ApiOperation({ summary: "Get currently authenticated user" })
   async getCurrentUser(@GetCurrentUserId() userId: string) {
+    console.log({hahahah: userId});
     return await this.authService.getUserData(userId);
   }
 }
