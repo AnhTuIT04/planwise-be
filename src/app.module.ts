@@ -10,6 +10,8 @@ import { JwtGuard } from "@/modules/auth/guards/jwt.guard";
 import { EmailModule } from "./modules/email/email.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
+import { TaskModule } from './modules/task/task.module';
+import { SectionModule } from './modules/section/section.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { UsersModule } from "./modules/users/users.module";
     EmailModule,
     AuthModule,
     UsersModule,
+    TaskModule,
+    SectionModule,
   ],
   controllers: [AppController],
   providers: [
