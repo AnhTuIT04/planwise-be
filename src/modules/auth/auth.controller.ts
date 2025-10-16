@@ -19,11 +19,11 @@ import { ResetPasswordDTO } from "./dto/reset-password.dto";
 export class AuthController {
   private setAccessTokenToCookie(res: Response, accessToken: string) {
     const { NODE_ENV } = this.configService.get<AppConfig>("env")!;
-    console.log({tokennnnn: accessToken});
+    console.log({ tokennnnn: accessToken });
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: NODE_ENV === "production",
-      sameSite: "none", 
+      sameSite: "lax",
     });
   }
 
@@ -135,7 +135,6 @@ export class AuthController {
   @Public()
   @UseGuards(GithubAuthGuard)
   @ApiOperation({ summary: "GitHub OAuth callback" })
-
   async githubCallback(@Req() req, @Res() res: Response) {
     const { user } = req;
     const accessToken = await this.authService.signOAuthToken(user);
@@ -156,7 +155,7 @@ export class AuthController {
   async signin(@Body() signInDto: SignInDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.signin(signInDto);
     this.setAccessTokenToCookie(res, accessToken);
-    return res.json({ user, message: "Signed in successfully." });
+    return res.json({ accessToken, user, message: "Signed in successfully." });
   }
 
   @Post("signout")
@@ -174,7 +173,7 @@ export class AuthController {
   @Get("me")
   @ApiOperation({ summary: "Get currently authenticated user" })
   async getCurrentUser(@GetCurrentUserId() userId: string) {
-    console.log({hahahah: userId});
+    console.log({ hahahah: userId });
     return await this.authService.getUserData(userId);
   }
 }

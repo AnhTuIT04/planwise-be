@@ -10,12 +10,21 @@ export function configSwagger(app: INestApplication, apiPrefix: string, apiVersi
     .setTitle("API documentation for PlanWise")
     .setVersion(apiVersion)
     .addServer(`/${apiPrefix}/${apiVersion}`)
-    .addCookieAuth("accessToken", {
-      type: "apiKey",
-      in: "cookie",
-      name: "accessToken",
-      description: "Cookie-based JWT authentication, auto-set after login or email verification.",
-    });
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        in: "header",
+      },
+      "accessToken",
+    );
+  // .addCookieAuth("accessToken", {
+  //   type: "apiKey",
+  //   in: "cookie",
+  //   name: "accessToken",
+  //   description: "Cookie-based JWT authentication, auto-set after login or email verification.",
+  // });
 
   // Generate OpenAPI document from decorators and configuration
   const document = SwaggerModule.createDocument(app, documentBuilder.build(), {
