@@ -137,6 +137,27 @@ exports.Prisma.OAuthAccountScalarFieldEnum = {
   userId: 'userId'
 };
 
+exports.Prisma.SectionScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  userId: 'userId'
+};
+
+exports.Prisma.TaskScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  statusId: 'statusId',
+  priority: 'priority',
+  startDate: 'startDate',
+  dueDate: 'dueDate',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  sectionId: 'sectionId'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -156,9 +177,18 @@ exports.Provider = exports.$Enums.Provider = {
   github: 'github'
 };
 
+exports.TaskStatus = exports.$Enums.TaskStatus = {
+  TODO: 'TODO',
+  IN_PROGRESS: 'IN_PROGRESS',
+  DONE: 'DONE',
+  DELAYED: 'DELAYED'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
-  OAuthAccount: 'OAuthAccount'
+  OAuthAccount: 'OAuthAccount',
+  Section: 'Section',
+  Task: 'Task'
 };
 
 /**
