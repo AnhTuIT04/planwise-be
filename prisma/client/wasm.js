@@ -109,25 +109,53 @@ exports.Prisma.OAuthAccountScalarFieldEnum = {
   userId: 'userId'
 };
 
+exports.Prisma.ProjectScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  isPersonal: 'isPersonal',
+  listOfSection: 'listOfSection',
+  createdAt: 'createdAt',
+  owner: 'owner'
+};
+
 exports.Prisma.SectionScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  listOfTask: 'listOfTask',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  userId: 'userId'
+  projectId: 'projectId'
 };
 
 exports.Prisma.TaskScalarFieldEnum = {
   id: 'id',
   title: 'title',
   description: 'description',
-  statusId: 'statusId',
+  status: 'status',
   priority: 'priority',
   startDate: 'startDate',
   dueDate: 'dueDate',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  sectionId: 'sectionId'
+  sectionId: 'sectionId',
+  parentTaskId: 'parentTaskId',
+  supervisorId: 'supervisorId',
+  projectId: 'projectId'
+};
+
+exports.Prisma.TaskOfUserScalarFieldEnum = {
+  taskId: 'taskId',
+  userId: 'userId'
+};
+
+exports.Prisma.CommentScalarFieldEnum = {
+  id: 'id',
+  content: 'content',
+  mediaUrl: 'mediaUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  authorId: 'authorId',
+  taskId: 'taskId'
 };
 
 exports.Prisma.SortOrder = {
@@ -156,11 +184,21 @@ exports.TaskStatus = exports.$Enums.TaskStatus = {
   DELAYED: 'DELAYED'
 };
 
+exports.PriorityLevel = exports.$Enums.PriorityLevel = {
+  LOW: 'LOW',
+  NORMAL: 'NORMAL',
+  HIGH: 'HIGH',
+  URGENT: 'URGENT'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   OAuthAccount: 'OAuthAccount',
+  Project: 'Project',
   Section: 'Section',
-  Task: 'Task'
+  Task: 'Task',
+  TaskOfUser: 'TaskOfUser',
+  Comment: 'Comment'
 };
 /**
  * Create the Client
@@ -209,13 +247,13 @@ const config = {
       }
     }
   },
-  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"client\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"POSTGRES_DATABASE_URL\")\n}\n\nmodel User {\n  id        String   @id @default(uuid())\n  email     String   @unique\n  password  String?\n  name      String?\n  avatarUrl String?\n  verified  Boolean  @default(false)\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  accounts OAuthAccount[]\n  sections Section[]\n}\n\nenum Provider {\n  google\n  github\n}\n\nmodel OAuthAccount {\n  id       String   @id @default(uuid())\n  provider Provider\n\n  owner  User   @relation(fields: [userId], references: [id])\n  userId String\n}\n\nmodel Section {\n  id        String   @id @default(uuid())\n  name      String\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  owner  User   @relation(fields: [userId], references: [id])\n  userId String\n  tasks  Task[]\n}\n\nenum TaskStatus {\n  TODO\n  IN_PROGRESS\n  DONE\n  DELAYED\n}\n\nmodel Task {\n  id          String     @id @default(uuid())\n  title       String\n  description String?\n  statusId    TaskStatus @default(TODO)\n  // createdBy   String // User ID of the creator, dont need a relation here\n  priority    Int        @default(0)\n  startDate   DateTime?\n  dueDate     DateTime?\n  createdAt   DateTime   @default(now())\n  updatedAt   DateTime   @updatedAt\n\n  section   Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)\n  sectionId String?\n}\n",
-  "inlineSchemaHash": "8d427851da3689d50ecec9a553591fc87e80a20ba026d41a41d69590ad76d746",
+  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"client\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"POSTGRES_DATABASE_URL\")\n}\n\nmodel User {\n  id        String   @id @default(uuid())\n  email     String   @unique\n  password  String?\n  name      String?\n  avatarUrl String?\n  verified  Boolean  @default(false)\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  accounts        OAuthAccount[]\n  projects        Project[]\n  supervisedTasks Task[]\n  tasks           TaskOfUser[] // Tasks were assigned to the user\n  comments        Comment[]\n}\n\nenum Provider {\n  google\n  github\n}\n\nmodel OAuthAccount {\n  id       String   @id @default(uuid())\n  provider Provider\n\n  own    User   @relation(fields: [userId], references: [id])\n  userId String\n}\n\nmodel Project {\n  id            String   @id @default(uuid())\n  name          String\n  description   String?\n  isPersonal    Boolean  @default(false)\n  listOfSection String   @default(\"[]\") // Storing section IDs as a JSON array, to define their order\n  createdAt     DateTime @default(now())\n\n  sections Section[]\n  tasks    Task[]\n\n  own   User   @relation(fields: [owner], references: [id])\n  owner String\n}\n\nmodel Section {\n  id         String   @id @default(uuid())\n  name       String\n  listOfTask String   @default(\"[]\") // Storing task IDs as a JSON array, to define their order\n  createdAt  DateTime @default(now())\n\n  has       Project @relation(fields: [projectId], references: [id])\n  projectId String\n}\n\nenum TaskStatus {\n  TODO\n  IN_PROGRESS\n  DONE\n  DELAYED\n}\n\nenum PriorityLevel {\n  LOW\n  NORMAL\n  HIGH\n  URGENT\n}\n\nmodel Task {\n  id          String         @id @default(uuid())\n  title       String\n  description String?\n  status      TaskStatus     @default(TODO)\n  // createdBy   String // User ID of the creator, dont need a relation here\n  priority    PriorityLevel?\n  startDate   DateTime?\n  dueDate     DateTime?\n  createdAt   DateTime       @default(now())\n  updatedAt   DateTime       @updatedAt\n\n  sectionId String // Section ID to which the task belongs, doesnt need a relation here\n\n  assignees TaskOfUser[]\n  subtasks  Task[]       @relation(\"SubtasksRelation\")\n  comments  Comment[]\n\n  parent       Task?   @relation(\"SubtasksRelation\", fields: [parentTaskId], references: [id])\n  parentTaskId String?\n\n  supervisor   User?   @relation(fields: [supervisorId], references: [id])\n  supervisorId String?\n\n  belongsToProject Project @relation(fields: [projectId], references: [id])\n  projectId        String\n}\n\nmodel TaskOfUser {\n  task   Task   @relation(fields: [taskId], references: [id])\n  taskId String\n\n  user   User   @relation(fields: [userId], references: [id])\n  userId String\n\n  @@id([taskId, userId]) // Composite primary key\n}\n\nmodel Comment {\n  id        String   @id @default(uuid())\n  content   String\n  mediaUrl  String?\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  author   User   @relation(fields: [authorId], references: [id])\n  authorId String\n\n  task   Task   @relation(fields: [taskId], references: [id])\n  taskId String\n}\n",
+  "inlineSchemaHash": "055dc9ca81792eab4373981b2ecc5169fd2c3fec07690f1bad7b8af63451d835",
   "copyEngine": true
 }
 config.dirname = '/'
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"avatarUrl\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"verified\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"accounts\",\"kind\":\"object\",\"type\":\"OAuthAccount\",\"relationName\":\"OAuthAccountToUser\"},{\"name\":\"sections\",\"kind\":\"object\",\"type\":\"Section\",\"relationName\":\"SectionToUser\"}],\"dbName\":null},\"OAuthAccount\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"provider\",\"kind\":\"enum\",\"type\":\"Provider\"},{\"name\":\"owner\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"OAuthAccountToUser\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null},\"Section\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"owner\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"SectionToUser\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"tasks\",\"kind\":\"object\",\"type\":\"Task\",\"relationName\":\"SectionToTask\"}],\"dbName\":null},\"Task\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"statusId\",\"kind\":\"enum\",\"type\":\"TaskStatus\"},{\"name\":\"priority\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"startDate\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"dueDate\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"section\",\"kind\":\"object\",\"type\":\"Section\",\"relationName\":\"SectionToTask\"},{\"name\":\"sectionId\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"avatarUrl\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"verified\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"accounts\",\"kind\":\"object\",\"type\":\"OAuthAccount\",\"relationName\":\"OAuthAccountToUser\"},{\"name\":\"projects\",\"kind\":\"object\",\"type\":\"Project\",\"relationName\":\"ProjectToUser\"},{\"name\":\"supervisedTasks\",\"kind\":\"object\",\"type\":\"Task\",\"relationName\":\"TaskToUser\"},{\"name\":\"tasks\",\"kind\":\"object\",\"type\":\"TaskOfUser\",\"relationName\":\"TaskOfUserToUser\"},{\"name\":\"comments\",\"kind\":\"object\",\"type\":\"Comment\",\"relationName\":\"CommentToUser\"}],\"dbName\":null},\"OAuthAccount\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"provider\",\"kind\":\"enum\",\"type\":\"Provider\"},{\"name\":\"own\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"OAuthAccountToUser\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null},\"Project\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isPersonal\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"listOfSection\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"sections\",\"kind\":\"object\",\"type\":\"Section\",\"relationName\":\"ProjectToSection\"},{\"name\":\"tasks\",\"kind\":\"object\",\"type\":\"Task\",\"relationName\":\"ProjectToTask\"},{\"name\":\"own\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"ProjectToUser\"},{\"name\":\"owner\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null},\"Section\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"listOfTask\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"has\",\"kind\":\"object\",\"type\":\"Project\",\"relationName\":\"ProjectToSection\"},{\"name\":\"projectId\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null},\"Task\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"TaskStatus\"},{\"name\":\"priority\",\"kind\":\"enum\",\"type\":\"PriorityLevel\"},{\"name\":\"startDate\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"dueDate\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"sectionId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"assignees\",\"kind\":\"object\",\"type\":\"TaskOfUser\",\"relationName\":\"TaskToTaskOfUser\"},{\"name\":\"subtasks\",\"kind\":\"object\",\"type\":\"Task\",\"relationName\":\"SubtasksRelation\"},{\"name\":\"comments\",\"kind\":\"object\",\"type\":\"Comment\",\"relationName\":\"CommentToTask\"},{\"name\":\"parent\",\"kind\":\"object\",\"type\":\"Task\",\"relationName\":\"SubtasksRelation\"},{\"name\":\"parentTaskId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"supervisor\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"TaskToUser\"},{\"name\":\"supervisorId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"belongsToProject\",\"kind\":\"object\",\"type\":\"Project\",\"relationName\":\"ProjectToTask\"},{\"name\":\"projectId\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null},\"TaskOfUser\":{\"fields\":[{\"name\":\"task\",\"kind\":\"object\",\"type\":\"Task\",\"relationName\":\"TaskToTaskOfUser\"},{\"name\":\"taskId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"TaskOfUserToUser\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null},\"Comment\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"content\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"mediaUrl\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"author\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CommentToUser\"},{\"name\":\"authorId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"task\",\"kind\":\"object\",\"type\":\"Task\",\"relationName\":\"CommentToTask\"},{\"name\":\"taskId\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
 defineDmmfProperty(exports.Prisma, config.runtimeDataModel)
 config.engineWasm = {
   getRuntime: async () => require('./query_engine_bg.js'),
