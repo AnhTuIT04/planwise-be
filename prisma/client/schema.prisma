@@ -24,8 +24,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts OAuthAccount[]
-  sections Section[]
+  accounts        OAuthAccount[]
+  projects        Project[]
+  supervisedTasks Task[]
+  tasks           TaskOfUser[] // Tasks were assigned to the user
+  comments        Comment[]
 }
 
 enum Provider {
@@ -37,19 +40,33 @@ model OAuthAccount {
   id       String   @id @default(uuid())
   provider Provider
 
-  owner  User   @relation(fields: [userId], references: [id])
+  own    User   @relation(fields: [userId], references: [id])
   userId String
 }
 
-model Section {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Project {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  isPersonal    Boolean  @default(false)
+  listOfSection String   @default("[]") // Storing section IDs as a JSON array, to define their order
+  createdAt     DateTime @default(now())
 
-  owner  User   @relation(fields: [userId], references: [id])
-  userId String
-  tasks  Task[]
+  sections Section[]
+  tasks    Task[]
+
+  own   User   @relation(fields: [owner], references: [id])
+  owner String
+}
+
+model Section {
+  id         String   @id @default(uuid())
+  name       String
+  listOfTask String   @default("[]") // Storing task IDs as a JSON array, to define their order
+  createdAt  DateTime @default(now())
+
+  has       Project @relation(fields: [projectId], references: [id])
+  projectId String
 }
 
 enum TaskStatus {
@@ -59,18 +76,61 @@ enum TaskStatus {
   DELAYED
 }
 
+enum PriorityLevel {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 model Task {
-  id          String     @id @default(uuid())
+  id          String         @id @default(uuid())
   title       String
   description String?
-  statusId    TaskStatus @default(TODO)
+  status      TaskStatus     @default(TODO)
   // createdBy   String // User ID of the creator, dont need a relation here
-  priority    Int        @default(0)
+  priority    PriorityLevel?
   startDate   DateTime?
   dueDate     DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  section   Section? @relation(fields: [sectionId], references: [id])
-  sectionId String?
+  sectionId String // Section ID to which the task belongs, doesnt need a relation here
+
+  assignees TaskOfUser[]
+  subtasks  Task[]       @relation("SubtasksRelation")
+  comments  Comment[]
+
+  parent       Task?   @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
+  parentTaskId String?
+
+  supervisor   User?   @relation(fields: [supervisorId], references: [id])
+  supervisorId String?
+
+  belongsToProject Project @relation(fields: [projectId], references: [id])
+  projectId        String
+}
+
+model TaskOfUser {
+  task   Task   @relation(fields: [taskId], references: [id])
+  taskId String
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  @@id([taskId, userId]) // Composite primary key
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author   User   @relation(fields: [authorId], references: [id])
+  authorId String
+
+  task   Task   @relation(fields: [taskId], references: [id])
+  taskId String
 }

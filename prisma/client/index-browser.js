@@ -137,25 +137,53 @@ exports.Prisma.OAuthAccountScalarFieldEnum = {
   userId: 'userId'
 };
 
+exports.Prisma.ProjectScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  isPersonal: 'isPersonal',
+  listOfSection: 'listOfSection',
+  createdAt: 'createdAt',
+  owner: 'owner'
+};
+
 exports.Prisma.SectionScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  listOfTask: 'listOfTask',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  userId: 'userId'
+  projectId: 'projectId'
 };
 
 exports.Prisma.TaskScalarFieldEnum = {
   id: 'id',
   title: 'title',
   description: 'description',
-  statusId: 'statusId',
+  status: 'status',
   priority: 'priority',
   startDate: 'startDate',
   dueDate: 'dueDate',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  sectionId: 'sectionId'
+  sectionId: 'sectionId',
+  parentTaskId: 'parentTaskId',
+  supervisorId: 'supervisorId',
+  projectId: 'projectId'
+};
+
+exports.Prisma.TaskOfUserScalarFieldEnum = {
+  taskId: 'taskId',
+  userId: 'userId'
+};
+
+exports.Prisma.CommentScalarFieldEnum = {
+  id: 'id',
+  content: 'content',
+  mediaUrl: 'mediaUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  authorId: 'authorId',
+  taskId: 'taskId'
 };
 
 exports.Prisma.SortOrder = {
@@ -184,11 +212,21 @@ exports.TaskStatus = exports.$Enums.TaskStatus = {
   DELAYED: 'DELAYED'
 };
 
+exports.PriorityLevel = exports.$Enums.PriorityLevel = {
+  LOW: 'LOW',
+  NORMAL: 'NORMAL',
+  HIGH: 'HIGH',
+  URGENT: 'URGENT'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   OAuthAccount: 'OAuthAccount',
+  Project: 'Project',
   Section: 'Section',
-  Task: 'Task'
+  Task: 'Task',
+  TaskOfUser: 'TaskOfUser',
+  Comment: 'Comment'
 };
 
 /**
