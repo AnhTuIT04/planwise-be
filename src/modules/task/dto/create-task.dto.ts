@@ -1,52 +1,98 @@
-import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsString,
-  IsOptional,
-  IsUUID,
-  IsInt,
-  Min,
-  IsDateString,
-  IsNotEmpty,
-  IsEnum,
-} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsString, IsOptional, IsUUID, IsDateString, IsNotEmpty, IsEnum, IsArray } from "class-validator";
 
-import { TaskStatus } from 'prisma/client';
-
+import { TaskStatus, PriorityLevel } from "prisma/client";
 
 export class CreateTaskDto {
   @IsString()
   @IsNotEmpty()
-  @ApiProperty({ example: "Buy groceries", description: "The title of the task" })
-  title: string;
+  @ApiProperty({
+    example: "Fix login bug",
+    description: "The title of the task",
+  })
+  readonly title: string;
 
   @IsString()
   @IsOptional()
-  @ApiProperty({ example: "Need to buy milk and eggs", description: "The description of the task" })
-  description?: string;
+  @ApiPropertyOptional({
+    example: "Users can't login with Google OAuth",
+    description: "The description of the task",
+  })
+  readonly description?: string;
 
   @IsEnum(TaskStatus)
   @IsOptional()
-  @ApiProperty({ example: TaskStatus.TODO, description: "The status of the task" })
-  statusId?: TaskStatus;
+  @ApiPropertyOptional({
+    example: TaskStatus.TODO,
+    description: "The status of the task",
+    enum: TaskStatus,
+  })
+  readonly status?: TaskStatus;
 
-  @IsInt()
-  @Min(0)
+  @IsEnum(PriorityLevel)
   @IsOptional()
-  @ApiProperty({ example: 1, description: "The priority of the task" })
-  priority?: number;
+  @ApiPropertyOptional({
+    example: PriorityLevel.HIGH,
+    description: "The priority level of the task",
+    enum: PriorityLevel,
+  })
+  readonly priority?: PriorityLevel;
 
   @IsDateString()
   @IsOptional()
-  @ApiProperty({ example: "2023-03-01", description: "The start date of the task" })
-  startDate?: string;
+  @ApiPropertyOptional({
+    example: "2023-10-19T10:30:00.000Z",
+    description: "The start date of the task",
+  })
+  readonly startDate?: string;
 
   @IsDateString()
   @IsOptional()
-  @ApiProperty({ example: "2023-03-02", description: "The due date of the task" })
-  dueDate?: string;
+  @ApiPropertyOptional({
+    example: "2023-10-25T10:30:00.000Z",
+    description: "The due date of the task",
+  })
+  readonly dueDate?: string;
 
+  @IsNotEmpty()
+  @IsString()
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the section the task belongs to",
+  })
+  readonly sectionId: string;
+
+  @IsNotEmpty()
   @IsUUID()
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the project the task belongs to",
+  })
+  readonly projectId: string;
+
   @IsOptional()
-  @ApiProperty({ example: "550e8400-e29b-41d4-a716-446655440000", description: "The ID of the section the task belongs to" })
-  sectionId?: string; // optional since section is nullable
+  @IsUUID()
+  @ApiPropertyOptional({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the parent task (for subtasks)",
+  })
+  readonly parentTaskId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @ApiPropertyOptional({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the supervisor user",
+  })
+  readonly supervisorId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  @ApiPropertyOptional({
+    example: ["550e8400-e29b-41d4-a716-446655440000"],
+    description: "Array of user IDs to assign to this task",
+    type: [String]
+  })
+  readonly assigneeIds?: string[];
 }
