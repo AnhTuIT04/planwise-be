@@ -212,7 +212,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "D:\\LEARNING\\UNIVERSITY\\DO_AN\\planwise-be\\prisma\\client",
+      "value": "D:\\HK251\\DACN\\planwise-be\\prisma\\client",
       "fromEnvVar": null
     },
     "config": {
@@ -226,7 +226,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "D:\\LEARNING\\UNIVERSITY\\DO_AN\\planwise-be\\prisma\\schema.prisma",
+    "sourceFilePath": "D:\\HK251\\DACN\\planwise-be\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

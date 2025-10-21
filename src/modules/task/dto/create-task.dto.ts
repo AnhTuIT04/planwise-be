@@ -1,17 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsString,
-  IsOptional,
-  IsUUID,
-  IsInt,
-  Min,
-  IsDateString,
-  IsNotEmpty,
-  IsEnum,
-} from 'class-validator';
+import { ApiProperty } from "@nestjs/swagger";
+import { IsString, IsOptional, IsUUID, IsInt, Min, IsDateString, IsNotEmpty, IsEnum } from "class-validator";
 
-import { TaskStatus } from 'prisma/client';
-
+import { TaskStatus } from "prisma/client";
 
 export class CreateTaskDto {
   @IsString()
@@ -47,6 +37,9 @@ export class CreateTaskDto {
 
   @IsUUID()
   @IsOptional()
-  @ApiProperty({ example: "550e8400-e29b-41d4-a716-446655440000", description: "The ID of the section the task belongs to" })
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the section the task belongs to",
+  })
   sectionId?: string; // optional since section is nullable
 }
