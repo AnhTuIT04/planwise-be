@@ -49,7 +49,7 @@ model Project {
   name          String
   description   String?
   isPersonal    Boolean  @default(false)
-  listOfSection String   @default("[]") // Storing section IDs as a JSON array, to define their order
+  listOfSection String   @default("") // Storing section IDs as a JSON array, to define their order
   createdAt     DateTime @default(now())
 
   sections Section[]
@@ -62,7 +62,7 @@ model Project {
 model Section {
   id         String   @id @default(uuid())
   name       String
-  listOfTask String   @default("[]") // Storing task IDs as a JSON array, to define their order
+  listOfTask String   @default("") // Storing task IDs as a JSON array, to define their order
   createdAt  DateTime @default(now())
 
   has       Project @relation(fields: [projectId], references: [id])
