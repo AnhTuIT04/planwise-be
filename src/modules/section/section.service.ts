@@ -7,26 +7,26 @@ import { TaskService } from "../task/task.service";
 export class SectionService {
   constructor(
     private db: DatabaseService,
-    private taskService: TaskService
+    private taskService: TaskService,
   ) {}
 
   create(userId: string, createSectionDto: CreateSectionDto) {
     console.log("Creating section with data:", createSectionDto);
     return this.db.section.create({
-      data: createSectionDto
+      data: createSectionDto,
     });
   }
 
   update(sectionId: string, updateSectionDto: UpdateSectionDto, userId: string) {
     return this.db.section.update({
       where: { id: sectionId },
-      data: updateSectionDto
+      data: updateSectionDto,
     });
   }
 
   async remove(sectionId: string, userId: string) {
     const numberOfTasks = await this.db.task.count({
-      where: { sectionId: sectionId }
+      where: { sectionId: sectionId },
     });
 
     if (numberOfTasks > 0) {
@@ -34,14 +34,14 @@ export class SectionService {
     }
 
     return this.db.section.delete({
-      where: { id: sectionId }
+      where: { id: sectionId },
     });
   }
 
   async getDetailedSectionsByProject(projectId: string, userId: string): Promise<DetailedSectionResponseDto[]> {
     // First get all sections for the project
     const sections = await this.db.section.findMany({
-      where: { 
+      where: {
         projectId: projectId,
       },
     });
@@ -53,9 +53,9 @@ export class SectionService {
         return {
           ...section,
           listOfTask: section.listOfTask, // Convert JSON string to array
-          tasks: tasks
+          tasks: tasks,
         };
-      })
+      }),
     );
 
     return sectionsWithTasks;

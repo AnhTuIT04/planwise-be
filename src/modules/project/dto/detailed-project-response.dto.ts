@@ -39,7 +39,6 @@ export class DetailedProjectResponseDto {
   })
   readonly createdAt: Date;
 
-
   @ApiProperty({
     type: [DetailedSectionResponseDto],
     description: "Project sections",

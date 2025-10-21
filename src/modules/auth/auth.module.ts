@@ -25,7 +25,7 @@ import { GithubStrategy } from "./strategies/github.strategy";
     PassportModule,
     UsersModule,
     EmailModule,
-    PassportModule.register({ session: false })
+    PassportModule.register({ session: false }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleAuthGuard, GithubStrategy],

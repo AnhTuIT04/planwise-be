@@ -101,8 +101,6 @@ export class TaskResponseDto {
   })
   readonly supervisorId: string | null;
 
-
-
   // @ApiProperty({
   //   example: 2,
   //   description: "Number of subtasks",

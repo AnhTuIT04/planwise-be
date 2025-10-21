@@ -8,7 +8,6 @@ export class CreateProjectDto {
     example: "Website Redesign",
     description: "Name of the project",
   })
-  
   readonly name: string;
 
   @IsOptional()

@@ -19,11 +19,7 @@ export class SectionController {
   @Patch(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a section" })
-  update(
-    @Param("id") id: string,
-    @Body() updateSectionDto: UpdateSectionDto,
-    @GetCurrentUserId() userId: string,
-  ) {
+  update(@Param("id") id: string, @Body() updateSectionDto: UpdateSectionDto, @GetCurrentUserId() userId: string) {
     return this.sectionService.update(id, updateSectionDto, userId);
   }
 
