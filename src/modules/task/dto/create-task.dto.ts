@@ -107,7 +107,17 @@ export class CreateTaskDto {
   @IsOptional()
   @IsArray()
   @ApiPropertyOptional({
-    example: ["bug", "urgent"],
+    example: [{
+      title: "Subtask 1",
+      description: "Description for subtask 1",
+      status: TaskStatus.TODO,
+    },
+    {
+      title: "Subtask 2",
+      description: "Description for subtask 2",
+      status: TaskStatus.IN_PROGRESS,
+    }
+    ],
     description: "Array of tags associated with this task",
     type: [CreateTaskDto],
   })

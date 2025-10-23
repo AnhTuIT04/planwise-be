@@ -208,6 +208,9 @@ export class TaskService {
           await this.db.task.create({
             data: {
               ...subTaskDto,
+              parentTaskId: id,
+              sectionId: existingTask.sectionId,
+              projectId: existingTask.projectId,
             },
           });
         }
