@@ -17,9 +17,23 @@ export class TaskService {
 
     if (!section) throw new NotFoundException("Section not found");
 
+    const { subTask, ...taskData } = data;
+
     const newTask = await this.db.task.create({
-      data,
+      data: taskData,
     });
+
+    if( subTask && subTask.length > 0 ) {
+      for (const subTaskDto of subTask) {
+        await this.db.task.create({
+          data: {
+            ...subTaskDto,
+            parentTaskId: newTask.id,
+            sectionId: data.sectionId,
+          },
+        });
+      }
+    }
 
     if (!data.parentTaskId) {
       await this.db.section.update({
@@ -109,6 +123,7 @@ export class TaskService {
   update(id: string, dto: UpdateTaskDto) {}
 
   async updatePersonal(id: string, dto: UpdateTaskDto, userId: string) {
+    const { subTask, ...updateDto } = dto;
     // Check if the task exists and belongs to the user's personal project
     const existingTask = await this.db.task.findUnique({
       where: { id },
@@ -129,17 +144,17 @@ export class TaskService {
     // Build update data dynamically - only include provided fields
     const updateData: any = {};
 
-    if (dto.title !== undefined) updateData.title = dto.title;
-    if (dto.description !== undefined) updateData.description = dto.description;
-    if (dto.status !== undefined) updateData.status = dto.status;
-    if (dto.priority !== undefined) updateData.priority = dto.priority;
-    if (dto.startDate !== undefined) updateData.startDate = dto.startDate ? new Date(dto.startDate) : null;
-    if (dto.dueDate !== undefined) updateData.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
-    if (dto.sectionId !== undefined) updateData.sectionId = dto.sectionId;
-    if (dto.supervisorId !== undefined) updateData.supervisorId = dto.supervisorId;
+    if (updateDto.title !== undefined) updateData.title = updateDto.title;
+    if (updateDto.description !== undefined) updateData.description = updateDto.description;
+    if (updateDto.status !== undefined) updateData.status = updateDto.status;
+    if (updateDto.priority !== undefined) updateData.priority = updateDto.priority;
+    if (updateDto.startDate !== undefined) updateData.startDate = updateDto.startDate ? new Date(updateDto.startDate) : null;
+    if (updateDto.dueDate !== undefined) updateData.dueDate = updateDto.dueDate ? new Date(updateDto.dueDate) : null;
+    if (updateDto.sectionId !== undefined) updateData.sectionId = updateDto.sectionId;
+    if (updateDto.supervisorId !== undefined) updateData.supervisorId = updateDto.supervisorId;
 
     // Validate parentTaskId if provided
-    if (dto.parentTaskId !== undefined) {
+    if (updateDto.parentTaskId !== undefined) {
       if (dto.parentTaskId === null) {
         // Allow clearing the parent task
         updateData.parentTaskId = null;
@@ -176,6 +191,28 @@ export class TaskService {
       }
     }
 
+    // Handle subtasks
+    if( subTask && subTask.length > 0 ) {
+      for (const subTaskDto of subTask) {
+        if( subTaskDto.taskId ) {
+          // Update existing subtask
+          await this.db.task.update({
+            where: { id: subTaskDto.taskId },
+            data: {
+              ...subTaskDto,
+            },
+          });
+        } else {
+          // Create new subtask
+          await this.db.task.create({
+            data: {
+              ...subTaskDto,
+            },
+          });
+        }
+      }
+    }
+
     return this.db.task.update({
       where: { id },
       data: updateData,
@@ -194,11 +231,16 @@ export class TaskService {
             isPersonal: true,
           },
         },
+        subtasks: true,
       },
     });
 
     if (!task || task.belongsToProject.owner !== userId || !task.belongsToProject.isPersonal) {
       throw new ForbiddenException("You are not allowed to delete this task");
+    }
+
+    if (task.subtasks && task.subtasks.length > 0) {
+      throw new ForbiddenException("Cannot delete a task that has subtasks");
     }
 
     return this.db.task.delete({

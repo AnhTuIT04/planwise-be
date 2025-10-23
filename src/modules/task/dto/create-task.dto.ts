@@ -4,6 +4,14 @@ import { IsString, IsOptional, IsUUID, IsDateString, IsNotEmpty, IsEnum, IsArray
 import { TaskStatus, PriorityLevel } from "prisma/client";
 
 export class CreateTaskDto {
+  @IsOptional()
+  @IsUUID()
+  @ApiPropertyOptional({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the user creating the task",
+  })
+  readonly taskId?: string;
+
   @IsString()
   @IsNotEmpty()
   @ApiProperty({
@@ -95,4 +103,13 @@ export class CreateTaskDto {
     type: [String]
   })
   readonly assigneeIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ApiPropertyOptional({
+    example: ["bug", "urgent"],
+    description: "Array of tags associated with this task",
+    type: [CreateTaskDto]
+  })
+  readonly subTask?: CreateTaskDto[];
 }
