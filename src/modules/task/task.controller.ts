@@ -1,17 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
-import { TaskService } from './task.service';
-import { CreateTaskDto } from './dto/create-task.dto';
-import { UpdateTaskDto } from './dto/update-task.dto';
-import { GetCurrentUserId } from '@/common/decorators/get-current-user.decorator';
-import { ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
+import { TaskService } from "./task.service";
+import { CreateTaskDto } from "./dto/create-task.dto";
+import { UpdateTaskDto } from "./dto/update-task.dto";
+import { GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
+import { ApiOperation } from "@nestjs/swagger";
 
-@Controller('task')
+@Controller("task")
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new task' })
+  @ApiOperation({ summary: "Create a new task" })
   create(@Body() createTaskDto: CreateTaskDto) {
     return this.taskService.create(createTaskDto);
   }
@@ -23,18 +23,25 @@ export class TaskController {
   //   return this.taskService.findBySection(sectionId, userId);
   // }
 
-  @Get(':id')
+  @Get(":id")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get a specific task' })
-  GetDetailTask(@Param('id') id: string) {
+  @ApiOperation({ summary: "Get a specific task" })
+  GetDetailTask(@Param("id") id: string) {
     return this.taskService.getDetailedTask(id);
   }
 
-  @Patch(':id')
+  @Patch(":id")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Update a task, only need to provide the fields you want to update' })
-  update(@Param('id') id: string, @Query('isPersonal') isPersonal: boolean, @Body() updateTaskDto: UpdateTaskDto, @GetCurrentUserId() userId: string) {
-    return isPersonal ? this.taskService.updatePersonal(id, updateTaskDto, userId) : this.taskService.update(id, updateTaskDto);
+  @ApiOperation({ summary: "Update a task, only need to provide the fields you want to update" })
+  update(
+    @Param("id") id: string,
+    @Query("isPersonal") isPersonal: boolean,
+    @Body() updateTaskDto: UpdateTaskDto,
+    @GetCurrentUserId() userId: string,
+  ) {
+    return isPersonal
+      ? this.taskService.updatePersonal(id, updateTaskDto, userId)
+      : this.taskService.update(id, updateTaskDto);
   }
 
   // @Post('/assign')
@@ -44,10 +51,10 @@ export class TaskController {
   //   return this.taskService.assignTaskToUsers(taskId, assigneeIds);
   // }
 
-  @Delete(':id')
+  @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a task' })
-  remove(@Param('id') id: string, @Query('isPersonal') isPersonal: boolean, @GetCurrentUserId() userId: string) {
+  @ApiOperation({ summary: "Delete a task" })
+  remove(@Param("id") id: string, @Query("isPersonal") isPersonal: boolean, @GetCurrentUserId() userId: string) {
     return isPersonal ? this.taskService.removePersonal(id, userId) : this.taskService.remove(id);
   }
 }

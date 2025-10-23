@@ -33,8 +33,8 @@ export class ProjectService {
     });
 
     if (!project) throw new NotFoundException("Project not found");
-    if(project.isPersonal === true) throw new Error("Cannot delete personal project");
-    if(project.sections.length > 0) throw new Error("Cannot delete project with existing sections");
+    if (project.isPersonal === true) throw new Error("Cannot delete personal project");
+    if (project.sections.length > 0) throw new Error("Cannot delete project with existing sections");
 
     return this.db.project.delete({
       where: { id: projectId },
@@ -83,17 +83,17 @@ export class ProjectService {
         _count: {
           select: {
             sections: true,
-            tasks: true
-          }
-        }
-      }
+            tasks: true,
+          },
+        },
+      },
     });
 
-    return projects.map(project => ({
+    return projects.map((project) => ({
       ...project,
       listOfSection: project.listOfSection,
       sectionCount: project._count.sections,
-      taskCount: project._count.tasks
+      taskCount: project._count.tasks,
     }));
   }
 

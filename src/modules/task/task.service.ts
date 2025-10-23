@@ -23,7 +23,7 @@ export class TaskService {
       data: taskData,
     });
 
-    if( subTask && subTask.length > 0 ) {
+    if (subTask && subTask.length > 0) {
       for (const subTaskDto of subTask) {
         await this.db.task.create({
           data: {
@@ -148,7 +148,8 @@ export class TaskService {
     if (updateDto.description !== undefined) updateData.description = updateDto.description;
     if (updateDto.status !== undefined) updateData.status = updateDto.status;
     if (updateDto.priority !== undefined) updateData.priority = updateDto.priority;
-    if (updateDto.startDate !== undefined) updateData.startDate = updateDto.startDate ? new Date(updateDto.startDate) : null;
+    if (updateDto.startDate !== undefined)
+      updateData.startDate = updateDto.startDate ? new Date(updateDto.startDate) : null;
     if (updateDto.dueDate !== undefined) updateData.dueDate = updateDto.dueDate ? new Date(updateDto.dueDate) : null;
     if (updateDto.sectionId !== undefined) updateData.sectionId = updateDto.sectionId;
     if (updateDto.supervisorId !== undefined) updateData.supervisorId = updateDto.supervisorId;
@@ -192,9 +193,9 @@ export class TaskService {
     }
 
     // Handle subtasks
-    if( subTask && subTask.length > 0 ) {
+    if (subTask && subTask.length > 0) {
       for (const subTaskDto of subTask) {
-        if( subTaskDto.taskId ) {
+        if (subTaskDto.taskId) {
           // Update existing subtask
           await this.db.task.update({
             where: { id: subTaskDto.taskId },
