@@ -2,9 +2,16 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsString, IsOptional, IsUUID, IsDateString, IsNotEmpty, IsEnum, IsArray } from "class-validator";
 
 import { TaskStatus, PriorityLevel } from "prisma/client";
-import { SubTaskDto } from "./sub-task.dto";
 
-export class CreateTaskDto {
+export class SubTaskDto {
+  @IsOptional()
+  @IsUUID()
+  @ApiPropertyOptional({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the user creating the task",
+  })
+  readonly taskId?: string;
+
   @IsString()
   @IsNotEmpty()
   @ApiProperty({
@@ -55,30 +62,6 @@ export class CreateTaskDto {
   })
   readonly dueDate?: string;
 
-  @IsNotEmpty()
-  @IsString()
-  @ApiProperty({
-    example: "550e8400-e29b-41d4-a716-446655440000",
-    description: "The ID of the section the task belongs to",
-  })
-  readonly sectionId: string;
-
-  @IsNotEmpty()
-  @IsUUID()
-  @ApiProperty({
-    example: "550e8400-e29b-41d4-a716-446655440000",
-    description: "The ID of the project the task belongs to",
-  })
-  readonly projectId: string;
-
-  @IsOptional()
-  @IsUUID()
-  @ApiPropertyOptional({
-    example: "550e8400-e29b-41d4-a716-446655440000",
-    description: "The ID of the parent task (for subtasks)",
-  })
-  readonly parentTaskId?: string;
-
   @IsOptional()
   @IsUUID()
   @ApiPropertyOptional({
@@ -96,25 +79,4 @@ export class CreateTaskDto {
     type: [String],
   })
   readonly assigneeIds?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @ApiPropertyOptional({
-    example: [
-      {
-        title: "Subtask 1",
-        description: "Description for subtask 1",
-        status: TaskStatus.TODO,
-      },
-      {
-        id: "550e8400-e29b-41d4-a716-446655440001",
-        title: "Subtask 2",
-        description: "Description for subtask 2",
-        status: TaskStatus.IN_PROGRESS,
-      },
-    ],
-    description: "Array of tags associated with this task",
-    type: [SubTaskDto],
-  })
-  readonly subTask?: SubTaskDto[];
 }
