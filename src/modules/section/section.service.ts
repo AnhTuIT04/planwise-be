@@ -10,9 +10,26 @@ export class SectionService {
     private taskService: TaskService,
   ) {}
 
-  create(userId: string, createSectionDto: CreateSectionDto) {
-    return this.db.section.create({
-      data: createSectionDto,
+  async create(userId: string, createSectionDto: CreateSectionDto) {
+    return this.db.$transaction(async (tx) => {
+      const project = await tx.project.findUnique({
+        where: { id: createSectionDto.projectId },
+      });
+      if (!project) {
+        throw new NotFoundException("Project not found");
+      }
+
+      const section = await tx.section.create({
+        data: createSectionDto,
+      });
+
+      // Update listOfSection for this project
+      await tx.project.update({
+        data: { listOfSection: project.listOfSection ? project.listOfSection + `,${section.id}` : `${section.id}` },
+        where: { id: createSectionDto.projectId },
+      });
+
+      return section;
     });
   }
 

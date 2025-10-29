@@ -15,51 +15,74 @@ export class TaskService {
       throw new ForbiddenException("Cannot add subtasks to a subtask");
     }
 
-    const section = await this.db.section.findUnique({
-      where: { id: data.sectionId, projectId: data.projectId },
-    });
-
-    if (!section) throw new NotFoundException("Section not found");
-
-    const { subTask, ...taskData } = data;
-
-    const newTask = await this.db.task.create({
-      data: taskData,
-    });
-
-    // update list of task in section if it's a top-level task
-    if (!data.parentTaskId) {
-      await this.db.section.update({
-        where: { id: data.sectionId },
-        data: {
-          listOfTask: section.listOfTask ? section.listOfTask + `,"${newTask.id}"` : `${newTask.id}`,
-        },
+    return this.db.$transaction(async (tx) => {
+      const section = await tx.section.findUnique({
+        where: { id: data.sectionId, projectId: data.projectId },
       });
-    }
 
-    const assignedUsers = data.assigneeIds;
-    if (assignedUsers && assignedUsers.length > 0) {
-      await this.assignTaskToUsers(newTask.id, assignedUsers);
-    }
+      if (!section) throw new NotFoundException("Section not found");
 
-    if (subTask && subTask.length > 0) {
-      for (const subTaskDto of subTask) {
-        const subTask = await this.db.task.create({
+      const { subTask, ...taskData } = data;
+
+      const newTask = await tx.task.create({
+        data: taskData,
+      });
+
+      // update list of task in section if it's a top-level task
+      if (!data.parentTaskId) {
+        await tx.section.update({
+          where: { id: data.sectionId },
           data: {
-            ...subTaskDto,
-            parentTaskId: newTask.id,
-            sectionId: data.sectionId,
-            projectId: data.projectId,
+            listOfTask: section.listOfTask ? section.listOfTask + `,"${newTask.id}"` : `${newTask.id}`,
           },
         });
-        const subTaskAssignees = subTaskDto.assigneeIds;
-        if (subTaskAssignees && subTaskAssignees.length > 0) {
-          await this.assignTaskToUsers(subTask.id, subTaskAssignees);
+      }
+
+      // Assign users to task within transaction
+      const assignedUsers = data.assigneeIds;
+      if (assignedUsers && assignedUsers.length > 0) {
+        await tx.task.update({
+          where: { id: newTask.id },
+          data: {
+            assignees: {
+              create: assignedUsers.map((userId) => ({
+                user: { connect: { id: userId } },
+              })),
+            },
+          },
+        });
+      }
+
+      // Create subtasks within transaction
+      if (subTask && subTask.length > 0) {
+        for (const subTaskDto of subTask) {
+          const createdSubTask = await tx.task.create({
+            data: {
+              ...subTaskDto,
+              parentTaskId: newTask.id,
+              sectionId: data.sectionId,
+              projectId: data.projectId,
+            },
+          });
+
+          const subTaskAssignees = subTaskDto.assigneeIds;
+          if (subTaskAssignees && subTaskAssignees.length > 0) {
+            await tx.task.update({
+              where: { id: createdSubTask.id },
+              data: {
+                assignees: {
+                  create: subTaskAssignees.map((userId) => ({
+                    user: { connect: { id: userId } },
+                  })),
+                },
+              },
+            });
+          }
         }
       }
-    }
 
-    return newTask;
+      return newTask;
+    });
   }
 
   // called by section service
@@ -205,35 +228,37 @@ export class TaskService {
       }
     }
 
-    // Handle subtasks
-    if (subTask && subTask.length > 0) {
-      for (const subTaskDto of subTask) {
-        if (subTaskDto.taskId) {
-          // Update existing subtask
-          await this.db.task.update({
-            where: { id: subTaskDto.taskId },
-            data: {
-              ...subTaskDto,
-              sectionId: updateDto.sectionId || existingTask.sectionId,
-            },
-          });
-        } else {
-          // Create new subtask
-          await this.db.task.create({
-            data: {
-              ...subTaskDto,
-              parentTaskId: id,
-              sectionId: updateDto.sectionId || existingTask.sectionId,
-              projectId: existingTask.projectId,
-            },
-          });
+    // Handle subtasks and main task update in transaction
+    return this.db.$transaction(async (tx) => {
+      if (subTask && subTask.length > 0) {
+        for (const subTaskDto of subTask) {
+          if (subTaskDto.taskId) {
+            // Update existing subtask
+            await tx.task.update({
+              where: { id: subTaskDto.taskId },
+              data: {
+                ...subTaskDto,
+                sectionId: updateDto.sectionId || existingTask.sectionId,
+              },
+            });
+          } else {
+            // Create new subtask
+            await tx.task.create({
+              data: {
+                ...subTaskDto,
+                parentTaskId: id,
+                sectionId: updateDto.sectionId || existingTask.sectionId,
+                projectId: existingTask.projectId,
+              },
+            });
+          }
         }
       }
-    }
 
-    return this.db.task.update({
-      where: { id },
-      data: updateData,
+      return tx.task.update({
+        where: { id },
+        data: updateData,
+      });
     });
   }
 
@@ -261,18 +286,20 @@ export class TaskService {
       throw new ForbiddenException("Cannot delete a task that has subtasks");
     }
 
-    // Clear all assignees before deleting the task (auto-unassign the owner)
-    await this.db.task.update({
-      where: { id },
-      data: {
-        assignees: {
-          deleteMany: {},
+    // Clear all assignees and delete task in transaction
+    return this.db.$transaction(async (tx) => {
+      await tx.task.update({
+        where: { id },
+        data: {
+          assignees: {
+            deleteMany: {},
+          },
         },
-      },
-    });
+      });
 
-    return this.db.task.delete({
-      where: { id },
+      return tx.task.delete({
+        where: { id },
+      });
     });
   }
 

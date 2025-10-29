@@ -44,25 +44,30 @@ export class ProjectService {
   // FE: my-tasks page
   // Get user's personal project (create if doesn't exist)
   async getPersonalProject(userId: string): Promise<DetailedProjectResponseDto> {
-    let project = await this.db.project.findFirst({
-      where: { owner: userId, isPersonal: true },
-    });
+    // Use transaction to handle race conditions
+    const project = await this.db.$transaction(async (tx) => {
+      let existingProject = await tx.project.findFirst({
+        where: { owner: userId, isPersonal: true },
+      });
 
-    if (!project) {
-      // Auto-create personal project with section
-      project = await this.db.project.create({
-        data: {
-          name: "My Tasks",
-          isPersonal: true,
-          owner: userId,
-          sections: {
-            create: {
-              name: "Default",
+      if (!existingProject) {
+        // Auto-create personal project with section
+        existingProject = await tx.project.create({
+          data: {
+            name: "My Tasks",
+            isPersonal: true,
+            owner: userId,
+            sections: {
+              create: {
+                name: "Default",
+              },
             },
           },
-        },
-      });
-    }
+        });
+      }
+
+      return existingProject;
+    });
 
     // Get sections with tasks using existing section service
     const sections = await this.sectionService.getDetailedSectionsByProject(project.id, userId);
