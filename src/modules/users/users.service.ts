@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "prisma/client";
+import { Prisma, User } from "prisma/client";
 
 import { DatabaseService } from "@/modules/database/database.service";
 
@@ -26,11 +26,28 @@ export class UsersService {
     });
   }
 
-  async createOrUpdate(email: string, data: Prisma.UserCreateInput) {
+  async createOrUpdate(
+    email: string,
+    createData: Prisma.UserCreateInput,
+    updateData: Prisma.UserUpdateInput,
+  ): Promise<User>;
+  async createOrUpdate(email: string, data: Prisma.UserCreateInput & Prisma.UserUpdateInput): Promise<User>;
+  async createOrUpdate(
+    email: string,
+    createDataOrBoth: Prisma.UserCreateInput | (Prisma.UserCreateInput & Prisma.UserUpdateInput),
+    updateData?: Prisma.UserUpdateInput,
+  ) {
+    if (updateData) {
+      return this.db.user.upsert({
+        where: { email },
+        create: createDataOrBoth as Prisma.UserCreateInput,
+        update: updateData,
+      });
+    }
     return this.db.user.upsert({
       where: { email },
-      create: data,
-      update: data,
+      create: createDataOrBoth as Prisma.UserCreateInput,
+      update: createDataOrBoth as Prisma.UserUpdateInput,
     });
   }
 

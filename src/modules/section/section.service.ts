@@ -1,29 +1,63 @@
 import { Injectable } from "@nestjs/common";
-import { CreateOrUpdateSectionDto } from "./dto/create-or-update-section.dto";
 import { DatabaseService } from "../database/database.service";
+import { DetailedSectionResponseDto, CreateSectionDto, UpdateSectionDto } from "./dto";
+import { TaskService } from "../task/task.service";
 
 @Injectable()
 export class SectionService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private taskService: TaskService,
+  ) {}
 
-  create(userId: string, createOrUpdateSectionDto: CreateOrUpdateSectionDto) {
-    // return this.db.section.create({
-    //   data: { name: createOrUpdateSectionDto.name, owner: { connect: { id: userId } } },
-    // });
+  create(userId: string, createSectionDto: CreateSectionDto) {
+    console.log("Creating section with data:", createSectionDto);
+    return this.db.section.create({
+      data: createSectionDto,
+    });
   }
 
-  findAll(userId: string) {
-    // return this.db.section.findMany({
-    //   include: { tasks: true },
-    //   where: { userId },
-    // });
+  update(sectionId: string, updateSectionDto: UpdateSectionDto, userId: string) {
+    return this.db.section.update({
+      where: { id: sectionId },
+      data: updateSectionDto,
+    });
   }
 
-  update(id: string, updateSectionDto: CreateOrUpdateSectionDto, userId: string) {
-    // return this.db.section.update({ where: { id, userId }, data: updateSectionDto });
+  async remove(sectionId: string, userId: string) {
+    const numberOfTasks = await this.db.task.count({
+      where: { sectionId: sectionId },
+    });
+
+    if (numberOfTasks > 0) {
+      throw new Error("Cannot delete section with existing tasks");
+    }
+
+    return this.db.section.delete({
+      where: { id: sectionId },
+    });
   }
 
-  remove(id: string, userId: string) {
-    // return this.db.section.delete({ where: { id, userId } });
+  async getDetailedSectionsByProject(projectId: string, userId: string): Promise<DetailedSectionResponseDto[]> {
+    // First get all sections for the project
+    const sections = await this.db.section.findMany({
+      where: {
+        projectId: projectId,
+      },
+    });
+
+    // Then get tasks for each section using the existing TaskService method
+    const sectionsWithTasks = await Promise.all(
+      sections.map(async (section) => {
+        const tasks = await this.taskService.getTasksBySection(section.id);
+        return {
+          ...section,
+          listOfTask: section.listOfTask, // Convert JSON string to array
+          tasks: tasks,
+        };
+      }),
+    );
+
+    return sectionsWithTasks;
   }
 }

@@ -1,4 +1,4 @@
-import { HttpStatus, UnprocessableEntityException, ValidationPipe } from "@nestjs/common";
+import { ValidationPipe } from "@nestjs/common";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { ExpressAdapter } from "@nestjs/platform-express";
 import { ConfigService } from "@nestjs/config";
@@ -28,7 +28,7 @@ async function bootstrap() {
 
   // Configure CORS (Cross-Origin Resource Sharing) with allowed methods and origins
   app.enableCors({
-    origin: CORS_ORIGINS ? CORS_ORIGINS.split(",").filter(Boolean) : "*",
+    origin: CORS_ORIGINS.split(",").filter(Boolean),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true, // Allow cookies and authorization headers
   });
@@ -56,15 +56,9 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Strip properties that don't have decorators
-      errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY, // Return 422 for validation errors
       transform: true, // Automatically transform payloads to DTO instances
-      dismissDefaultMessages: true, // Use custom error messages
       forbidNonWhitelisted: true, // Throw error if non-whitelisted properties are present
-      exceptionFactory: (errors) => {
-        // Extract all constraint messages from validation errors
-        const messages = errors.map((e) => Object.values(e.constraints || {})).flat();
-        return new UnprocessableEntityException(messages);
-      },
+      transformOptions: { enableImplicitConversion: true }, // Allow primitive type conversions
     }),
   );
 
