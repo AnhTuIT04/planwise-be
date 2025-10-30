@@ -186,6 +186,27 @@ exports.Prisma.CommentScalarFieldEnum = {
   taskId: 'taskId'
 };
 
+exports.Prisma.ProjectInvitationScalarFieldEnum = {
+  status: 'status',
+  createdAt: 'createdAt',
+  invitorId: 'invitorId',
+  projectId: 'projectId'
+};
+
+exports.Prisma.UserInProjectScalarFieldEnum = {
+  userId: 'userId',
+  projectId: 'projectId',
+  roleId: 'roleId'
+};
+
+exports.Prisma.RoleScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  listOfPermission: 'listOfPermission',
+  isDefault: 'isDefault',
+  projectId: 'projectId'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -219,6 +240,12 @@ exports.PriorityLevel = exports.$Enums.PriorityLevel = {
   URGENT: 'URGENT'
 };
 
+exports.InvitationStatus = exports.$Enums.InvitationStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  DECLINED: 'DECLINED'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   OAuthAccount: 'OAuthAccount',
@@ -226,7 +253,10 @@ exports.Prisma.ModelName = {
   Section: 'Section',
   Task: 'Task',
   TaskOfUser: 'TaskOfUser',
-  Comment: 'Comment'
+  Comment: 'Comment',
+  ProjectInvitation: 'ProjectInvitation',
+  UserInProject: 'UserInProject',
+  Role: 'Role'
 };
 
 /**

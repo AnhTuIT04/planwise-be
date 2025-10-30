@@ -24,11 +24,13 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts        OAuthAccount[]
-  projects        Project[]
-  supervisedTasks Task[]
-  tasks           TaskOfUser[] // Tasks were assigned to the user
-  comments        Comment[]
+  accounts           OAuthAccount[]
+  projects           Project[]
+  projectInvitations ProjectInvitation[]
+  belongToProjects   UserInProject[]
+  supervisedTasks    Task[]
+  tasks              TaskOfUser[] // Tasks were assigned to the user
+  comments           Comment[]
 }
 
 enum Provider {
@@ -52,8 +54,11 @@ model Project {
   listOfSection String   @default("") // Storing section IDs as a JSON array, to define their order
   createdAt     DateTime @default(now())
 
-  sections Section[]
-  tasks    Task[]
+  sections    Section[]
+  tasks       Task[]
+  invitations ProjectInvitation[]
+  members     UserInProject[]
+  roles       Role[]
 
   own   User   @relation(fields: [owner], references: [id])
   owner String
@@ -133,4 +138,50 @@ model Comment {
 
   task   Task   @relation(fields: [taskId], references: [id])
   taskId String
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model ProjectInvitation {
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  invitor   User   @relation(fields: [invitorId], references: [id])
+  invitorId String
+
+  toProject Project @relation(fields: [projectId], references: [id])
+  projectId String
+
+  @@id([invitorId, projectId]) // Composite primary key
+}
+
+model UserInProject {
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String
+
+  role   Role   @relation(fields: [roleId], references: [id])
+  roleId String
+
+  @@id([userId, projectId]) // Composite primary key
+}
+
+model Role {
+  id               String  @id @default(uuid())
+  name             String
+  listOfPermission String // Storing permissions as a JSON array
+  isDefault        Boolean @default(false) // Whether this role is a default role for owner or new members
+
+  userInProjects UserInProject[]
+
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+
+  @@unique([name, projectId]) // Role name must be unique within the same project
 }
