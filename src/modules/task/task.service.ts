@@ -11,16 +11,23 @@ export class TaskService {
   constructor(private db: DatabaseService) {}
 
   async create(data: CreateTaskDto) {
+    if (data.parentTaskId && data.subTask && data.subTask.length > 0) {
+      throw new ForbiddenException("Cannot add subtasks to a subtask");
+    }
+
     const section = await this.db.section.findUnique({
-      where: { id: data.sectionId },
+      where: { id: data.sectionId, projectId: data.projectId },
     });
 
     if (!section) throw new NotFoundException("Section not found");
 
+    const { subTask, ...taskData } = data;
+
     const newTask = await this.db.task.create({
-      data,
+      data: taskData,
     });
 
+    // update list of task in section if it's a top-level task
     if (!data.parentTaskId) {
       await this.db.section.update({
         where: { id: data.sectionId },
@@ -31,9 +38,25 @@ export class TaskService {
     }
 
     const assignedUsers = data.assigneeIds;
-
     if (assignedUsers && assignedUsers.length > 0) {
       await this.assignTaskToUsers(newTask.id, assignedUsers);
+    }
+
+    if (subTask && subTask.length > 0) {
+      for (const subTaskDto of subTask) {
+        const subTask = await this.db.task.create({
+          data: {
+            ...subTaskDto,
+            parentTaskId: newTask.id,
+            sectionId: data.sectionId,
+            projectId: data.projectId,
+          },
+        });
+        const subTaskAssignees = subTaskDto.assigneeIds;
+        if (subTaskAssignees && subTaskAssignees.length > 0) {
+          await this.assignTaskToUsers(subTask.id, subTaskAssignees);
+        }
+      }
     }
 
     return newTask;
@@ -109,6 +132,7 @@ export class TaskService {
   update(id: string, dto: UpdateTaskDto) {}
 
   async updatePersonal(id: string, dto: UpdateTaskDto, userId: string) {
+    const { subTask, ...updateDto } = dto;
     // Check if the task exists and belongs to the user's personal project
     const existingTask = await this.db.task.findUnique({
       where: { id },
@@ -126,20 +150,25 @@ export class TaskService {
       throw new ForbiddenException("You are not allowed to update this task");
     }
 
+    if (existingTask.parentTaskId && subTask && subTask.length > 0) {
+      throw new ForbiddenException("Cannot add subtasks to a subtask");
+    }
+
     // Build update data dynamically - only include provided fields
     const updateData: any = {};
 
-    if (dto.title !== undefined) updateData.title = dto.title;
-    if (dto.description !== undefined) updateData.description = dto.description;
-    if (dto.status !== undefined) updateData.status = dto.status;
-    if (dto.priority !== undefined) updateData.priority = dto.priority;
-    if (dto.startDate !== undefined) updateData.startDate = dto.startDate ? new Date(dto.startDate) : null;
-    if (dto.dueDate !== undefined) updateData.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
-    if (dto.sectionId !== undefined) updateData.sectionId = dto.sectionId;
-    if (dto.supervisorId !== undefined) updateData.supervisorId = dto.supervisorId;
+    if (updateDto.title !== undefined) updateData.title = updateDto.title;
+    if (updateDto.description !== undefined) updateData.description = updateDto.description;
+    if (updateDto.status !== undefined) updateData.status = updateDto.status;
+    if (updateDto.priority !== undefined) updateData.priority = updateDto.priority;
+    if (updateDto.startDate !== undefined)
+      updateData.startDate = updateDto.startDate ? new Date(updateDto.startDate) : null;
+    if (updateDto.dueDate !== undefined) updateData.dueDate = updateDto.dueDate ? new Date(updateDto.dueDate) : null;
+    if (updateDto.sectionId !== undefined) updateData.sectionId = updateDto.sectionId;
+    if (updateDto.supervisorId !== undefined) updateData.supervisorId = updateDto.supervisorId;
 
     // Validate parentTaskId if provided
-    if (dto.parentTaskId !== undefined) {
+    if (updateDto.parentTaskId !== undefined) {
       if (dto.parentTaskId === null) {
         // Allow clearing the parent task
         updateData.parentTaskId = null;
@@ -176,6 +205,32 @@ export class TaskService {
       }
     }
 
+    // Handle subtasks
+    if (subTask && subTask.length > 0) {
+      for (const subTaskDto of subTask) {
+        if (subTaskDto.taskId) {
+          // Update existing subtask
+          await this.db.task.update({
+            where: { id: subTaskDto.taskId },
+            data: {
+              ...subTaskDto,
+              sectionId: updateDto.sectionId || existingTask.sectionId,
+            },
+          });
+        } else {
+          // Create new subtask
+          await this.db.task.create({
+            data: {
+              ...subTaskDto,
+              parentTaskId: id,
+              sectionId: updateDto.sectionId || existingTask.sectionId,
+              projectId: existingTask.projectId,
+            },
+          });
+        }
+      }
+    }
+
     return this.db.task.update({
       where: { id },
       data: updateData,
@@ -194,12 +249,27 @@ export class TaskService {
             isPersonal: true,
           },
         },
+        subtasks: true,
       },
     });
 
     if (!task || task.belongsToProject.owner !== userId || !task.belongsToProject.isPersonal) {
       throw new ForbiddenException("You are not allowed to delete this task");
     }
+
+    if (task.subtasks && task.subtasks.length > 0) {
+      throw new ForbiddenException("Cannot delete a task that has subtasks");
+    }
+
+    // Clear all assignees before deleting the task (auto-unassign the owner)
+    await this.db.task.update({
+      where: { id },
+      data: {
+        assignees: {
+          deleteMany: {},
+        },
+      },
+    });
 
     return this.db.task.delete({
       where: { id },
@@ -214,6 +284,30 @@ export class TaskService {
           create: userIds.map((userId) => ({
             user: { connect: { id: userId } },
           })),
+        },
+      },
+    });
+  }
+
+  async removeAllAssigneesFromTask(taskId: string) {
+    return this.db.task.update({
+      where: { id: taskId },
+      data: {
+        assignees: {
+          deleteMany: {},
+        },
+      },
+    });
+  }
+
+  async removeSpecificAssigneeFromTask(taskId: string, userId: string) {
+    return this.db.task.update({
+      where: { id: taskId },
+      data: {
+        assignees: {
+          deleteMany: {
+            userId: userId,
+          },
         },
       },
     });
