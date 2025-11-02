@@ -3,25 +3,42 @@ import { PassportStrategy } from "@nestjs/passport";
 import { Strategy } from "passport-github2";
 import { ConfigService } from "@nestjs/config";
 
+import { AppConfig } from "@/config/app.config";
+import { AuthService } from "../auth.service";
+
 @Injectable()
 export class GithubStrategy extends PassportStrategy(Strategy, "github") {
-  constructor(private configService: ConfigService) {
+  constructor(
+    readonly configService: ConfigService,
+    private readonly authService: AuthService,
+  ) {
+    const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_CALLBACK_URL } = configService.get<AppConfig>("env")!;
+
     super({
-      clientID: configService.get<string>("GITHUB_CLIENT_ID"),
-      clientSecret: configService.get<string>("GITHUB_CLIENT_SECRET"),
-      callbackURL: configService.get<string>("GITHUB_CALLBACK_URL"),
+      clientID: GITHUB_CLIENT_ID,
+      clientSecret: GITHUB_CLIENT_SECRET,
+      callbackURL: GITHUB_CALLBACK_URL,
       scope: ["user:email"],
     });
   }
 
-  async validate(accessToken: string, refreshToken: string, profile: any, done: Function) {
-    const { username, emails, photos } = profile;
-    const user = {
-      email: emails?.[0]?.value || null,
-      username,
-      picture: photos?.[0]?.value || null,
-      provider: "github",
-    };
+  async validate(
+    _at: string,
+    _rt: string,
+    profile: {
+      displayName: string;
+      emails: { value: string }[];
+      photos: { value: string }[];
+    },
+    done: Function,
+  ) {
+    const { displayName, emails, photos } = profile;
+    const user = await this.authService.validateOAuthUser("github", {
+      email: emails[0].value,
+      fullname: displayName,
+      avatarUrl: photos[0].value,
+    });
+
     done(null, user);
   }
 }

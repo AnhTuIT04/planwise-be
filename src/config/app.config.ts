@@ -87,7 +87,35 @@ export class AppConfig {
 
   /** Redis cache/session store connection URL */
   @IsString()
-  REDIS_URL: string;
+  REDIS_URL: string = "";
+
+  /** OAuth success redirect URL */
+  @IsString()
+  OAUTH_SUCCESS_REDIRECT_URL: string;
+
+  /** Google OAuth client ID */
+  @IsString()
+  GOOGLE_CLIENT_ID: string;
+
+  /** Google OAuth client secret */
+  @IsString()
+  GOOGLE_CLIENT_SECRET: string;
+
+  /** Google OAuth callback URL */
+  @IsString()
+  GOOGLE_CALLBACK_URL: string;
+
+  /** GitHub OAuth client ID */
+  @IsString()
+  GITHUB_CLIENT_ID: string;
+
+  /** GitHub OAuth client secret */
+  @IsString()
+  GITHUB_CLIENT_SECRET: string;
+
+  /** GitHub OAuth callback URL */
+  @IsString()
+  GITHUB_CALLBACK_URL: string;
 }
 
 /**

@@ -11,7 +11,7 @@ export class CommentAuthorDto {
     example: "John Doe",
     description: "Author name",
   })
-  readonly name: string | null;
+  readonly fullname: string | null;
 
   @ApiPropertyOptional({
     example: "https://example.com/avatar.jpg",

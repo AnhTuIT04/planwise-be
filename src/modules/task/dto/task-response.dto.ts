@@ -11,7 +11,7 @@ export class TaskPersonDto {
     example: "John Doe",
     description: "User name",
   })
-  readonly name: string | null;
+  readonly fullname: string | null;
 
   @ApiPropertyOptional({
     example: "https://example.com/avatar.jpg",

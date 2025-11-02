@@ -103,7 +103,7 @@ export class ProjectService {
       where: { id: projectId },
       include: {
         own: {
-          select: { id: true, email: true, name: true, avatarUrl: true },
+          select: { id: true, email: true, fullname: true, avatarUrl: true },
         },
       },
     });

@@ -8,11 +8,11 @@ export class ErrorDto {
   name: string;
 
   @ApiProperty({
-    type: [String],
-    description: "Detailed error messages",
-    example: ["Email is required", "Password too short"],
+    type: String,
+    description: "Detailed error message",
+    example: "Email is required",
   })
-  messages: string[];
+  message: string;
 
   @ApiProperty({
     description: "HTTP method and path of the request that caused the error",

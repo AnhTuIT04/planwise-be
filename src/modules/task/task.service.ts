@@ -72,7 +72,7 @@ export class TaskService {
             user: {
               select: {
                 email: true,
-                name: true,
+                fullname: true,
                 avatarUrl: true,
               },
             },
@@ -85,7 +85,7 @@ export class TaskService {
       ...task,
       assignees: task.assignees.map((assignee) => ({
         email: assignee.user.email,
-        name: assignee.user.name,
+        fullname: assignee.user.fullname,
         avatarUrl: assignee.user.avatarUrl,
       })),
     }));
@@ -98,20 +98,20 @@ export class TaskService {
         assignees: {
           include: {
             user: {
-              select: { email: true, name: true, avatarUrl: true },
+              select: { email: true, fullname: true, avatarUrl: true },
             },
           },
         },
         comments: {
           include: {
             author: {
-              select: { email: true, name: true, avatarUrl: true },
+              select: { email: true, fullname: true, avatarUrl: true },
             },
           },
         },
         subtasks: true,
         supervisor: {
-          select: { email: true, name: true, avatarUrl: true },
+          select: { email: true, fullname: true, avatarUrl: true },
         },
       },
     });

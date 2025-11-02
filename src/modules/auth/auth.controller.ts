@@ -1,30 +1,40 @@
-import { Controller, Post, Res, Body, UseGuards, Get, Req, HttpCode, HttpStatus } from "@nestjs/common";
-import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Controller, Post, Res, Body, UseGuards, Get, Req, HttpCode, HttpStatus, Patch } from "@nestjs/common";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
 import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
 
 import { AppConfig } from "@/config/app.config";
 import { Public } from "@/common/decorators/public.decorator";
-import { GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
+import { GetCurrentUser, GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
+import { MessageResponseDto } from "@/common/dto/message.dto";
 import { AuthService } from "./auth.service";
-import { SignInDto } from "./dto/signin.dto";
-import { SignUpDto } from "./dto/signup.dto";
-import { EmailOnlyDTO } from "./dto/email-only.dto";
-import { VerifyEmailDTO } from "./dto/verify-email.dto";
-import { ResetPasswordDTO } from "./dto/reset-password.dto";
+import { SignInDto } from "./dto/request/signin.dto";
+import { SignUpDto } from "./dto/request/signup.dto";
+import { EmailOnlyDTO } from "./dto/request/email-only.dto";
+import { VerifyOtpDTO } from "./dto/request/verify-otp.dto";
+import { ResetPasswordDTO } from "./dto/request/reset-password.dto";
+import { UpdateProfileDto } from "./dto/request/update-profile.dto";
+import { UserResponseDto } from "./dto/response/user.dto";
 
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
-  private setAccessTokenToCookie(res: Response, accessToken: string) {
+  private getCookieOptions() {
     const { NODE_ENV } = this.configService.get<AppConfig>("env")!;
-    console.log({ tokennnnn: accessToken });
-    res.cookie("accessToken", accessToken, {
+    return {
       httpOnly: true,
       secure: NODE_ENV === "production",
-      sameSite: "lax",
-    });
+      sameSite: "lax" as const,
+    };
+  }
+
+  private setAccessTokenToCookie(res: Response, accessToken: string) {
+    res.cookie("accessToken", accessToken, this.getCookieOptions());
+  }
+
+  private clearAccessTokenCookie(res: Response) {
+    res.clearCookie("accessToken", this.getCookieOptions());
   }
 
   constructor(
@@ -40,6 +50,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Register a new user and send OTP for email verification" })
+  @ApiResponse({
+    status: 201,
+    type: MessageResponseDto,
+    description: "User registered successfully. OTP sent to email.",
+  })
   async signup(@Body() signUpDto: SignUpDto) {
     return this.authService.signup(signUpDto);
   }
@@ -48,10 +63,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Verify user email using OTP" })
-  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDTO, @Res() res: Response) {
+  @ApiResponse({ status: 200, type: UserResponseDto, description: "Email verified successfully and user logged in." })
+  async verifyEmail(@Body() verifyEmailDto: VerifyOtpDTO, @Res() res: Response) {
     const { accessToken, user } = await this.authService.verifyEmail(verifyEmailDto);
-
     this.setAccessTokenToCookie(res, accessToken);
+
     return res.json({
       user,
       message: "Email verified successfully. You are now logged in.",
@@ -62,6 +78,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Resend email verification OTP" })
+  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP resent successfully." })
   async resendVerificationOtp(@Body() dto: EmailOnlyDTO) {
     return this.authService.resendOtp(dto.email, true);
   }
@@ -74,24 +91,36 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Send OTP to email for password reset" })
+  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP sent to email successfully." })
   async forgotPassword(@Body() dto: EmailOnlyDTO) {
     return this.authService.forgotPassword(dto.email);
   }
 
-  @Post("forgot-password/resend-otp")
+  @Post("verify-forgot-password")
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Resend password reset OTP" })
-  async resendPasswordResetOtp(@Body() dto: EmailOnlyDTO) {
-    return this.authService.resendOtp(dto.email, false);
+  @ApiOperation({ summary: "Verify OTP for password reset" })
+  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP verified successfully." })
+  async verifyResetPasswordOtp(@Body() verifyEmailDto: VerifyOtpDTO) {
+    return this.authService.verifyResetPassword(verifyEmailDto);
   }
 
   @Post("reset-password")
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Reset password using OTP" })
+  @ApiResponse({ status: 200, type: MessageResponseDto, description: "Password reset successfully." })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDTO) {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Post("forgot-password/resend-otp")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Resend password reset OTP" })
+  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP resent successfully." })
+  async resendPasswordResetOtp(@Body() dto: EmailOnlyDTO) {
+    return this.authService.resendOtp(dto.email, false);
   }
 
   // -------------------------------
@@ -102,20 +131,16 @@ export class AuthController {
   @Public()
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: "Initiate Google OAuth login" })
-  async googleAuth() {
-    // Hello world
-  }
+  async googleAuth() {}
 
   @Get("google/callback")
   @Public()
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: "Google OAuth callback" })
-  async googleCallback(@Req() req, @Res() res: Response) {
-    // `req.user` comes from GoogleStrategy.validate()
-    const { user } = req;
-    const accessToken = await this.authService.signOAuthToken(user);
-
+  async googleCallback(@GetCurrentUser() user, @Res() res: Response) {
+    const accessToken = this.authService.signAccessTokenToken(user);
     this.setAccessTokenToCookie(res, accessToken);
+
     return res.redirect(this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")!);
   }
 
@@ -127,21 +152,17 @@ export class AuthController {
   @Public()
   @UseGuards(GithubAuthGuard)
   @ApiOperation({ summary: "Initiate GitHub OAuth login" })
-  async githubAuth() {
-    // Redirects automatically to GitHub
-  }
+  async githubAuth() {}
 
   @Get("github/callback")
   @Public()
   @UseGuards(GithubAuthGuard)
   @ApiOperation({ summary: "GitHub OAuth callback" })
-  async githubCallback(@Req() req, @Res() res: Response) {
-    const { user } = req;
-    const accessToken = await this.authService.signOAuthToken(user);
-
-    const redirectUrl = `${this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")}?status=success`;
+  async githubCallback(@GetCurrentUser() user, @Res() res: Response) {
+    const accessToken = this.authService.signAccessTokenToken(user);
     this.setAccessTokenToCookie(res, accessToken);
-    return res.redirect(redirectUrl);
+
+    return res.redirect(this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")!);
   }
 
   // -------------------------------
@@ -152,17 +173,20 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Sign in with verified email and password" })
+  @ApiResponse({ status: 200, type: UserResponseDto, description: "Sign-in successful." })
   async signin(@Body() signInDto: SignInDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.signin(signInDto);
     this.setAccessTokenToCookie(res, accessToken);
-    return res.json({ accessToken, user, message: "Signed in successfully." });
+    return res.json({ user, message: "Signed in successfully." });
   }
 
   @Post("signout")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Sign out (clear auth cookie)" })
+  @ApiResponse({ status: 200, type: MessageResponseDto, description: "Signed out successfully." })
   logout(@Res() res: Response) {
-    res.clearCookie("accessToken");
+    this.clearAccessTokenCookie(res);
     return res.json({ message: "Signed out successfully." });
   }
 
@@ -172,8 +196,18 @@ export class AuthController {
 
   @Get("me")
   @ApiOperation({ summary: "Get currently authenticated user" })
+  @ApiResponse({ status: 200, type: UserResponseDto, description: "User data retrieved successfully." })
   async getCurrentUser(@GetCurrentUserId() userId: string) {
-    console.log({ hahahah: userId });
     return await this.authService.getUserData(userId);
+  }
+
+  @Patch("me")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update current user profile" })
+  @ApiResponse({ status: 200, type: UserResponseDto, description: "Profile updated successfully." })
+  async updateProfile(@GetCurrentUserId() userId: string, @Body() updateProfileDto: UpdateProfileDto) {
+    console.log(updateProfileDto);
+
+    return await this.authService.updateProfile(userId, updateProfileDto);
   }
 }
