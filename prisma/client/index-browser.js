@@ -140,6 +140,7 @@ exports.Prisma.OAuthAccountScalarFieldEnum = {
 exports.Prisma.ProjectScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  logoUrl: 'logoUrl',
   description: 'description',
   isPersonal: 'isPersonal',
   listOfSection: 'listOfSection',
@@ -165,7 +166,6 @@ exports.Prisma.TaskScalarFieldEnum = {
   dueDate: 'dueDate',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  sectionId: 'sectionId',
   parentTaskId: 'parentTaskId',
   supervisorId: 'supervisorId',
   projectId: 'projectId'
@@ -174,6 +174,11 @@ exports.Prisma.TaskScalarFieldEnum = {
 exports.Prisma.TaskOfUserScalarFieldEnum = {
   taskId: 'taskId',
   userId: 'userId'
+};
+
+exports.Prisma.TaskOfSectionScalarFieldEnum = {
+  taskId: 'taskId',
+  sectionId: 'sectionId'
 };
 
 exports.Prisma.CommentScalarFieldEnum = {
@@ -226,6 +231,7 @@ exports.Prisma.ModelName = {
   Section: 'Section',
   Task: 'Task',
   TaskOfUser: 'TaskOfUser',
+  TaskOfSection: 'TaskOfSection',
   Comment: 'Comment'
 };
 

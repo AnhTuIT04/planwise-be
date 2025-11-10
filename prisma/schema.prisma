@@ -24,6 +24,11 @@ model User {
   tasks           TaskOfUser[]
 }
 
+enum Provider {
+  google
+  github
+}
+
 model OAuthAccount {
   id       String   @id @default(uuid())
   provider Provider
@@ -34,6 +39,7 @@ model OAuthAccount {
 model Project {
   id            String    @id @default(uuid())
   name          String
+  logoUrl       String?
   description   String?
   isPersonal    Boolean   @default(false)
   listOfSection String    @default("")
@@ -45,34 +51,35 @@ model Project {
 }
 
 model Section {
-  id         String   @id @default(uuid())
+  id         String          @id @default(uuid())
   name       String
-  listOfTask String   @default("")
-  createdAt  DateTime @default(now())
+  listOfTask String          @default("")
+  createdAt  DateTime        @default(now())
   projectId  String
-  has        Project  @relation(fields: [projectId], references: [id])
+  has        Project         @relation(fields: [projectId], references: [id])
+  tasks      TaskOfSection[]
 }
 
 model Task {
-  id               String         @id @default(uuid())
+  id               String          @id @default(uuid())
   title            String
   description      String?
-  status           TaskStatus     @default(TODO)
-  priority         PriorityLevel?
+  status           TaskStatus      @default(TODO)
+  priority         PriorityLevel   @default(NORMAL)
   startDate        DateTime?
   dueDate          DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  sectionId        String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   parentTaskId     String?
   supervisorId     String?
   projectId        String
   comments         Comment[]
-  parent           Task?          @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
-  subtasks         Task[]         @relation("SubtasksRelation")
-  belongsToProject Project        @relation(fields: [projectId], references: [id])
-  supervisor       User?          @relation(fields: [supervisorId], references: [id])
+  parent           Task?           @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
+  subtasks         Task[]          @relation("SubtasksRelation")
+  belongsToProject Project         @relation(fields: [projectId], references: [id])
+  supervisor       User?           @relation(fields: [supervisorId], references: [id])
   assignees        TaskOfUser[]
+  sections         TaskOfSection[]
 }
 
 model TaskOfUser {
@@ -82,6 +89,15 @@ model TaskOfUser {
   user   User   @relation(fields: [userId], references: [id])
 
   @@id([taskId, userId])
+}
+
+model TaskOfSection {
+  taskId    String
+  sectionId String
+  task      Task    @relation(fields: [taskId], references: [id])
+  section   Section @relation(fields: [sectionId], references: [id])
+
+  @@id([taskId, sectionId])
 }
 
 model Comment {
@@ -94,11 +110,6 @@ model Comment {
   taskId    String
   author    User     @relation(fields: [authorId], references: [id])
   task      Task     @relation(fields: [taskId], references: [id])
-}
-
-enum Provider {
-  google
-  github
 }
 
 enum TaskStatus {
