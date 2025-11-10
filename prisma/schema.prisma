@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "client"
@@ -15,58 +9,96 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?
-  name      String?
-  avatarUrl String?
-  verified  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id              String         @id @default(uuid())
+  email           String         @unique
+  password        String?
+  fullname        String
+  avatarUrl       String?
+  verified        Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  comments        Comment[]
   accounts        OAuthAccount[]
   projects        Project[]
   supervisedTasks Task[]
-  tasks           TaskOfUser[] // Tasks were assigned to the user
-  comments        Comment[]
-}
-
-enum Provider {
-  google
-  github
+  tasks           TaskOfUser[]
 }
 
 model OAuthAccount {
   id       String   @id @default(uuid())
   provider Provider
-
-  own    User   @relation(fields: [userId], references: [id])
-  userId String
+  userId   String
+  own      User     @relation(fields: [userId], references: [id])
 }
 
 model Project {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   name          String
   description   String?
-  isPersonal    Boolean  @default(false)
-  listOfSection String   @default("[]") // Storing section IDs as a JSON array, to define their order
-  createdAt     DateTime @default(now())
-
-  sections Section[]
-  tasks    Task[]
-
-  own   User   @relation(fields: [owner], references: [id])
-  owner String
+  isPersonal    Boolean   @default(false)
+  listOfSection String    @default("")
+  createdAt     DateTime  @default(now())
+  owner         String
+  own           User      @relation(fields: [owner], references: [id])
+  sections      Section[]
+  tasks         Task[]
 }
 
 model Section {
   id         String   @id @default(uuid())
   name       String
-  listOfTask String   @default("[]") // Storing task IDs as a JSON array, to define their order
+  listOfTask String   @default("")
   createdAt  DateTime @default(now())
+  projectId  String
+  has        Project  @relation(fields: [projectId], references: [id])
+}
 
-  has       Project @relation(fields: [projectId], references: [id])
-  projectId String
+model Task {
+  id               String         @id @default(uuid())
+  title            String
+  description      String?
+  status           TaskStatus     @default(TODO)
+  priority         PriorityLevel?
+  startDate        DateTime?
+  dueDate          DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  sectionId        String
+  parentTaskId     String?
+  supervisorId     String?
+  projectId        String
+  comments         Comment[]
+  parent           Task?          @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
+  subtasks         Task[]         @relation("SubtasksRelation")
+  belongsToProject Project        @relation(fields: [projectId], references: [id])
+  supervisor       User?          @relation(fields: [supervisorId], references: [id])
+  assignees        TaskOfUser[]
+}
+
+model TaskOfUser {
+  taskId String
+  userId String
+  task   Task   @relation(fields: [taskId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@id([taskId, userId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  authorId  String
+  taskId    String
+  author    User     @relation(fields: [authorId], references: [id])
+  task      Task     @relation(fields: [taskId], references: [id])
+}
+
+enum Provider {
+  google
+  github
 }
 
 enum TaskStatus {
@@ -81,56 +113,4 @@ enum PriorityLevel {
   NORMAL
   HIGH
   URGENT
-}
-
-model Task {
-  id          String         @id @default(uuid())
-  title       String
-  description String?
-  status      TaskStatus     @default(TODO)
-  // createdBy   String // User ID of the creator, dont need a relation here
-  priority    PriorityLevel?
-  startDate   DateTime?
-  dueDate     DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  sectionId String // Section ID to which the task belongs, doesnt need a relation here
-
-  assignees TaskOfUser[]
-  subtasks  Task[]       @relation("SubtasksRelation")
-  comments  Comment[]
-
-  parent       Task?   @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
-  parentTaskId String?
-
-  supervisor   User?   @relation(fields: [supervisorId], references: [id])
-  supervisorId String?
-
-  belongsToProject Project @relation(fields: [projectId], references: [id])
-  projectId        String
-}
-
-model TaskOfUser {
-  task   Task   @relation(fields: [taskId], references: [id])
-  taskId String
-
-  user   User   @relation(fields: [userId], references: [id])
-  userId String
-
-  @@id([taskId, userId]) // Composite primary key
-}
-
-model Comment {
-  id        String   @id @default(uuid())
-  content   String
-  mediaUrl  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  author   User   @relation(fields: [authorId], references: [id])
-  authorId String
-
-  task   Task   @relation(fields: [taskId], references: [id])
-  taskId String
 }

@@ -10,8 +10,10 @@ import { JwtGuard } from "@/modules/auth/guards/jwt.guard";
 import { EmailModule } from "./modules/email/email.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
-import { TaskModule } from './modules/task/task.module';
-import { SectionModule } from './modules/section/section.module';
+import { TaskModule } from "./modules/task/task.module";
+import { SectionModule } from "./modules/section/section.module";
+import { ProjectModule } from "./modules/project/project.module";
+import { CommentModule } from "./modules/comment/comment.module";
 
 @Module({
   imports: [
@@ -25,10 +27,12 @@ import { SectionModule } from './modules/section/section.module';
     DatabaseModule,
     CacheModule,
     EmailModule,
-    AuthModule,
     UsersModule,
+    AuthModule,
     TaskModule,
     SectionModule,
+    ProjectModule,
+    CommentModule,
   ],
   controllers: [AppController],
   providers: [

@@ -5,13 +5,13 @@ import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { Request } from "express";
 
-import { JwtPayloadDTO } from "../dto/jwt-payload.dto";
+import { JwtPayloadDTO } from "../dto/request/jwt-payload.dto";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([(req: Request) => req.cookies.accessToken]),
       ignoreExpiration: false,
       secretOrKey: configService.get<AppConfig>("env")!.JWT_SECRET,
     });

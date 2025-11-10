@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
 import { SectionService } from "./section.service";
-import { CreateOrUpdateSectionDto } from "./dto/create-or-update-section.dto";
 import { GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
 import { ApiOperation } from "@nestjs/swagger";
+import { CreateSectionDto, UpdateSectionDto } from "./dto";
 
 @Controller("section")
 export class SectionController {
@@ -11,25 +11,15 @@ export class SectionController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new section" })
-  create(@GetCurrentUserId() userId: string, @Body() createOrUpdateSectionDto: CreateOrUpdateSectionDto) {
-    return this.sectionService.create(userId, createOrUpdateSectionDto);
-  }
-
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Get all sections including tasks for the current user" })
-  findAll(@GetCurrentUserId() userId: string) {
-    return this.sectionService.findAll(userId);
+  create(@GetCurrentUserId() userId: string, @Body() createSectionDto: CreateSectionDto) {
+    console.log("Received request to create section:", createSectionDto);
+    return this.sectionService.create(userId, createSectionDto);
   }
 
   @Patch(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a section" })
-  update(
-    @Param("id") id: string,
-    @Body() updateSectionDto: CreateOrUpdateSectionDto,
-    @GetCurrentUserId() userId: string,
-  ) {
+  update(@Param("id") id: string, @Body() updateSectionDto: UpdateSectionDto, @GetCurrentUserId() userId: string) {
     return this.sectionService.update(id, updateSectionDto, userId);
   }
 
