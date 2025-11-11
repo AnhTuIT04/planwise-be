@@ -20,12 +20,12 @@ exports.Prisma = Prisma
 exports.$Enums = {}
 
 /**
- * Prisma Client JS version: 6.18.0
- * Query Engine version: 34b5a692b7bd79939a9a2c3ef97d816e749cda2f
+ * Prisma Client JS version: 6.17.1
+ * Query Engine version: 272a37d34178c2894197e17273bf937f25acdeac
  */
 Prisma.prismaVersion = {
-  client: "6.18.0",
-  engine: "34b5a692b7bd79939a9a2c3ef97d816e749cda2f"
+  client: "6.17.1",
+  engine: "272a37d34178c2894197e17273bf937f25acdeac"
 }
 
 Prisma.PrismaClientKnownRequestError = () => {
@@ -167,8 +167,7 @@ exports.Prisma.TaskScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   parentTaskId: 'parentTaskId',
-  supervisorId: 'supervisorId',
-  projectId: 'projectId'
+  supervisorId: 'supervisorId'
 };
 
 exports.Prisma.TaskOfUserScalarFieldEnum = {
@@ -189,6 +188,27 @@ exports.Prisma.CommentScalarFieldEnum = {
   updatedAt: 'updatedAt',
   authorId: 'authorId',
   taskId: 'taskId'
+};
+
+exports.Prisma.ProjectInvitationScalarFieldEnum = {
+  status: 'status',
+  createdAt: 'createdAt',
+  invitorId: 'invitorId',
+  projectId: 'projectId'
+};
+
+exports.Prisma.UserInProjectScalarFieldEnum = {
+  userId: 'userId',
+  projectId: 'projectId',
+  roleId: 'roleId'
+};
+
+exports.Prisma.RoleScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  listOfPermission: 'listOfPermission',
+  isDefault: 'isDefault',
+  projectId: 'projectId'
 };
 
 exports.Prisma.SortOrder = {
@@ -224,6 +244,12 @@ exports.PriorityLevel = exports.$Enums.PriorityLevel = {
   URGENT: 'URGENT'
 };
 
+exports.InvitationStatus = exports.$Enums.InvitationStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  DECLINED: 'DECLINED'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   OAuthAccount: 'OAuthAccount',
@@ -232,7 +258,10 @@ exports.Prisma.ModelName = {
   Task: 'Task',
   TaskOfUser: 'TaskOfUser',
   TaskOfSection: 'TaskOfSection',
-  Comment: 'Comment'
+  Comment: 'Comment',
+  ProjectInvitation: 'ProjectInvitation',
+  UserInProject: 'UserInProject',
+  Role: 'Role'
 };
 
 /**
