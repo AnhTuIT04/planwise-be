@@ -9,19 +9,22 @@ datasource db {
 }
 
 model User {
-  id              String         @id @default(uuid())
-  email           String         @unique
-  password        String?
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String?
   fullname        String
-  avatarUrl       String?
-  verified        Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  comments        Comment[]
-  accounts        OAuthAccount[]
-  projects        Project[]
-  supervisedTasks Task[]
-  tasks           TaskOfUser[]
+  avatarUrl String?
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts           OAuthAccount[]
+  projects           Project[]
+  projectInvitations ProjectInvitation[]
+  belongToProjects   UserInProject[]
+  supervisedTasks    Task[]
+  tasks              TaskOfUser[] // Tasks were assigned to the user
+  comments           Comment[]
 }
 
 enum Provider {
@@ -32,73 +35,85 @@ enum Provider {
 model OAuthAccount {
   id       String   @id @default(uuid())
   provider Provider
-  userId   String
-  own      User     @relation(fields: [userId], references: [id])
+
+  own    User   @relation(fields: [userId], references: [id])
+  userId String
 }
 
 model Project {
-  id            String    @id @default(uuid())
+  id            String   @id @default(uuid())
   name          String
   logoUrl       String?
   description   String?
-  isPersonal    Boolean   @default(false)
-  listOfSection String    @default("")
-  createdAt     DateTime  @default(now())
-  owner         String
-  own           User      @relation(fields: [owner], references: [id])
-  sections      Section[]
-  tasks         Task[]
+  isPersonal    Boolean  @default(false)
+  listOfSection String   @default("") // Storing section IDs as a JSON array, to define their order
+  createdAt     DateTime @default(now())
+
+  sections    Section[]
+  invitations ProjectInvitation[]
+  members     UserInProject[]
+  roles       Role[]
+
+  own   User   @relation(fields: [owner], references: [id])
+  owner String
 }
 
 model Section {
-  id         String          @id @default(uuid())
+  id         String   @id @default(uuid())
   name       String
-  listOfTask String          @default("")
-  createdAt  DateTime        @default(now())
-  projectId  String
-  has        Project         @relation(fields: [projectId], references: [id])
-  tasks      TaskOfSection[]
+  listOfTask String   @default("") // Storing task IDs as a JSON array, to define their order
+  createdAt  DateTime @default(now())
+
+  has       Project @relation(fields: [projectId], references: [id])
+  projectId String
+  tasksOfSection      TaskOfSection[]
 }
 
 model Task {
-  id               String          @id @default(uuid())
-  title            String
-  description      String?
-  status           TaskStatus      @default(TODO)
-  priority         PriorityLevel   @default(NORMAL)
-  startDate        DateTime?
-  dueDate          DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  parentTaskId     String?
-  supervisorId     String?
-  projectId        String
-  comments         Comment[]
-  parent           Task?           @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
-  subtasks         Task[]          @relation("SubtasksRelation")
-  belongsToProject Project         @relation(fields: [projectId], references: [id])
-  supervisor       User?           @relation(fields: [supervisorId], references: [id])
-  assignees        TaskOfUser[]
-  sections         TaskOfSection[]
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus     @default(TODO)
+  priority    PriorityLevel?
+  startDate   DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  assignees TaskOfUser[]
+  subtasks  Task[]       @relation("SubtasksRelation")
+  comments  Comment[]
+  tasksOfSection TaskOfSection[]
+
+  parent       Task?   @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
+  parentTaskId String?
+
+  supervisor   User?   @relation(fields: [supervisorId], references: [id])
+  supervisorId String?
+
+
 }
 
 model TaskOfUser {
-  taskId String
-  userId String
   task   Task   @relation(fields: [taskId], references: [id])
+  taskId String
+
   user   User   @relation(fields: [userId], references: [id])
+  userId String
 
   @@id([taskId, userId])
 }
 
 model TaskOfSection {
-  taskId    String
-  sectionId String
   task      Task    @relation(fields: [taskId], references: [id])
+  taskId    String
+  
   section   Section @relation(fields: [sectionId], references: [id])
+  sectionId String
 
   @@id([taskId, sectionId])
 }
+
 
 model Comment {
   id        String   @id @default(uuid())
@@ -106,10 +121,12 @@ model Comment {
   mediaUrl  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  authorId  String
-  taskId    String
-  author    User     @relation(fields: [authorId], references: [id])
-  task      Task     @relation(fields: [taskId], references: [id])
+
+  author   User   @relation(fields: [authorId], references: [id])
+  authorId String
+
+  task   Task   @relation(fields: [taskId], references: [id])
+  taskId String
 }
 
 enum TaskStatus {
@@ -124,4 +141,53 @@ enum PriorityLevel {
   NORMAL
   HIGH
   URGENT
+}
+
+
+
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model ProjectInvitation {
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  invitor   User   @relation(fields: [invitorId], references: [id])
+  invitorId String
+
+  toProject Project @relation(fields: [projectId], references: [id])
+  projectId String
+
+  @@id([invitorId, projectId])
+}
+
+model UserInProject {
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String
+
+  role   Role   @relation(fields: [roleId], references: [id])
+  roleId String
+
+  @@id([userId, projectId]) // Composite primary key
+}
+
+model Role {
+  id               String  @id @default(uuid())
+  name             String
+  listOfPermission String // Storing permissions as a JSON array
+  isDefault        Boolean @default(false) // Whether this role is a default role for owner or new members
+
+  userInProjects UserInProject[]
+
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+
+  @@unique([name, projectId]) // Role name must be unique within the same project
 }
