@@ -19,11 +19,11 @@ model User {
   updatedAt DateTime @updatedAt
 
   accounts           OAuthAccount[]
-  projects           Project[]
+  ownedProjects      Project[]           @relation("UserOwnsProjects")
   projectInvitations ProjectInvitation[]
-  belongToProjects   UserInProject[]
+  projectMemberships UserInProject[]     @relation("UserProjectMemberships")
   supervisedTasks    Task[]
-  tasks              TaskOfUser[] // Tasks were assigned to the user
+  tasks              TaskOfUser[]
   comments           Comment[]
 }
 
@@ -36,7 +36,7 @@ model OAuthAccount {
   id       String   @id @default(uuid())
   provider Provider
 
-  own    User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
   userId String
 }
 
@@ -51,11 +51,11 @@ model Project {
 
   sections    Section[]
   invitations ProjectInvitation[]
-  members     UserInProject[]
+  memberships UserInProject[]     @relation("ProjectHasMembers")
   roles       Role[]
 
-  own   User   @relation(fields: [owner], references: [id])
-  owner String
+  owner   User   @relation("UserOwnsProjects", fields: [ownerId], references: [id])
+  ownerId String
 }
 
 model Section {
@@ -64,7 +64,7 @@ model Section {
   listOfTask String   @default("") // Storing task IDs as a JSON array, to define their order
   createdAt  DateTime @default(now())
 
-  has            Project         @relation(fields: [projectId], references: [id])
+  project        Project         @relation(fields: [projectId], references: [id])
   projectId      String
   tasksOfSection TaskOfSection[]
 }
@@ -153,23 +153,23 @@ model ProjectInvitation {
   invitor   User   @relation(fields: [invitorId], references: [id])
   invitorId String
 
-  toProject Project @relation(fields: [projectId], references: [id])
+  project   Project @relation(fields: [projectId], references: [id])
   projectId String
 
   @@id([invitorId, projectId])
 }
 
 model UserInProject {
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation("UserProjectMemberships", fields: [userId], references: [id])
   userId String
 
-  project   Project @relation(fields: [projectId], references: [id])
+  project   Project @relation("ProjectHasMembers", fields: [projectId], references: [id])
   projectId String
 
   role   Role   @relation(fields: [roleId], references: [id])
   roleId String
 
-  @@id([userId, projectId]) // Composite primary key
+  @@id([userId, projectId])
 }
 
 model Role {
@@ -183,5 +183,5 @@ model Role {
   project   Project? @relation(fields: [projectId], references: [id])
   projectId String?
 
-  @@unique([name, projectId]) // Role name must be unique within the same project
+  @@unique([name, projectId])
 }

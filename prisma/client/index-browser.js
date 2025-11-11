@@ -145,7 +145,7 @@ exports.Prisma.ProjectScalarFieldEnum = {
   isPersonal: 'isPersonal',
   listOfSection: 'listOfSection',
   createdAt: 'createdAt',
-  owner: 'owner'
+  ownerId: 'ownerId'
 };
 
 exports.Prisma.SectionScalarFieldEnum = {
