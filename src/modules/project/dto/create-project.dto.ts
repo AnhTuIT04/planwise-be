@@ -19,6 +19,14 @@ export class CreateProjectDto {
   readonly description?: string;
 
   @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "https://example.com/logo.png",
+    description: "URL of the project logo",
+  })
+  readonly logoUrl?: string;
+
+  @IsOptional()
   @IsBoolean()
   @ApiPropertyOptional({
     example: false,

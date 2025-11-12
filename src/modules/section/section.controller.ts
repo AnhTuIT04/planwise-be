@@ -23,10 +23,10 @@ export class SectionController {
     return this.sectionService.update(id, updateSectionDto, userId);
   }
 
-  @Delete(":id")
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Delete a section" })
-  remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
-    return this.sectionService.remove(id, userId);
-  }
+//   @Delete(":id")
+//   @HttpCode(HttpStatus.NO_CONTENT)
+//   @ApiOperation({ summary: "Delete a section" })
+//   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+//     return this.sectionService.remove(id, userId);
+//   }
 }
