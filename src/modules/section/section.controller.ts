@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus
 import { SectionService } from "./section.service";
 import { GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
 import { ApiOperation } from "@nestjs/swagger";
-import { CreateSectionDto, UpdateSectionDto } from "./dto";
+import { CreateSectionDto, UpdateSectionDto,DeleteSectionDto } from "./dto";
 
 @Controller("section")
 export class SectionController {
@@ -26,7 +26,7 @@ export class SectionController {
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Delete a section" })
-  remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
-    return this.sectionService.remove(id, userId);
+  remove(@Param("id") id: string,@Body() dto: DeleteSectionDto, @GetCurrentUserId() userId: string) {
+    return this.sectionService.remove(id,dto, userId);
   }
 }
