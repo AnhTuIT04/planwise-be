@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { ProjectResponseDto, CreateProjectDto, UpdateProjectDto, DetailedProjectResponseDto } from "./dto";
 import { DatabaseService } from "../database/database.service";
 import { SectionService } from "../section/section.service";
-
+import { Project, Section } from "prisma/client";
 @Injectable()
 export class ProjectService {
   constructor(
@@ -133,5 +133,36 @@ export class ProjectService {
       sections: sections,
       taskCount: sections.reduce((total, section) => total + section.tasks.length, 0),
     };
+  }
+  async createPersonalProjectForUser(
+    userId: string,
+  ): Promise<{ project: Project; defaultSection: Section }> {
+    const prisma = this.db;
+
+    const project = await prisma.project.create({
+      data: {
+        name: "My Workspace",
+        isPersonal: true,
+        ownerId: userId,
+        listOfSection: JSON.stringify([]),
+      },
+    });
+
+    const defaultSection = await prisma.section.create({
+      data: {
+        name: "Default",
+        projectId: project.id,
+        listOfTask: JSON.stringify([]),
+      },
+    });
+
+    await prisma.project.update({
+      where: { id: project.id },
+      data: {
+        listOfSection: JSON.stringify([defaultSection.id]),
+      },
+    });
+
+    return { project, defaultSection };
   }
 }

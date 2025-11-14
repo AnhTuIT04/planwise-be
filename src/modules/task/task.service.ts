@@ -15,7 +15,6 @@ export class TaskService {
   constructor(private db: DatabaseService) {}
 
   // CREATE TASK
-  // task.service.ts (chỉ phần create)
   async create(dto: CreateTaskDto, userId: string) {
     const {
       projectId,
@@ -32,10 +31,8 @@ export class TaskService {
       subTask = [],
     } = dto;
 
-    // 1. Kiểm tra quyền project
     await this.ensureUserCanAccessProject(projectId, userId);
 
-    // 2. Kiểm tra section
     const section = await this.db.section.findUnique({
       where: { id: sectionId, projectId },
     });
@@ -65,11 +62,8 @@ export class TaskService {
       await this.assignTaskToUsers(task.id, assigneeIds);
     }
 
-    // task.service.ts (chỉ phần tạo subtask)
-
     if (subTask.length > 0) {
       for (const sub of subTask) {
-        // Dùng giá trị từ task cha nếu subtask để null/undefined
         const subPriority = sub.priority ?? priority;
         const subStartDate = sub.startDate ?? startDate;
         const subDueDate = sub.dueDate ?? dueDate;
@@ -79,27 +73,24 @@ export class TaskService {
             title: sub.title,
             description: sub.description ?? null,
             status: sub.status ?? TaskStatus.TODO,
-            priority: subPriority, // Kế thừa nếu null
+            priority: subPriority,
             startDate: subStartDate ? new Date(subStartDate) : null,
             dueDate: subDueDate ? new Date(subDueDate) : null,
             parentTaskId: task.id,
-            supervisorId: null, // subtask không có supervisor
+            supervisorId: null,
           },
         });
 
-        // Gán subtask vào CÙNG section với task cha
         await this.db.taskOfSection.create({
           data: { taskId: subTaskCreated.id, sectionId },
         });
 
-        // Cập nhật listOfTask trong section (thêm subtask)
         const currentSection = await this.db.section.findUnique({ where: { id: sectionId } });
-        const currentList = this.parseTaskList(currentSection!.listOfTask);
-        if (!currentList.includes(subTaskCreated.id)) {
-          await this.updateSectionTaskOrder(sectionId, [...currentList, subTaskCreated.id]);
-        }
+        // const currentList = this.parseTaskList(currentSection!.listOfTask);
+        // if (!currentList.includes(subTaskCreated.id)) {
+        //   await this.updateSectionTaskOrder(sectionId, [...currentList, subTaskCreated.id]);
+        // }
 
-        // Gán assignee cho subtask
         if (sub.assigneeIds?.length) {
           await this.assignTaskToUsers(subTaskCreated.id, sub.assigneeIds);
         }
@@ -114,28 +105,23 @@ export class TaskService {
     const task = await this.db.task.findUnique({
       where: { id: taskId },
       include: {
-        tasksOfSection: true, // Sửa: dùng tasksOfSection
+        tasksOfSection: true,
       },
     });
-
+    console.log("task",task,taskId);
     if (!task) throw new NotFoundException("Task not found");
 
-    // Lấy projectId từ TaskOfSection
     const taskSection = task.tasksOfSection[0];
     if (!taskSection) throw new NotFoundException("Task not in any section");
 
     // await this.ensureUserCanAccessProject(taskSection.section.projectId, userId);
 
-    const updateData: any = { ...dto };
-
-    // Xử lý đổi section
+    const {sectionId,subTask,...updateData} = dto;
     if (dto.sectionId && dto.sectionId !== taskSection.sectionId) {
       const newSection = await this.db.section.findUnique({
         where: { id: dto.sectionId },
       });
       if (!newSection) throw new NotFoundException("New section not found");
-
-      // Xóa khỏi section cũ
       await this.db.taskOfSection.delete({
         where: {
           taskId_sectionId: { taskId, sectionId: taskSection.sectionId },
@@ -143,7 +129,6 @@ export class TaskService {
       });
       await this.removeTaskFromSectionList(taskSection.sectionId, taskId);
 
-      // Thêm vào section mới
       await this.db.taskOfSection.create({
         data: { taskId, sectionId: dto.sectionId },
       });
@@ -151,9 +136,9 @@ export class TaskService {
         ...this.parseTaskList(newSection.listOfTask),
         taskId,
       ]);
+      await this.moveSubtasksToSection(taskId, dto.sectionId);
     }
 
-    // Cập nhật assignee
     if (dto.assigneeIds !== undefined) {
       await this.db.taskOfUser.deleteMany({ where: { taskId } });
       if (dto.assigneeIds.length > 0) {
@@ -188,7 +173,6 @@ export class TaskService {
     // });
     // if (!project) throw new NotFoundException("Project not found");
 
-    // Kiểm tra quyền
     // if (isPersonal) {
     //   if (!project.isPersonal || project.ownerId !== userId) {
     //     throw new ForbiddenException("Not allowed in personal project");
@@ -201,7 +185,6 @@ export class TaskService {
       throw new ForbiddenException("Cannot delete task with subtasks");
     }
 
-    // Xóa TaskOfSection → cập nhật listOfTask
     await this.db.taskOfSection.delete({
       where: {
         taskId_sectionId: { taskId, sectionId: taskSection.sectionId },
@@ -209,14 +192,11 @@ export class TaskService {
     });
     await this.removeTaskFromSectionList(taskSection.sectionId, taskId);
 
-    // Xóa assignees
     await this.db.taskOfUser.deleteMany({ where: { taskId } });
 
-    // Xóa task
     return this.db.task.delete({ where: { id: taskId } });
   }
 
-  // IMPORT TASK
   async importTask(taskId: string, dto: ImportTaskDto, userId: string) {
     const { toSectionId, projectId } = dto;
 
@@ -237,7 +217,6 @@ export class TaskService {
     });
     if (!targetSection) throw new NotFoundException("Target section not found");
 
-    // Tạo bản sao task
     const newTask = await this.db.task.create({
       data: {
         title: task.title,
@@ -251,7 +230,6 @@ export class TaskService {
       },
     });
 
-    // Gán vào section mới
     await this.db.taskOfSection.create({
       data: { taskId: newTask.id, sectionId: toSectionId },
     });
@@ -259,7 +237,6 @@ export class TaskService {
     const currentList = this.parseTaskList(targetSection.listOfTask);
     await this.updateSectionTaskOrder(toSectionId, [...currentList, newTask.id]);
 
-    // Copy assignees
     const assignees = await this.db.taskOfUser.findMany({
       where: { taskId },
       select: { userId: true },
@@ -271,7 +248,6 @@ export class TaskService {
     return newTask;
   }
 
-  // HELPER: Cập nhật listOfTask
   private async updateSectionTaskOrder(sectionId: string, taskIds: string[]) {
     await this.db.section.update({
       where: { id: sectionId },
@@ -310,7 +286,6 @@ export class TaskService {
     return project;
   }
 
-  // Gán user
   async assignTaskToUsers(taskId: string, userIds: string[]) {
     await this.db.taskOfUser.deleteMany({ where: { taskId } });
     if (userIds.length === 0) return;
@@ -319,7 +294,6 @@ export class TaskService {
     });
   }
 
-  // Lấy task theo ID
   async getTasksByIds(taskIds: string[]) {
     if (taskIds.length === 0) return [];
     return this.db.task.findMany({
@@ -330,5 +304,30 @@ export class TaskService {
         },
       },
     });
+  }
+  private async moveSubtasksToSection(parentTaskId: string, newSectionId: string) {
+    const subtasks = await this.db.task.findMany({
+      where: { parentTaskId },
+      include: { tasksOfSection: true },
+    });
+    for (const subtask of subtasks) {
+      const currentLink = subtask.tasksOfSection[0];
+      if (!currentLink || currentLink.sectionId === newSectionId) {
+        continue;
+      }
+      const oldSectionId = currentLink.sectionId;
+
+      await this.db.taskOfSection.delete({
+        where: {
+          taskId_sectionId: {
+            taskId: subtask.id,
+            sectionId: oldSectionId,
+          },
+        },
+      });
+      await this.db.taskOfSection.create({
+        data: { taskId: subtask.id, sectionId: newSectionId },
+      });
+    }
   }
 }

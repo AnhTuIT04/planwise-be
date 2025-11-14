@@ -7,5 +7,6 @@ import { SectionModule } from "../section/section.module"; // Import SectionModu
   imports: [SectionModule], // Import SectionModule to access SectionService
   controllers: [ProjectController],
   providers: [ProjectService],
+  exports: [ProjectService],
 })
 export class ProjectModule {}

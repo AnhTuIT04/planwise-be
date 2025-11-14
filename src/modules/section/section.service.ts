@@ -114,12 +114,10 @@ export class SectionService {
       where: { projectId },
     });
 
-    // Sắp xếp theo thứ tự trong project.listOfSection
     const orderedSections = sectionOrder
       .map((id: string) => sections.find(s => s.id === id))
       .filter(Boolean);
 
-    // Thêm các section không có trong list (nếu có)
     const remaining = sections.filter(s => !sectionOrder.includes(s.id));
     const finalSections = [...orderedSections, ...remaining];
 
