@@ -105,33 +105,60 @@ export class SectionService {
       where: { id: projectId },
       select: { listOfSection: true },
     });
-    if(!project){
-      throw new NotFoundException("Project not found");
-    }
+    if (!project) throw new NotFoundException("Project not found");
+
     const sectionOrder = project.listOfSection ? JSON.parse(project.listOfSection) : [];
 
     const sections = await this.db.section.findMany({
       where: { projectId },
+      select: { id: true, name: true, listOfTask: true, createdAt: true },
     });
 
     const orderedSections = sectionOrder
-      .map((id: string) => sections.find(s => s.id === id))
+      .map((id: string) => sections.find((s) => s.id === id))
       .filter(Boolean);
-
-    const remaining = sections.filter(s => !sectionOrder.includes(s.id));
+    const remaining = sections.filter((s) => !sectionOrder.includes(s.id));
     const finalSections = [...orderedSections, ...remaining];
 
-    const result = await Promise.all(
-      finalSections.map(async (section) => {
-        const taskIds = section.listOfTask ? JSON.parse(section.listOfTask) : [];
-        const tasks = await this.taskService.getTasksByIds(taskIds);
-        return {
-          ...section,
-          listOfTask: taskIds,
-          tasks,
-        };
-      })
-    );
+    const taskOfSections = await this.db.taskOfSection.findMany({
+      where: { section: { projectId } },
+      include: {
+        task: {
+          include: {
+            assignees: {
+              include: { user: { select: { email: true, fullname: true, avatarUrl: true } } },
+            },
+            subtasks: { 
+              include: {
+                assignees: {
+                  include: { user: { select: { email: true, fullname: true, avatarUrl: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const taskMap = new Map<string, any>();
+    taskOfSections.forEach((tos) => {
+      const task = tos.task;
+      taskMap.set(task.id, task);
+    });
+
+    const result = finalSections.map((section) => {
+      const taskIds = section.listOfTask ? JSON.parse(section.listOfTask) : [];
+
+      const parentTasks = taskIds
+        .map((id: string) => taskMap.get(id))
+        .filter(Boolean);
+
+      return {
+        ...section,
+        listOfTask: taskIds,
+        tasks: parentTasks,
+      };
+    });
 
     return result;
   }
