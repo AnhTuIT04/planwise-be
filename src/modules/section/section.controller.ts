@@ -1,8 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
+import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+
+import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
+import { MessageResponseDto } from "@/common/dto/message.dto";
 import { SectionService } from "./section.service";
-import { GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
-import { ApiOperation } from "@nestjs/swagger";
-import { CreateSectionDto, UpdateSectionDto } from "./dto";
+import { CreateSectionDto } from "./dto/request/create-section.dto";
+import { UpdateSectionDto } from "./dto/request/update-section.dto";
+import { SectionResponseDto, SectionsListResponseDto } from "./dto/response/section-response.dto";
 
 @Controller("section")
 export class SectionController {
@@ -11,22 +15,52 @@ export class SectionController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new section" })
+  @ApiResponse({
+    status: 201,
+    type: SectionResponseDto,
+    description: "The section has been successfully created.",
+  })
   create(@GetCurrentUserId() userId: string, @Body() createSectionDto: CreateSectionDto) {
-    console.log("Received request to create section:", createSectionDto);
     return this.sectionService.create(userId, createSectionDto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: "Get all sections of a specific project" })
+  @ApiResponse({
+    status: 200,
+    type: SectionsListResponseDto,
+    description: "List of sections retrieved successfully.",
+  })
+  getAllSectionsInProject(@Query("projectId") projectId: string, @GetCurrentUserId() userId: string) {
+    return this.sectionService.getAllSectionsInProject(userId, projectId);
   }
 
   @Patch(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a section" })
-  update(@Param("id") id: string, @Body() updateSectionDto: UpdateSectionDto, @GetCurrentUserId() userId: string) {
-    return this.sectionService.update(id, updateSectionDto, userId);
+  @ApiResponse({
+    status: 200,
+    type: SectionResponseDto,
+    description: "The section has been successfully updated.",
+  })
+  update(
+    @Param("id") id: string,
+    @Query("projectId") projectId: string,
+    @GetCurrentUserId() userId: string,
+    @Body() updateSectionDto: UpdateSectionDto,
+  ) {
+    return this.sectionService.update(userId, projectId, id, updateSectionDto);
   }
 
   @Delete(":id")
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a section" })
-  remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
-    return this.sectionService.remove(id, userId);
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "The section has been successfully deleted.",
+  })
+  remove(@Param("id") id: string, @Query("projectId") projectId: string, @GetCurrentUserId() userId: string) {
+    return this.sectionService.remove(userId, projectId, id);
   }
 }

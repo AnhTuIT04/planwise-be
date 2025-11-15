@@ -1,9 +1,12 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
+import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+
+import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
+import { MessageResponseDto } from "@/common/dto/message.dto";
 import { ProjectService } from "./project.service";
-import { CreateProjectDto } from "./dto/create-project.dto";
-import { UpdateProjectDto } from "./dto/update-project.dto";
-import { GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
-import { ApiOperation } from "@nestjs/swagger";
+import { CreateProjectDto } from "./dto/request/create-project.dto";
+import { UpdateProjectDto } from "./dto/request/update-project.dto";
+import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 
 @Controller("project")
 export class ProjectController {
@@ -12,13 +15,23 @@ export class ProjectController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a project" })
+  @ApiResponse({
+    status: 201,
+    type: ProjectResponseDto,
+    description: "Project created successfully",
+  })
   create(@GetCurrentUserId() userId: string, @Body() createProjectDto: CreateProjectDto) {
-    return this.projectService.create(createProjectDto, userId);
+    return this.projectService.create(userId, createProjectDto);
   }
 
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Get all projects" })
+  @ApiResponse({
+    status: 200,
+    type: ProjectsListResponseDto,
+    description: "Projects retrieved successfully",
+  })
   getAllProjects(@GetCurrentUserId() userId: string) {
     return this.projectService.getAllProjects(userId);
   }
@@ -26,6 +39,11 @@ export class ProjectController {
   @Get("personal")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Get personal project - my-tasks page" })
+  @ApiResponse({
+    status: 200,
+    type: ProjectResponseDto,
+    description: "Personal project retrieved successfully",
+  })
   getPersonalProject(@GetCurrentUserId() userId: string) {
     return this.projectService.getPersonalProject(userId);
   }
@@ -33,21 +51,36 @@ export class ProjectController {
   @Get(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Get detailed project by ID" })
+  @ApiResponse({
+    status: 200,
+    type: ProjectResponseDto,
+    description: "Detailed project retrieved successfully",
+  })
   getDetailedProject(@Param("id") id: string, @GetCurrentUserId() userId: string) {
-    return this.projectService.getDetailedProject(id, userId);
+    return this.projectService.getDetailedProject(userId, id);
   }
 
   @Patch(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a project" })
-  update(@Param("id") id: string, @Body() updateProjectDto: UpdateProjectDto) {
-    return this.projectService.update(id, updateProjectDto);
+  @ApiResponse({
+    status: 200,
+    type: ProjectResponseDto,
+    description: "Project updated successfully",
+  })
+  update(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() updateProjectDto: UpdateProjectDto) {
+    return this.projectService.update(userId, id, updateProjectDto);
   }
 
   @Delete(":id")
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a project" })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "Project deleted successfully",
+  })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
-    return this.projectService.remove(id, userId);
+    return this.projectService.remove(userId, id);
   }
 }

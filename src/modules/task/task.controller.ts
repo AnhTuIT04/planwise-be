@@ -1,9 +1,14 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
+import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+
+import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
+import { MessageResponseDto } from "@/common/dto/message.dto";
 import { TaskService } from "./task.service";
-import { CreateTaskDto } from "./dto/create-task.dto";
-import { UpdateTaskDto } from "./dto/update-task.dto";
-import { GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
-import { ApiOperation } from "@nestjs/swagger";
+import { ImportTaskDto } from "./dto/import-task.dto";
+import { CreateTaskDto } from "./dto/request/create-task.dto";
+import { UpdateTaskDto } from "./dto/request/update-task.dto";
+import { MoveTaskDto } from "./dto/request/move-task.dto";
+import { TaskResponseDto } from "./dto/response/task-response.dto";
 
 @Controller("task")
 export class TaskController {
@@ -12,49 +17,65 @@ export class TaskController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new task" })
-  create(@Body() createTaskDto: CreateTaskDto) {
-    return this.taskService.create(createTaskDto);
+  @ApiResponse({
+    status: 201,
+    type: TaskResponseDto,
+    description: "The task has been successfully created.",
+  })
+  create(@GetCurrentUserId() userId: string, @Body() dto: CreateTaskDto) {
+    return this.taskService.create(userId, dto);
   }
 
-  // @Get()
-  // @HttpCode(HttpStatus.OK)
-  // @ApiOperation({ summary: 'Get all tasks for a specific section' })
-  // findBySection(@Param('sectionId') sectionId: string, @GetCurrentUserId() userId: string) {
-  //   return this.taskService.findBySection(sectionId, userId);
-  // }
-
   @Get(":id")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Get a specific task" })
-  GetDetailTask(@Param("id") id: string) {
-    return this.taskService.getDetailedTask(id);
+  @ApiOperation({ summary: "Get task by id" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponseDto,
+    description: "The task has been successfully retrieved.",
+  })
+  getById(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.taskService.getById(userId, id);
   }
 
   @Patch(":id")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Update a task, only need to provide the fields you want to update" })
-  update(
-    @Param("id") id: string,
-    @Query("isPersonal") isPersonal: boolean,
-    @Body() updateTaskDto: UpdateTaskDto,
-    @GetCurrentUserId() userId: string,
-  ) {
-    return isPersonal
-      ? this.taskService.updatePersonal(id, updateTaskDto, userId)
-      : this.taskService.update(id, updateTaskDto);
+  @ApiOperation({ summary: "Update a task (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponseDto,
+    description: "The task has been successfully updated.",
+  })
+  update(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskDto) {
+    return this.taskService.update(userId, id, dto);
   }
 
-  // @Post('/assign')
-  // @HttpCode(HttpStatus.OK)
-  // @ApiOperation({ summary: 'Assign users to a task' })
-  // assignTaskToUsers(@Body('id') taskId: string, @Body('assigneeIds') assigneeIds: string[]) {
-  //   return this.taskService.assignTaskToUsers(taskId, assigneeIds);
-  // }
+  @Patch(":id/move")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Move a task to a different section (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "The task has been successfully moved.",
+  })
+  moveTask(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: MoveTaskDto) {
+    return this.taskService.moveTask(userId, id, dto);
+  }
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Delete a task" })
+  @ApiResponse({
+    status: 204,
+    type: MessageResponseDto,
+    description: "The task has been successfully deleted.",
+  })
   remove(@Param("id") id: string, @Query("isPersonal") isPersonal: boolean, @GetCurrentUserId() userId: string) {
-    return isPersonal ? this.taskService.removePersonal(id, userId) : this.taskService.remove(id);
+    return this.taskService.remove(userId, id, isPersonal);
   }
+
+  // @Post(":id/import")
+  // @HttpCode(HttpStatus.CREATED)
+  // importTask(@Param("id") taskId: string, @Body() dto: ImportTaskDto, @GetCurrentUserId() userId: string) {
+  //   return this.taskService.importTask(taskId, dto, userId);
+  // }
 }

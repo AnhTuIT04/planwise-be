@@ -22,7 +22,7 @@ model User {
   ownedProjects      Project[]           @relation("UserOwnsProjects")
   projectInvitations ProjectInvitation[]
   projectMemberships UserInProject[]     @relation("UserProjectMemberships")
-  supervisedTasks    Task[]
+  supervisedTasks    Task[]              @relation("SupervisorTasks")
   tasks              TaskOfUser[]
   comments           Comment[]
 }
@@ -36,7 +36,7 @@ model OAuthAccount {
   id       String   @id @default(uuid())
   provider Provider
 
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 }
 
@@ -46,7 +46,7 @@ model Project {
   logoUrl       String?
   description   String?
   isPersonal    Boolean  @default(false)
-  listOfSection String   @default("") // Storing section IDs as a JSON array, to define their order
+  listOfSection String   @default("[]")
   createdAt     DateTime @default(now())
 
   sections    Section[]
@@ -54,59 +54,65 @@ model Project {
   memberships UserInProject[]     @relation("ProjectHasMembers")
   roles       Role[]
 
-  owner   User   @relation("UserOwnsProjects", fields: [ownerId], references: [id])
+  owner   User   @relation("UserOwnsProjects", fields: [ownerId], references: [id], onDelete: SetNull)
   ownerId String
 }
 
 model Section {
   id         String   @id @default(uuid())
   name       String
-  listOfTask String   @default("") // Storing task IDs as a JSON array, to define their order
+  listOfTask String   @default("[]")
   createdAt  DateTime @default(now())
 
-  project        Project         @relation(fields: [projectId], references: [id])
-  projectId      String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+
   tasksOfSection TaskOfSection[]
 }
 
 model Task {
-  id          String         @id @default(uuid())
-  title       String
-  description String?
-  status      TaskStatus     @default(TODO)
-  priority    PriorityLevel?
-  startDate   DateTime?
-  dueDate     DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id           String         @id @default(uuid())
+  title        String
+  description  String?
+  status       TaskStatus     @default(TODO)
+  priority     PriorityLevel?
+  timeEstimate Int            @default(20)
+  timeSpent    Int            @default(0)
+  lastStarted  DateTime?
+  deadline     DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
+  // TODO: double check assignees between task and subtasks
   assignees      TaskOfUser[]
   subtasks       Task[]          @relation("SubtasksRelation")
   comments       Comment[]
   tasksOfSection TaskOfSection[]
 
-  parent       Task?   @relation("SubtasksRelation", fields: [parentTaskId], references: [id])
+  // TODO: missing project relation
+
+  parent       Task?   @relation("SubtasksRelation", fields: [parentTaskId], references: [id], onDelete: Cascade)
   parentTaskId String?
 
-  supervisor   User?   @relation(fields: [supervisorId], references: [id])
+  supervisor   User?   @relation("SupervisorTasks", fields: [supervisorId], references: [id], onDelete: SetNull)
   supervisorId String?
 }
 
 model TaskOfUser {
-  task   Task   @relation(fields: [taskId], references: [id])
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId String
 
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   @@id([taskId, userId])
 }
 
 model TaskOfSection {
-  task   Task   @relation(fields: [taskId], references: [id])
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId String
 
-  section   Section @relation(fields: [sectionId], references: [id])
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   sectionId String
 
   @@id([taskId, sectionId])
@@ -119,18 +125,18 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author   User   @relation(fields: [authorId], references: [id])
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId String
 
-  task   Task   @relation(fields: [taskId], references: [id])
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId String
 }
 
 enum TaskStatus {
   TODO
-  IN_PROGRESS
+  RUNNING
   DONE
-  DELAYED
+  ARCHIVED
 }
 
 enum PriorityLevel {
@@ -150,20 +156,20 @@ model ProjectInvitation {
   status    InvitationStatus @default(PENDING)
   createdAt DateTime         @default(now())
 
-  invitor   User   @relation(fields: [invitorId], references: [id])
+  invitor   User   @relation(fields: [invitorId], references: [id], onDelete: Cascade)
   invitorId String
 
-  project   Project @relation(fields: [projectId], references: [id])
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String
 
   @@id([invitorId, projectId])
 }
 
 model UserInProject {
-  user   User   @relation("UserProjectMemberships", fields: [userId], references: [id])
+  user   User   @relation("UserProjectMemberships", fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  project   Project @relation("ProjectHasMembers", fields: [projectId], references: [id])
+  project   Project @relation("ProjectHasMembers", fields: [projectId], references: [id], onDelete: Cascade)
   projectId String
 
   role   Role   @relation(fields: [roleId], references: [id])
@@ -175,12 +181,12 @@ model UserInProject {
 model Role {
   id               String  @id @default(uuid())
   name             String
-  listOfPermission String // Storing permissions as a JSON array
-  isDefault        Boolean @default(false) // Whether this role is a default role for owner or new members
+  listOfPermission String  @default("[]")
+  isDefault        Boolean @default(false)
 
   userInProjects UserInProject[]
 
-  project   Project? @relation(fields: [projectId], references: [id])
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String?
 
   @@unique([name, projectId])

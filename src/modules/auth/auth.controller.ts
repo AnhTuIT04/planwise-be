@@ -5,8 +5,8 @@ import type { Response } from "express";
 import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
 
 import { AppConfig } from "@/config/app.config";
-import { Public } from "@/common/decorators/public.decorator";
-import { GetCurrentUser, GetCurrentUserId } from "@/common/decorators/get-current-user.decorator";
+import { Public } from "@/decorators/public.decorator";
+import { GetCurrentUser, GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { AuthService } from "./auth.service";
 import { SignInDto } from "./dto/request/signin.dto";
@@ -15,7 +15,7 @@ import { EmailOnlyDTO } from "./dto/request/email-only.dto";
 import { VerifyOtpDTO } from "./dto/request/verify-otp.dto";
 import { ResetPasswordDTO } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
-import { UserResponseDto } from "./dto/response/user.dto";
+import { UserResponseDto } from "./dto/response/user-response.dto";
 
 @ApiTags("Auth")
 @Controller("auth")
@@ -63,22 +63,27 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Verify user email using OTP" })
-  @ApiResponse({ status: 200, type: UserResponseDto, description: "Email verified successfully and user logged in." })
+  @ApiResponse({
+    status: 200,
+    type: UserResponseDto,
+    description: "Email verified successfully and user logged in.",
+  })
   async verifyEmail(@Body() verifyEmailDto: VerifyOtpDTO, @Res() res: Response) {
     const { accessToken, user } = await this.authService.verifyEmail(verifyEmailDto);
     this.setAccessTokenToCookie(res, accessToken);
 
-    return res.json({
-      user,
-      message: "Email verified successfully. You are now logged in.",
-    });
+    return res.json(new UserResponseDto(user, "Email verified successfully. You are now logged in."));
   }
 
   @Post("verify-email/resend-otp")
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Resend email verification OTP" })
-  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP resent successfully." })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "OTP resent successfully.",
+  })
   async resendVerificationOtp(@Body() dto: EmailOnlyDTO) {
     return this.authService.resendOtp(dto.email, true);
   }
@@ -91,7 +96,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Send OTP to email for password reset" })
-  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP sent to email successfully." })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "OTP sent to email successfully.",
+  })
   async forgotPassword(@Body() dto: EmailOnlyDTO) {
     return this.authService.forgotPassword(dto.email);
   }
@@ -100,7 +109,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Verify OTP for password reset" })
-  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP verified successfully." })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "OTP verified successfully.",
+  })
   async verifyResetPasswordOtp(@Body() verifyEmailDto: VerifyOtpDTO) {
     return this.authService.verifyResetPassword(verifyEmailDto);
   }
@@ -109,7 +122,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Reset password using OTP" })
-  @ApiResponse({ status: 200, type: MessageResponseDto, description: "Password reset successfully." })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "Password reset successfully.",
+  })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDTO) {
     return this.authService.resetPassword(resetPasswordDto);
   }
@@ -118,7 +135,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Resend password reset OTP" })
-  @ApiResponse({ status: 200, type: MessageResponseDto, description: "OTP resent successfully." })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "OTP resent successfully.",
+  })
   async resendPasswordResetOtp(@Body() dto: EmailOnlyDTO) {
     return this.authService.resendOtp(dto.email, false);
   }
@@ -173,21 +194,29 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Sign in with verified email and password" })
-  @ApiResponse({ status: 200, type: UserResponseDto, description: "Sign-in successful." })
+  @ApiResponse({
+    status: 200,
+    type: UserResponseDto,
+    description: "Sign-in successful.",
+  })
   async signin(@Body() signInDto: SignInDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.signin(signInDto);
     this.setAccessTokenToCookie(res, accessToken);
-    return res.json({ user, message: "Signed in successfully." });
+    return res.json(new UserResponseDto(user, "Sign-in successful."));
   }
 
   @Post("signout")
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Sign out (clear auth cookie)" })
-  @ApiResponse({ status: 200, type: MessageResponseDto, description: "Signed out successfully." })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "Signed out successfully.",
+  })
   logout(@Res() res: Response) {
     this.clearAccessTokenCookie(res);
-    return res.json({ message: "Signed out successfully." });
+    return res.json(new MessageResponseDto("Signed out successfully."));
   }
 
   // -------------------------------
@@ -196,7 +225,11 @@ export class AuthController {
 
   @Get("me")
   @ApiOperation({ summary: "Get currently authenticated user" })
-  @ApiResponse({ status: 200, type: UserResponseDto, description: "User data retrieved successfully." })
+  @ApiResponse({
+    status: 200,
+    type: UserResponseDto,
+    description: "User data retrieved successfully.",
+  })
   async getCurrentUser(@GetCurrentUserId() userId: string) {
     return await this.authService.getUserData(userId);
   }
@@ -204,10 +237,12 @@ export class AuthController {
   @Patch("me")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update current user profile" })
-  @ApiResponse({ status: 200, type: UserResponseDto, description: "Profile updated successfully." })
+  @ApiResponse({
+    status: 200,
+    type: UserResponseDto,
+    description: "Profile updated successfully.",
+  })
   async updateProfile(@GetCurrentUserId() userId: string, @Body() updateProfileDto: UpdateProfileDto) {
-    console.log(updateProfileDto);
-
     return await this.authService.updateProfile(userId, updateProfileDto);
   }
 }

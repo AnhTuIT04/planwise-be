@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { Prisma, User } from "prisma/client";
 
 import { DatabaseService } from "@/modules/database/database.service";
-
 @Injectable()
 export class UsersService {
   constructor(private db: DatabaseService) {}
@@ -44,6 +43,7 @@ export class UsersService {
         update: updateData,
       });
     }
+
     return this.db.user.upsert({
       where: { email },
       create: createDataOrBoth as Prisma.UserCreateInput,

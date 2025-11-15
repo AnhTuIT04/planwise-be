@@ -20,12 +20,12 @@ exports.Prisma = Prisma
 exports.$Enums = {}
 
 /**
- * Prisma Client JS version: 6.17.1
- * Query Engine version: 272a37d34178c2894197e17273bf937f25acdeac
+ * Prisma Client JS version: 6.18.0
+ * Query Engine version: 34b5a692b7bd79939a9a2c3ef97d816e749cda2f
  */
 Prisma.prismaVersion = {
-  client: "6.17.1",
-  engine: "272a37d34178c2894197e17273bf937f25acdeac"
+  client: "6.18.0",
+  engine: "34b5a692b7bd79939a9a2c3ef97d816e749cda2f"
 }
 
 Prisma.PrismaClientKnownRequestError = () => {
@@ -162,8 +162,10 @@ exports.Prisma.TaskScalarFieldEnum = {
   description: 'description',
   status: 'status',
   priority: 'priority',
-  startDate: 'startDate',
-  dueDate: 'dueDate',
+  timeEstimate: 'timeEstimate',
+  timeSpent: 'timeSpent',
+  lastStarted: 'lastStarted',
+  deadline: 'deadline',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   parentTaskId: 'parentTaskId',
@@ -232,9 +234,9 @@ exports.Provider = exports.$Enums.Provider = {
 
 exports.TaskStatus = exports.$Enums.TaskStatus = {
   TODO: 'TODO',
-  IN_PROGRESS: 'IN_PROGRESS',
+  RUNNING: 'RUNNING',
   DONE: 'DONE',
-  DELAYED: 'DELAYED'
+  ARCHIVED: 'ARCHIVED'
 };
 
 exports.PriorityLevel = exports.$Enums.PriorityLevel = {

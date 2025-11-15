@@ -1,86 +1,175 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { DatabaseService } from "../database/database.service";
-import { DetailedSectionResponseDto, CreateSectionDto, UpdateSectionDto } from "./dto";
-import { TaskService } from "../task/task.service";
+import { ForbiddenException, Injectable } from "@nestjs/common";
+
+import { Prisma } from "prisma/client";
+import { DatabaseService } from "@/modules/database/database.service";
+import { MessageResponseDto } from "@/common/dto/message.dto";
+import { CreateSectionDto } from "./dto/request/create-section.dto";
+import { UpdateSectionDto } from "./dto/request/update-section.dto";
+import { SectionResponseDto, SectionsListResponseDto } from "./dto/response/section-response.dto";
 
 @Injectable()
 export class SectionService {
-  constructor(
-    private db: DatabaseService,
-    private taskService: TaskService,
-  ) {}
+  constructor(private db: DatabaseService) {}
 
-  create(userId: string, createSectionDto: CreateSectionDto) {
-    return this.db.section.create({
-      data: createSectionDto,
+  async create(userId: string, dto: CreateSectionDto) {
+    const { name, projectId, insertAt } = dto;
+
+    const project = await this.ensureUserCanAccessProject(projectId, userId);
+    const section = await this.db.section.create({
+      data: { name, projectId },
     });
+
+    const currentList = JSON.parse(project.listOfSection);
+    if (insertAt !== undefined && insertAt >= 0 && insertAt <= currentList.length) {
+      currentList.splice(insertAt, 0, section.id);
+    } else {
+      currentList.push(section.id);
+    }
+
+    await this.db.project.update({
+      where: { id: projectId },
+      data: { listOfSection: JSON.stringify(currentList) },
+    });
+
+    return new SectionResponseDto({ ...section, tasksOfSection: [] }, "Section created successfully");
   }
 
-  async update(sectionId: string, updateSectionDto: UpdateSectionDto, userId: string) {
-    const existingSection = await this.db.section.findUnique({
-      where: { id: sectionId, projectId: updateSectionDto.projectId },
-    });
+  async getAllSectionsInProject(userId: string, projectId: string) {
+    const project = await this.ensureUserCanAccessProject(projectId, userId);
 
-    if (!existingSection) {
-      throw new NotFoundException("Section not found or does not belong to the specified project");
-    }
-
-    return this.db.section.update({
-      where: { id: sectionId },
-      data: updateSectionDto,
-    });
-  }
-
-  async remove(sectionId: string, userId: string) {
-    const numberOfTasks = await this.db.task.count({
-      where: { sectionId: sectionId },
-    });
-
-    if (numberOfTasks > 0) {
-      throw new Error("Cannot delete section with existing tasks");
-    }
-
-    const section = await this.db.section.findUnique({
-      where: { id: sectionId },
-    });
-
-    if (!section) {
-      throw new NotFoundException("Section not found");
-    }
-
-    const project = await this.db.project.findUnique({
-      where: { id: section.projectId },
-    });
-
-    if (project?.isPersonal && section.name === "Default") {
-      throw new Error("Cannot delete default section in your workspace");
-    }
-
-    return this.db.section.delete({
-      where: { id: sectionId },
-    });
-  }
-
-  async getDetailedSectionsByProject(projectId: string, userId: string): Promise<DetailedSectionResponseDto[]> {
-    // First get all sections for the project
     const sections = await this.db.section.findMany({
       where: {
-        projectId: projectId,
+        projectId,
+      },
+      include: {
+        tasksOfSection: {
+          include: {
+            task: {
+              include: {
+                assignees: {
+                  include: {
+                    user: true,
+                  },
+                },
+                supervisor: true,
+                subtasks: {
+                  include: {
+                    assignees: {
+                      include: {
+                        user: true,
+                      },
+                    },
+                    supervisor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
-    // Then get tasks for each section using the existing TaskService method
-    const sectionsWithTasks = await Promise.all(
-      sections.map(async (section) => {
-        const tasks = await this.taskService.getTasksBySection(section.id);
-        return {
-          ...section,
-          listOfTask: section.listOfTask, // Convert JSON string to array
-          tasks: tasks,
-        };
-      }),
-    );
+    const sectionMap = new Map(sections.map((section) => [section.id, section]));
+    const sectionIds = JSON.parse(project.listOfSection) as string[];
+    const orderedSections = sectionIds.map((id) => sectionMap.get(id)).filter((task) => task !== undefined);
 
-    return sectionsWithTasks;
+    return new SectionsListResponseDto(
+      orderedSections,
+      0,
+      sections.length,
+      sections.length,
+      "Sections retrieved successfully",
+    );
+  }
+
+  async update(userId: string, projectId: string, sectionId: string, dto: UpdateSectionDto) {
+    const section = await this.db.section.findUnique({
+      where: {
+        id: sectionId,
+        projectId,
+        project: {
+          OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+        },
+      },
+    });
+
+    if (!section) {
+      throw new ForbiddenException("Section not found or does not belong to the project");
+    }
+
+    const updatedProject = await this.db.section.update({
+      where: { id: sectionId },
+      data: {
+        name: dto.name,
+      },
+      include: {
+        tasksOfSection: {
+          include: {
+            task: {
+              include: {
+                assignees: {
+                  include: {
+                    user: true,
+                  },
+                },
+                supervisor: true,
+                subtasks: {
+                  include: {
+                    assignees: {
+                      include: {
+                        user: true,
+                      },
+                    },
+                    supervisor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return new SectionResponseDto(updatedProject, "Section updated successfully");
+  }
+
+  async remove(userId: string, projectId: string, sectionId: string) {
+    const section = await this.db.section.findUnique({
+      where: {
+        id: sectionId,
+        projectId,
+        project: {
+          OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+        },
+      },
+    });
+
+    if (!section) {
+      throw new ForbiddenException("Section not found or does not belong to the project");
+    }
+
+    await this.db.section.delete({
+      where: { id: sectionId },
+    });
+
+    return new MessageResponseDto("Section deleted successfully");
+  }
+
+  private async ensureUserCanAccessProject(projectId: string, userId: string, select?: Prisma.ProjectSelect) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+      },
+      select: {
+        id: true,
+        listOfSection: true,
+        ...select,
+      },
+    });
+
+    if (!project) throw new ForbiddenException("Project not found or you don't have access");
+
+    return project;
   }
 }
