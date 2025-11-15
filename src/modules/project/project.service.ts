@@ -1,168 +1,197 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { ProjectResponseDto, CreateProjectDto, UpdateProjectDto, DetailedProjectResponseDto } from "./dto";
-import { DatabaseService } from "../database/database.service";
-import { SectionService } from "../section/section.service";
-import { Project, Section } from "prisma/client";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+
+import { DatabaseService } from "@/modules/database/database.service";
+import { MessageResponseDto } from "@/common/dto/message.dto";
+import { CreateProjectDto } from "./dto/request/create-project.dto";
+import { UpdateProjectDto } from "./dto/request/update-project.dto";
+import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
+
 @Injectable()
 export class ProjectService {
-  constructor(
-    private readonly db: DatabaseService,
-    private readonly sectionService: SectionService,
-  ) {}
+  constructor(private readonly db: DatabaseService) {}
 
-  async create(createProjectDto: CreateProjectDto, userId: string): Promise<DetailedProjectResponseDto> {
+  async create(userId: string, createProjectDto: CreateProjectDto) {
     const newProject = await this.db.project.create({
       data: { ...createProjectDto, ownerId: userId },
+      include: {
+        owner: true,
+      },
     });
-    return { // returning empty sections and taskCount as 0 for newly created project
-      ...newProject,
-      sections: [],
-      taskCount: 0,
-    };
+
+    // TODO: fix role later
+    return new ProjectResponseDto({ ...newProject, memberships: [], sections: [] }, "Project created successfully");
   }
 
-  async update(projectId: string, updateProjectDto: UpdateProjectDto) {
-    const project = await this.db.project.findUnique({
-      where: { id: projectId },
-    });
-    if (!project) throw new NotFoundException("Project not found");
-    this.db.project.update({
-      where: { id: projectId },
-      data: updateProjectDto,
+  // For project listing page - not done yet
+  async getAllProjects(userId: string) {
+    const projects = await this.db.project.findMany({
+      where: {
+        isPersonal: false,
+        OR: [
+          {
+            ownerId: userId,
+          },
+          {
+            memberships: { some: { userId: userId } },
+          },
+        ],
+      },
+      include: {
+        memberships: {
+          include: { user: true },
+        },
+        owner: true,
+        sections: true,
+      },
     });
 
-    return {
-      success: true,
-      message: "Project updated successfully",
+    // TODO: Add pagination later
+    return new ProjectsListResponseDto(
+      projects,
+      0,
+      projects.length,
+      projects.length,
+      "Projects retrieved successfully",
+    );
+  }
+
+  // Get user's personal project
+  async getPersonalProject(userId: string) {
+    let project = await this.db.project.findFirst({
+      where: { ownerId: userId, isPersonal: true },
+      include: {
+        memberships: {
+          include: { user: true },
+        },
+        owner: true,
+        sections: true,
+      },
+    });
+
+    if (!project) {
+      project = await this.db.project.create({
+        data: {
+          name: "My Workspace",
+          isPersonal: true,
+          ownerId: userId,
+          sections: {
+            create: [
+              {
+                name: "Default",
+              },
+            ],
+          },
+        },
+        include: {
+          memberships: {
+            include: { user: true },
+          },
+          owner: true,
+          sections: true,
+        },
+      });
+
+      await this.db.project.update({
+        where: { id: project.id },
+        data: {
+          listOfSection: JSON.stringify(project.sections.map((s) => s.id)),
+        },
+      });
+
+      project.listOfSection = JSON.stringify(project.sections.map((s) => s.id));
     }
+
+    return new ProjectResponseDto(project, "Personal project retrieved successfully");
   }
 
-  async remove(projectId: string, userId: string) {
-    const project = await this.db.project.findUnique({
+  // For project detail page (includes sections + tasks)
+  async getDetailedProject(userId: string, projectId: string) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        OR: [
+          {
+            ownerId: userId,
+          },
+          {
+            memberships: { some: { userId: userId } },
+          },
+        ],
+      },
+      include: {
+        memberships: {
+          include: { user: true },
+        },
+        owner: true,
+        sections: true,
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    return new ProjectResponseDto(project, "Detailed project retrieved successfully");
+  }
+
+  async update(userId: string, projectId: string, updateProjectDto: UpdateProjectDto) {
+    let project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        OR: [
+          {
+            ownerId: userId,
+          },
+          {
+            memberships: { some: { userId: userId } },
+          },
+        ],
+      },
+      include: {
+        memberships: {
+          include: { user: true },
+        },
+        owner: true,
+        sections: true,
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+    if (project.isPersonal === true) throw new ForbiddenException("Cannot update personal project");
+
+    const updatedProject = await this.db.project.update({
       where: { id: projectId },
+      data: {
+        name: updateProjectDto.name,
+        description: updateProjectDto.description,
+        logoUrl: updateProjectDto.logoUrl,
+        listOfSection: updateProjectDto.listOfSection
+          ? JSON.stringify(updateProjectDto.listOfSection)
+          : project.listOfSection,
+      },
+    });
+
+    return new ProjectResponseDto({ ...project, ...updatedProject }, "Project updated successfully");
+  }
+
+  async remove(userId: string, projectId: string) {
+    // TODO: check role later
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        ownerId: userId,
+      },
       include: {
         sections: true,
       },
     });
 
-    if (!project) throw new NotFoundException("Project not found");
-    if (project.isPersonal === true) throw new Error("Cannot delete personal project");
-    if (project.sections.length > 0) throw new Error("Cannot delete project with existing sections");
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+    if (project.isPersonal === true) throw new ForbiddenException("Cannot delete personal project");
+    if (project.sections.length > 0) throw new ForbiddenException("Cannot delete project with existing sections");
 
-    return this.db.project.delete({
+    await this.db.project.delete({
       where: { id: projectId },
     });
-  }
 
-  // For project listing page - not done yet
-  async getAllProjects(userId: string): Promise<ProjectResponseDto[]> {
-    const projects = await this.db.project.findMany({
-      where: {
-        isPersonal: false,
-        memberships: {
-          some: { userId: userId }, // user is a member of the project
-        },
-      },
-      include: {
-        _count: {
-          select: { sections: true, memberships: true }, // number of sections
-        },
-        sections: {
-          select: { _count: { select: { tasksOfSection: true } } }, // number of tasks in each section
-        },
-        owner: {
-          select: { id: true, email: true, fullname: true, avatarUrl: true },
-        },
-      }
-    });
-
-    return projects.map((project) => ({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      logoUrl: project.logoUrl,
-      createdAt: project.createdAt,
-      owner: project.owner,
-      sectionCount: project._count.sections,
-      taskCount: project.sections.reduce((total, section) => total + section._count.tasksOfSection, 0),
-      memberCount: project._count.memberships,
-    }));
-  }
-
-  // FE: my-tasks page
-  // Get user's personal project
-  async getPersonalProject(userId: string): Promise<DetailedProjectResponseDto> {
-    let project = await this.db.project.findFirst({
-      where: { ownerId: userId, isPersonal: true },
-      include: {
-        sections: true
-      }
-    });
-
-    if (!project) {
-      throw new NotFoundException("Personal project not found");
-    }
-
-    const sections = await this.sectionService.getDetailedSectionsByProject(project.id, userId);
-
-    return {
-      ...project,
-      listOfSection: project.listOfSection,
-      sections: sections,
-      taskCount: sections.reduce((total, section) => total + section.tasks.length, 0),
-    };
-  }
-
-  // For project detail page (includes sections + tasks)
-  async getDetailedProject(projectId: string, userId: string): Promise<DetailedProjectResponseDto> {
-    const project = await this.db.project.findUnique({
-      where: { id: projectId },
-      include: {
-        sections: true
-      },
-    });
-
-    if (!project) throw new NotFoundException("Project not found");
-
-    // Get sections with tasks using existing section service
-    const sections = await this.sectionService.getDetailedSectionsByProject(project.id, userId);
-
-    return {
-      ...project,
-      listOfSection: project.listOfSection,
-      sections: sections,
-      taskCount: sections.reduce((total, section) => total + section.tasks.length, 0),
-    };
-  }
-  async createPersonalProjectForUser(
-    userId: string,
-  ): Promise<{ project: Project; defaultSection: Section }> {
-    const prisma = this.db;
-
-    const project = await prisma.project.create({
-      data: {
-        name: "My Workspace",
-        isPersonal: true,
-        ownerId: userId,
-        listOfSection: JSON.stringify([]),
-      },
-    });
-
-    const defaultSection = await prisma.section.create({
-      data: {
-        name: "Default",
-        projectId: project.id,
-        listOfTask: JSON.stringify([]),
-      },
-    });
-
-    await prisma.project.update({
-      where: { id: project.id },
-      data: {
-        listOfSection: JSON.stringify([defaultSection.id]),
-      },
-    });
-
-    return { project, defaultSection };
+    return new MessageResponseDto("Project deleted successfully");
   }
 }

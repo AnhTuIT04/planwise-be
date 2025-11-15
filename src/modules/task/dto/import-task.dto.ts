@@ -1,6 +1,5 @@
-// dto/import-task.dto.ts
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsUUID, IsString, IsOptional } from 'class-validator';
+import { IsUUID, IsString, IsOptional } from "class-validator";
 
 export class ImportTaskDto {
   @IsUUID()

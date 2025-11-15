@@ -25,4 +25,11 @@ export class ErrorDto {
     example: "2025-10-11T10:30:45.123Z",
   })
   timestamp: string;
+
+  constructor(name: string, message: string, request: string) {
+    this.name = name;
+    this.message = message;
+    this.request = request;
+    this.timestamp = new Date().toISOString();
+  }
 }

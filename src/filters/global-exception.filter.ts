@@ -4,12 +4,7 @@ import { Request, Response } from "express";
 import { ErrorDto } from "@/common/dto/error.dto";
 
 function error(request: Request, response: Response, name: string, message: string, status: HttpStatus) {
-  return response.status(status).json({
-    name,
-    message,
-    request: `${status} ${request.method} ${request.url}`,
-    timestamp: new Date().toISOString(),
-  } as ErrorDto);
+  return response.status(status).json(new ErrorDto(name, message, `${status} ${request.method} ${request.url}`));
 }
 
 @Catch()

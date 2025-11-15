@@ -162,8 +162,10 @@ exports.Prisma.TaskScalarFieldEnum = {
   description: 'description',
   status: 'status',
   priority: 'priority',
-  startDate: 'startDate',
-  dueDate: 'dueDate',
+  timeEstimate: 'timeEstimate',
+  timeSpent: 'timeSpent',
+  lastStarted: 'lastStarted',
+  deadline: 'deadline',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   parentTaskId: 'parentTaskId',
@@ -232,9 +234,9 @@ exports.Provider = exports.$Enums.Provider = {
 
 exports.TaskStatus = exports.$Enums.TaskStatus = {
   TODO: 'TODO',
-  IN_PROGRESS: 'IN_PROGRESS',
+  RUNNING: 'RUNNING',
   DONE: 'DONE',
-  DELAYED: 'DELAYED'
+  ARCHIVED: 'ARCHIVED'
 };
 
 exports.PriorityLevel = exports.$Enums.PriorityLevel = {

@@ -5,12 +5,14 @@ import * as bcrypt from "bcrypt";
 import { UsersService } from "@/modules/users/users.service";
 import { CacheService } from "@/modules/cache/cache.service";
 import { EmailService } from "@/modules/email/email.service";
-import { JwtPayloadDTO } from "./dto/request/jwt-payload.dto";
+import { MessageResponseDto } from "@/common/dto/message.dto";
+import { JwtPayloadDTO } from "./dto/jwt-payload.dto";
 import { SignInDto } from "./dto/request/signin.dto";
 import { SignUpDto } from "./dto/request/signup.dto";
 import { VerifyOtpDTO } from "./dto/request/verify-otp.dto";
 import { ResetPasswordDTO } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
+import { UserResponseDto } from "./dto/response/user-response.dto";
 
 @Injectable()
 export class AuthService {
@@ -27,8 +29,7 @@ export class AuthService {
   private async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
     if (user && user.password && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
-      return result;
+      return user;
     }
     return null;
   }
@@ -66,9 +67,7 @@ export class AuthService {
       console.error("Failed to send verification email:", err);
     });
 
-    return {
-      message: "Signup successful. Please check your email for the OTP to verify your account.",
-    };
+    return new MessageResponseDto("Signup successful. Please check your email for the OTP to verify your account.");
   }
 
   async verifyEmail(verifyEmailDto: VerifyOtpDTO) {
@@ -88,7 +87,7 @@ export class AuthService {
     }
 
     // Mark user as verified and clear cached OTP
-    const [{ password, ...user }] = await Promise.all([
+    const [user] = await Promise.all([
       this.usersService.update(existingUser.id, { verified: true }),
       this.cacheService.del(this.OTP_CACHE_KEY_PREFIX + verifyEmailDto.email),
     ]);
@@ -96,7 +95,6 @@ export class AuthService {
     const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
 
     return {
-      message: "Email verified successfully.",
       accessToken,
       user: user,
     };
@@ -130,9 +128,9 @@ export class AuthService {
       this.emailService.sendPasswordResetEmail(email, otp);
     }
 
-    return {
-      message: `A new OTP has been sent to your email for ${isForVerification ? "verification" : "password reset"}.`,
-    };
+    return new MessageResponseDto(
+      `A new OTP has been sent to your email for ${isForVerification ? "verification" : "password reset"}.`,
+    );
   }
 
   async forgotPassword(email: string) {
@@ -148,9 +146,7 @@ export class AuthService {
       this.emailService.sendPasswordResetEmail(email, otp),
     ]);
 
-    return {
-      message: "OTP for password reset has been sent to your email.",
-    };
+    return new MessageResponseDto("OTP for password reset has been sent to your email.");
   }
 
   async verifyResetPassword(verifyPasswordDto: VerifyOtpDTO) {
@@ -165,7 +161,7 @@ export class AuthService {
       throw new BadRequestException("Invalid or expired OTP");
     }
 
-    return { message: "OTP verified successfully." };
+    return new MessageResponseDto("OTP verified successfully. You can now reset your password.");
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDTO) {
@@ -187,7 +183,7 @@ export class AuthService {
       this.cacheService.del(this.OTP_CACHE_KEY_PREFIX + resetPasswordDto.email),
     ]);
 
-    return { message: "Password has been reset successfully." };
+    return new MessageResponseDto("Password has been reset successfully.");
   }
 
   async signin(signInDto: SignInDto) {
@@ -203,7 +199,6 @@ export class AuthService {
     const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
 
     return {
-      message: "Sign-in successful.",
       accessToken,
       user,
     };
@@ -215,11 +210,7 @@ export class AuthService {
       throw new UnauthorizedException("User not found");
     }
 
-    const { password, ...result } = user;
-    return {
-      user: result,
-      message: "User data retrieved successfully.",
-    };
+    return new UserResponseDto(user, "User data retrieved successfully.");
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
@@ -239,19 +230,11 @@ export class AuthService {
 
     // If no fields to update, return current user data
     if (Object.keys(updateData).length === 0) {
-      const { password, ...result } = existingUser;
-      return {
-        user: result,
-        message: "No changes were made.",
-      };
+      return new UserResponseDto(existingUser, "Profile retrieved successfully.");
     }
 
-    const { password, ...updatedUser } = await this.usersService.update(userId, updateData);
-
-    return {
-      user: updatedUser,
-      message: "Profile updated successfully.",
-    };
+    const updatedUser = await this.usersService.update(userId, updateData);
+    return new UserResponseDto(updatedUser, "Profile updated successfully.");
   }
 
   async validateOAuthUser(
@@ -262,10 +245,8 @@ export class AuthService {
       avatarUrl: string;
     },
   ) {
-    // Extract needed info from profile
     const { email, fullname: name, avatarUrl: avatar } = profile;
-
-    let { password, ...user } = await this.usersService.createOrUpdate(
+    const user = await this.usersService.createOrUpdate(
       email,
       {
         email,
