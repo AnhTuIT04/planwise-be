@@ -43,13 +43,8 @@ export class SectionController {
     type: SectionResponseDto,
     description: "The section has been successfully updated.",
   })
-  update(
-    @Param("id") id: string,
-    @Query("projectId") projectId: string,
-    @GetCurrentUserId() userId: string,
-    @Body() updateSectionDto: UpdateSectionDto,
-  ) {
-    return this.sectionService.update(userId, projectId, id, updateSectionDto);
+  update(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() updateSectionDto: UpdateSectionDto) {
+    return this.sectionService.update(userId, id, updateSectionDto);
   }
 
   @Delete(":id")

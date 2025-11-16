@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsOptional, IsString } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class UpdateSectionDto {
   @IsOptional()
@@ -10,4 +10,12 @@ export class UpdateSectionDto {
     required: false,
   })
   readonly name?: string;
+
+  @IsNotEmpty()
+  @IsUUID()
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the project this section belongs to",
+  })
+  readonly projectId: string;
 }

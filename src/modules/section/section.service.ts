@@ -82,11 +82,11 @@ export class SectionService {
     );
   }
 
-  async update(userId: string, projectId: string, sectionId: string, dto: UpdateSectionDto) {
+  async update(userId: string, sectionId: string, dto: UpdateSectionDto) {
     const section = await this.db.section.findUnique({
       where: {
         id: sectionId,
-        projectId,
+        projectId: dto.projectId,
         project: {
           OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
         },

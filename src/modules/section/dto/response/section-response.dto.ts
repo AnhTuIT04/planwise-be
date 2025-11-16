@@ -13,24 +13,17 @@ export class SectionBasicDto {
   readonly name: string;
 
   @ApiProperty({
-    example: "['550e8400-e29b-41d4-a716-446655440000']",
-    description: "Array of task ids in this section",
-  })
-  readonly tasks: string[];
-
-  @ApiProperty({
     example: "2024-06-15T12:00:00Z",
     description: "Timestamp of section creation",
     format: "date-time",
   })
   readonly createdAt: Date;
 
-  constructor(section?: { id: string; name: string; listOfTask: string; createdAt: Date }) {
+  constructor(section?: { id: string; name: string; createdAt: Date }) {
     if (!section) return;
 
     this.id = section.id;
     this.name = section.name;
-    this.tasks = JSON.parse(section.listOfTask) as string[];
     this.createdAt = section.createdAt;
   }
 }
@@ -115,7 +108,7 @@ export class SectionBasicResponseDto extends ResponseDto<SectionBasicDto> {
   @ApiProperty({ type: () => SectionBasicDto, description: "Section data" })
   declare readonly data: SectionBasicDto;
 
-  constructor(data: { id: string; name: string; listOfTask: string; createdAt: Date }, message?: string) {
+  constructor(data: { id: string; name: string; createdAt: Date }, message?: string) {
     super(new SectionBasicDto(data), message);
   }
 }

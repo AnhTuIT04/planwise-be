@@ -69,7 +69,11 @@ export class TaskController {
     type: MessageResponseDto,
     description: "The task has been successfully deleted.",
   })
-  remove(@Param("id") id: string, @Query("isPersonal") isPersonal: boolean, @GetCurrentUserId() userId: string) {
+  remove(
+    @Param("id") id: string,
+    @Query("isPersonal") isPersonal: boolean = false,
+    @GetCurrentUserId() userId: string,
+  ) {
     return this.taskService.remove(userId, id, isPersonal);
   }
 
