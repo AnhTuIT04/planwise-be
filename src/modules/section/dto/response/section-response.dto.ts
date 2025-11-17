@@ -165,6 +165,9 @@ export class SectionResponseDto extends ResponseDto<SectionDto> {
 }
 
 export class SectionsListResponseDto extends PaginationResponseDto<SectionDto> {
+  @ApiProperty({ type: () => [SectionDto], description: "Array of section data" })
+  declare readonly data: SectionDto[];
+
   constructor(
     sections: {
       id: string;
