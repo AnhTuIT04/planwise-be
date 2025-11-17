@@ -97,6 +97,9 @@ export class ProjectResponseDto extends ResponseDto<ProjectDto> {
 }
 
 export class ProjectsListResponseDto extends PaginationResponseDto<ProjectDto> {
+  @ApiProperty({ type: () => [ProjectDto], description: "Array of project data" })
+  declare readonly data: ProjectDto[];
+
   constructor(
     projects: (Project & {
       owner: UserBasicDto;
