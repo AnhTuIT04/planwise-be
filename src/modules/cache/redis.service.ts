@@ -25,8 +25,9 @@ export class RedisService implements ICacheService, OnModuleDestroy {
     }
 
     this.redis = new Redis(redisUrl, {
-      retryStrategy: (times) => Math.min(times * 50, 2000),
+      retryStrategy: () => null,
       reconnectOnError: () => false,
+      maxRetriesPerRequest: 1,
     });
 
     await new Promise<void>((resolve, reject) => {

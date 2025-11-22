@@ -54,8 +54,8 @@ model Project {
   memberships UserInProject[]     @relation("ProjectHasMembers")
   roles       Role[]
 
-  owner   User   @relation("UserOwnsProjects", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerId String
+  owner   User?   @relation("UserOwnsProjects", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId String?
 }
 
 model Section {
@@ -156,13 +156,13 @@ model ProjectInvitation {
   status    InvitationStatus @default(PENDING)
   createdAt DateTime         @default(now())
 
-  invitor   User   @relation(fields: [invitorId], references: [id], onDelete: Cascade)
-  invitorId String
+  inviter   User   @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  inviterId String
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String
 
-  @@id([invitorId, projectId])
+  @@id([inviterId, projectId])
 }
 
 model UserInProject {
@@ -186,8 +186,8 @@ model Role {
 
   userInProjects UserInProject[]
 
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId String?
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
 
   @@unique([name, projectId])
 }

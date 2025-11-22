@@ -6,7 +6,7 @@ import { MemoryService } from "./memory.service";
 
 @Global()
 @Module({
-  providers: [CacheService, RedisService, MemoryService],
+  providers: [RedisService, MemoryService, CacheService],
   exports: [CacheService],
 })
 export class CacheModule {}

@@ -21,10 +21,10 @@ export class RoleDto {
   })
   readonly permissions: string[];
 
-  constructor(role: { id: string; name: string; permissions: string[] }) {
+  constructor(role: { id: string; name: string; listOfPermission: string }) {
     this.id = role.id;
     this.name = role.name;
-    this.permissions = role.permissions;
+    this.permissions = JSON.parse(role.listOfPermission);
   }
 }
 
@@ -32,7 +32,7 @@ export class RoleResponseDto extends ResponseDto<RoleDto> {
   @ApiProperty({ type: () => RoleDto, description: "Role data" })
   declare readonly data: RoleDto;
 
-  constructor(data: RoleDto, message?: string) {
-    super(new RoleDto(data), message);
+  constructor(role: { id: string; name: string; listOfPermission: string }, message?: string) {
+    super(new RoleDto(role), message);
   }
 }

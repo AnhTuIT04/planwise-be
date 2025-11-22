@@ -41,9 +41,25 @@ export class UserWithRoleDto extends UserBasicDto {
   @ApiProperty({ type: () => RoleDto, description: "Role of the user" })
   readonly role: RoleDto;
 
-  constructor(user: { id: string; email: string; fullname: string; avatarUrl: string | null; role: RoleDto }) {
+  constructor(
+    user: {
+      id: string;
+      email: string;
+      password: string | null;
+      fullname: string;
+      avatarUrl: string | null;
+      verified: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    role: {
+      id: string;
+      name: string;
+      listOfPermission: string;
+    },
+  ) {
     super(user);
-    this.role = new RoleDto(user.role);
+    this.role = new RoleDto(role);
   }
 }
 
@@ -97,8 +113,25 @@ export class UserWithRoleResponseDto extends ResponseDto<UserWithRoleDto> {
   @ApiProperty({ type: () => UserWithRoleDto, description: "User information with role" })
   declare readonly data: UserWithRoleDto;
 
-  constructor(data: UserWithRoleDto, message?: string) {
-    super(new UserWithRoleDto(data), message);
+  constructor(
+    user: {
+      id: string;
+      email: string;
+      password: string | null;
+      fullname: string;
+      avatarUrl: string | null;
+      verified: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    role: {
+      id: string;
+      name: string;
+      listOfPermission: string;
+    },
+    message?: string,
+  ) {
+    super(new UserWithRoleDto(user, role), message);
   }
 }
 

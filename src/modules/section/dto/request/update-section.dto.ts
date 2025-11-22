@@ -1,5 +1,5 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsArray, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class UpdateSectionDto {
   @IsOptional()
@@ -18,4 +18,14 @@ export class UpdateSectionDto {
     description: "The ID of the project this section belongs to",
   })
   readonly projectId: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ["task-id-2", "task-id-1", "task-id-3"],
+    description: "Array of task IDs in the new order",
+  })
+  readonly listOfTask?: string[];
 }

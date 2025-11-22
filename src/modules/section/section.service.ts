@@ -5,7 +5,8 @@ import { DatabaseService } from "@/modules/database/database.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { CreateSectionDto } from "./dto/request/create-section.dto";
 import { UpdateSectionDto } from "./dto/request/update-section.dto";
-import { SectionResponseDto, SectionsListResponseDto } from "./dto/response/section-response.dto";
+import { SectionResponseDto } from "./dto/response/section-response.dto";
+import { buildGetSectionQuery } from "./query/get-section.query";
 
 @Injectable()
 export class SectionService {
@@ -34,61 +35,13 @@ export class SectionService {
     return new SectionResponseDto({ ...section, tasksOfSection: [] }, "Section created successfully");
   }
 
-  async getAllSectionsInProject(userId: string, projectId: string) {
-    const project = await this.ensureUserCanAccessProject(projectId, userId);
-
-    const sections = await this.db.section.findMany({
-      where: {
-        projectId,
-      },
-      include: {
-        tasksOfSection: {
-          include: {
-            task: {
-              include: {
-                assignees: {
-                  include: {
-                    user: true,
-                  },
-                },
-                supervisor: true,
-                subtasks: {
-                  include: {
-                    assignees: {
-                      include: {
-                        user: true,
-                      },
-                    },
-                    supervisor: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const sectionMap = new Map(sections.map((section) => [section.id, section]));
-    const sectionIds = JSON.parse(project.listOfSection) as string[];
-    const orderedSections = sectionIds.map((id) => sectionMap.get(id)).filter((task) => task !== undefined);
-
-    return new SectionsListResponseDto(
-      orderedSections,
-      0,
-      sections.length,
-      sections.length,
-      "Sections retrieved successfully",
-    );
-  }
-
   async update(userId: string, sectionId: string, dto: UpdateSectionDto) {
     const section = await this.db.section.findUnique({
       where: {
         id: sectionId,
         projectId: dto.projectId,
         project: {
-          OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+          memberships: { some: { userId } },
         },
       },
     });
@@ -101,33 +54,9 @@ export class SectionService {
       where: { id: sectionId },
       data: {
         name: dto.name,
+        listOfTask: dto.listOfTask ? JSON.stringify(dto.listOfTask) : section.listOfTask,
       },
-      include: {
-        tasksOfSection: {
-          include: {
-            task: {
-              include: {
-                assignees: {
-                  include: {
-                    user: true,
-                  },
-                },
-                supervisor: true,
-                subtasks: {
-                  include: {
-                    assignees: {
-                      include: {
-                        user: true,
-                      },
-                    },
-                    supervisor: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      ...buildGetSectionQuery(),
     });
 
     return new SectionResponseDto(updatedProject, "Section updated successfully");
@@ -139,7 +68,7 @@ export class SectionService {
         id: sectionId,
         projectId,
         project: {
-          OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+          memberships: { some: { userId } },
         },
       },
     });
@@ -155,17 +84,13 @@ export class SectionService {
     return new MessageResponseDto("Section deleted successfully");
   }
 
-  private async ensureUserCanAccessProject(projectId: string, userId: string, select?: Prisma.ProjectSelect) {
+  private async ensureUserCanAccessProject(projectId: string, userId: string, include?: Prisma.ProjectInclude) {
     const project = await this.db.project.findFirst({
       where: {
         id: projectId,
-        OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+        memberships: { some: { userId } },
       },
-      select: {
-        id: true,
-        listOfSection: true,
-        ...select,
-      },
+      include,
     });
 
     if (!project) throw new ForbiddenException("Project not found or you don't have access");

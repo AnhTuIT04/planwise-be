@@ -4,10 +4,12 @@ import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { TaskService } from "./task.service";
-import { ImportTaskDto } from "./dto/import-task.dto";
 import { CreateTaskDto } from "./dto/request/create-task.dto";
 import { UpdateTaskDto } from "./dto/request/update-task.dto";
+import { UpdateTaskStatusDto } from "./dto/request/update-task-status.dto";
 import { MoveTaskDto } from "./dto/request/move-task.dto";
+import { ImportTaskDto } from "./dto/request/import-task.dto";
+import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
 
 @Controller("task")
@@ -27,7 +29,7 @@ export class TaskController {
   }
 
   @Get(":id")
-  @ApiOperation({ summary: "Get task by id" })
+  @ApiOperation({ summary: "Get task by id (not subtask)" })
   @ApiResponse({
     status: 200,
     type: TaskResponseDto,
@@ -49,6 +51,18 @@ export class TaskController {
     return this.taskService.update(userId, id, dto);
   }
 
+  @Patch(":id/status")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update task status  (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponseDto,
+    description: "The task status has been successfully updated.",
+  })
+  updateStatus(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskStatusDto) {
+    return this.taskService.updateStatus(userId, id, dto);
+  }
+
   @Patch(":id/move")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Move a task to a different section (not subtask)" })
@@ -61,6 +75,18 @@ export class TaskController {
     return this.taskService.moveTask(userId, id, dto);
   }
 
+  @Post(":id/import")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Import a task to a different project (not subtask)" })
+  @ApiResponse({
+    status: 201,
+    type: MessageResponseDto,
+    description: "The task has been successfully imported.",
+  })
+  importTask(@Param("id") taskId: string, @GetCurrentUserId() userId: string, @Body() dto: ImportTaskDto) {
+    return this.taskService.importTask(userId, taskId, dto);
+  }
+
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Delete a task" })
@@ -69,17 +95,7 @@ export class TaskController {
     type: MessageResponseDto,
     description: "The task has been successfully deleted.",
   })
-  remove(
-    @Param("id") id: string,
-    @Query("isPersonal") isPersonal: boolean = false,
-    @GetCurrentUserId() userId: string,
-  ) {
-    return this.taskService.remove(userId, id, isPersonal);
+  remove(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: DeleteTaskDto) {
+    return this.taskService.remove(userId, id, dto);
   }
-
-  // @Post(":id/import")
-  // @HttpCode(HttpStatus.CREATED)
-  // importTask(@Param("id") taskId: string, @Body() dto: ImportTaskDto, @GetCurrentUserId() userId: string) {
-  //   return this.taskService.importTask(taskId, dto, userId);
-  // }
 }

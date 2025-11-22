@@ -1,13 +1,17 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
-import { TaskStatus, PriorityLevel, Prisma } from "prisma/client";
+import { Prisma } from "prisma/client";
 import { DatabaseService } from "@/modules/database/database.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
-import { ImportTaskDto } from "./dto/import-task.dto";
+import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { CreateTaskDto } from "./dto/request/create-task.dto";
 import { UpdateTaskDto } from "./dto/request/update-task.dto";
+import { UpdateTaskStatusDto } from "./dto/request/update-task-status.dto";
 import { MoveTaskDto } from "./dto/request/move-task.dto";
+import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
+import { buildGetTaskQuery } from "./query/get-task.query";
+import { changeStatus } from "./utils/change-status";
 
 @Injectable()
 export class TaskService {
@@ -21,18 +25,19 @@ export class TaskService {
         id: sectionId,
         projectId,
         project: {
-          OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+          memberships: { some: { userId } },
         },
       },
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
 
-    // add user assigned in task into subtasks too
-    for (const sub of dto.subtasks) {
-      if (!sub.assigneeIds.includes(userId)) {
-        sub.assigneeIds.push(userId);
-      }
+    // Calculate timeEstimate of parent task
+    // If subtasks are provided, timeEstimate will be the sum of subtasks' time estimates
+    // Otherwise, timeEstimate will be taken from the dto
+    let timeEstimate = dto.timeEstimate;
+    if (dto.subtasks.length > 0) {
+      timeEstimate = dto.subtasks.reduce((sum, sub) => sum + (sub.timeEstimate || 20), 0);
     }
 
     const task = await this.db.task.create({
@@ -41,7 +46,7 @@ export class TaskService {
         description: dto.description,
         status: dto.status,
         priority: dto.priority,
-        timeEstimate: dto.timeEstimate,
+        timeEstimate: timeEstimate,
         deadline: dto.deadline,
         supervisorId: dto.supervisorId,
 
@@ -51,12 +56,14 @@ export class TaskService {
             description: sub.description,
             status: dto.status,
             priority: dto.priority,
-            timeEstimate: dto.timeEstimate,
+            timeEstimate: sub.timeEstimate,
             deadline: dto.deadline,
             supervisorId: dto.supervisorId,
 
             assignees: {
-              create: sub.assigneeIds.map((userId) => ({ userId })),
+              create: Array.from(new Set([...dto.assigneeIds, ...sub.assigneeIds])).map((userId) => ({
+                userId,
+              })),
             },
           })),
         },
@@ -71,24 +78,7 @@ export class TaskService {
           },
         },
       },
-      include: {
-        assignees: {
-          include: {
-            user: true,
-          },
-        },
-        supervisor: true,
-        subtasks: {
-          include: {
-            assignees: {
-              include: {
-                user: true,
-              },
-            },
-            supervisor: true,
-          },
-        },
-      },
+      ...buildGetTaskQuery(),
     });
 
     const currentList = JSON.parse(section.listOfTask);
@@ -114,32 +104,15 @@ export class TaskService {
         tasksOfSection: {
           some: {
             section: {
-              OR: [{ project: { ownerId: userId } }, { project: { memberships: { some: { userId } } } }],
+              project: { memberships: { some: { userId } } },
             },
           },
         },
       },
-      include: {
-        assignees: {
-          include: {
-            user: true,
-          },
-        },
-        supervisor: true,
-        subtasks: {
-          include: {
-            assignees: {
-              include: {
-                user: true,
-              },
-            },
-            supervisor: true,
-          },
-        },
-      },
+      ...buildGetTaskQuery(),
     });
 
-    if (!task) throw new NotFoundException("Task not found");
+    if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
 
     return new TaskResponseDto(task, "Task retrieved successfully");
   }
@@ -156,82 +129,46 @@ export class TaskService {
               id: sectionId,
               projectId,
               project: {
-                OR: [{ ownerId: userId }, { memberships: { some: { userId } } }],
+                memberships: { some: { userId } },
               },
             },
           },
         },
       },
       include: {
-        subtasks: true,
+        subtasks: {
+          include: {
+            assignees: true,
+          },
+        },
         assignees: true,
       },
     });
 
-    if (!task) {
-      throw new ForbiddenException("Task not found or you do not have permission.");
-    }
-
-    if (task.parentTaskId) {
-      throw new BadRequestException("Cannot update a subtask using this endpoint.");
-    }
+    if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
 
     // Build update data
-    const updateData: any = dto;
-
-    // TODO: Update status with rules
-    // if (dto.status) {
-    //   if (dto.status === TaskStatus.TODO) {
-
-    //   }
-    // }
+    const updateData: Prisma.TaskUpdateInput = dto;
 
     //  Update assignees
     if (dto.assigneeIds) {
+      const parentAssignees = dto.assigneeIds;
+
       updateData.assignees = {
-        deleteMany: {}, // Clear all old assignees
-        create: dto.assigneeIds.map((uid) => ({ userId: uid })),
+        deleteMany: {},
+        create: parentAssignees.map((uid) => ({ userId: uid })),
       };
-    }
-
-    // Update subtasks
-    if (dto.subtasks) {
-      const existingSubIds = task.subtasks.map((s) => s.id);
-      const incomingSubIds = dto.subtasks.filter((s) => s.id).map((s) => s.id);
-
-      // Delete subtasks that are removed
-      const toDelete = existingSubIds.filter((id) => !incomingSubIds.includes(id));
 
       updateData.subtasks = {
-        deleteMany: toDelete.length ? { id: { in: toDelete } } : undefined,
-        upsert: dto.subtasks.map((sub) => ({
-          where: { id: sub.id ?? "___invalid___" }, // Prisma trick
-          create: {
-            title: sub.title,
-            description: sub.description,
-            status: sub.status || dto.status,
-            priority: dto.priority,
-            timeEstimate: dto.timeEstimate,
-            deadline: dto.deadline,
-            supervisorId: dto.supervisorId,
+        updateMany: task.subtasks.map((sub) => ({
+          where: { id: sub.id },
+          data: {
             assignees: {
-              create: sub.assigneeIds?.map((uid) => ({ userId: uid })) ?? [],
+              deleteMany: {},
+              create: Array.from(new Set([...parentAssignees, ...sub.assignees.map((a) => a.userId)])).map((uid) => ({
+                userId: uid,
+              })),
             },
-          },
-          update: {
-            title: sub.title,
-            description: sub.description,
-            status: sub.status || dto.status,
-            priority: dto.priority,
-            timeEstimate: dto.timeEstimate,
-            deadline: dto.deadline,
-            supervisorId: dto.supervisorId,
-            assignees: sub.assigneeIds
-              ? {
-                  deleteMany: {},
-                  create: sub.assigneeIds.map((uid) => ({ userId: uid })),
-                }
-              : undefined,
           },
         })),
       };
@@ -241,59 +178,79 @@ export class TaskService {
     const updated = await this.db.task.update({
       where: { id: taskId },
       data: updateData,
-      include: {
-        assignees: { include: { user: true } },
-        supervisor: true,
-        subtasks: {
-          include: {
-            assignees: { include: { user: true } },
-            supervisor: true,
-          },
-        },
-      },
+      ...buildGetTaskQuery(),
     });
 
     return new TaskResponseDto(updated, "Task updated successfully");
   }
 
+  async updateStatus(userId: string, taskId: string, dto: UpdateTaskStatusDto) {
+    const { status } = dto;
+
+    const task = await this.db.task.findFirst({
+      where: {
+        id: taskId,
+        tasksOfSection: {
+          some: {
+            section: {
+              project: { memberships: { some: { userId } } },
+            },
+          },
+        },
+      },
+      ...buildGetTaskQuery(),
+    });
+
+    if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
+
+    const updatedTask = await changeStatus(task.status, status, this.db, task);
+    return new TaskResponseDto(updatedTask, "Task status updated successfully");
+  }
+
   async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
     const { fromSectionId, toSectionId, insertAt } = dto;
 
-    const task = await this.db.task.findUnique({
-      where: { id: taskId },
-      include: {
-        tasksOfSection: true,
-      },
-    });
-
-    if (!task) throw new NotFoundException("Task not found");
-    if (task.parentTaskId) {
-      throw new BadRequestException("Cannot move a subtask using this endpoint.");
+    if (fromSectionId === toSectionId) {
+      throw new BadRequestException("Source and target sections are the same");
     }
 
-    const sections = await this.db.section.findMany({
-      where: { id: { in: [fromSectionId, toSectionId] } },
+    const task = await this.db.task.findUnique({
+      where: {
+        id: taskId,
+        tasksOfSection: {
+          some: {
+            section: {
+              id: fromSectionId,
+              project: {
+                memberships: { some: { userId } },
+              },
+            },
+          },
+        },
+      },
       include: {
-        project: {
-          include: { memberships: true },
+        tasksOfSection: {
+          select: {
+            section: true,
+          },
         },
       },
     });
 
-    const fromSection = sections.find((s) => s.id === fromSectionId);
-    const toSection = sections.find((s) => s.id === toSectionId);
+    if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
+
+    const fromSection = task.tasksOfSection[0]?.section;
+    const toSection = await this.db.section.findUnique({
+      where: {
+        id: toSectionId,
+        project: {
+          memberships: { some: { userId } },
+        },
+      },
+    });
 
     if (!fromSection || !toSection || fromSection.projectId !== toSection.projectId) {
       throw new BadRequestException("Invalid source or target section");
-    }
-
-    // Check permission (user must belong to project)
-    const project = fromSection.project;
-    const isOwner = project.ownerId === userId;
-    const isMember = project.memberships.some((m) => m.userId === userId);
-
-    if (!isOwner && !isMember) {
-      throw new ForbiddenException("You do not have permission to move task");
     }
 
     // Update listOfTask for fromSection and toSection
@@ -345,14 +302,108 @@ export class TaskService {
     return new MessageResponseDto("Task moved successfully");
   }
 
-  async remove(userId: string, taskId: string, isPersonal: boolean = false) {
+  async importTask(userId: string, taskId: string, dto: ImportTaskDto) {
+    const { fromProjectId, toSectionId, insertAt } = dto;
+
+    const task = await this.db.task.findFirst({
+      where: {
+        id: taskId,
+        tasksOfSection: {
+          some: {
+            section: {
+              projectId: fromProjectId,
+              project: {
+                memberships: { some: { userId } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!task) throw new ForbiddenException("Task not found or you do not have permission to access it");
+
+    const targetSection = await this.db.section.findFirst({
+      where: {
+        id: toSectionId,
+        project: {
+          memberships: { some: { userId } },
+        },
+      },
+      include: {
+        project: true,
+      },
+    });
+
+    if (!targetSection) {
+      throw new ForbiddenException("Target section not found or you do not have permission");
+    }
+
+    if (targetSection.projectId === fromProjectId) {
+      throw new BadRequestException("Cannot import task to the same project. Use move instead");
+    }
+
+    const existingRelation = await this.db.taskOfSection.findUnique({
+      where: {
+        taskId_sectionId: {
+          taskId,
+          sectionId: toSectionId,
+        },
+      },
+    });
+
+    if (existingRelation) {
+      throw new BadRequestException("Task already exists in this section");
+    }
+
+    // Thêm task vào target section
+    await this.db.taskOfSection.create({
+      data: {
+        taskId,
+        sectionId: toSectionId,
+      },
+    });
+
+    // Cập nhật listOfTask của target section
+    const currentList: string[] = JSON.parse(targetSection.listOfTask);
+    if (insertAt !== undefined && insertAt >= 0 && insertAt <= currentList.length) {
+      currentList.splice(insertAt, 0, taskId);
+    } else {
+      currentList.push(taskId);
+    }
+
+    await this.db.section.update({
+      where: { id: toSectionId },
+      data: { listOfTask: JSON.stringify(currentList) },
+    });
+
+    return new MessageResponseDto("Task imported successfully");
+  }
+
+  async remove(userId: string, taskId: string, dto: DeleteTaskDto) {
+    const { projectId } = dto;
+
     const task = await this.db.task.findUnique({
-      where: { id: taskId },
+      where: {
+        id: taskId,
+        tasksOfSection: {
+          some: {
+            section: {
+              projectId,
+              project: {
+                memberships: { some: { userId } },
+              },
+            },
+          },
+        },
+      },
       include: {
         tasksOfSection: {
           include: {
             section: {
-              include: { project: true },
+              include: {
+                project: true,
+              },
             },
           },
         },
@@ -362,92 +413,54 @@ export class TaskService {
     if (!task) throw new NotFoundException("Task not found");
 
     const sections = task.tasksOfSection.map((tos) => tos.section);
-    if (sections.length === 0) throw new BadRequestException("Task does not belong to any project");
+    if (sections.length === 0) throw new BadRequestException("Task does not belong to this project");
 
-    // Check permission: owner or member of any project containing the task
-    const projectIds = sections.map((s) => s.project.id);
-    const membership = await this.db.userInProject.findFirst({
-      where: {
-        userId,
-        projectId: { in: projectIds },
-      },
-    });
-
-    const isOwner = sections.some((s) => s.project.ownerId === userId);
-
-    if (!membership && !isOwner) {
-      throw new ForbiddenException("You do not have permission to delete this task");
-    }
-
-    // Delete task and remove from section lists using transaction
-    const sectionUpdates = sections.map((section) => {
-      const currentList: string[] = JSON.parse(section.listOfTask);
-      const updatedList = currentList.filter((id) => id !== taskId);
-      return this.db.section.update({
-        where: { id: section.id },
-        data: { listOfTask: JSON.stringify(updatedList) },
+    const project = sections[0].project;
+    if (project.isPersonal) {
+      // Personal project: chỉ xóa khỏi TaskOfSection và cập nhật listOfTask
+      const sectionUpdates = sections.map((section) => {
+        const currentList: string[] = JSON.parse(section.listOfTask);
+        const updatedList = currentList.filter((id) => id !== taskId);
+        return this.db.section.update({
+          where: { id: section.id },
+          data: { listOfTask: JSON.stringify(updatedList) },
+        });
       });
-    });
 
-    await this.db.$transaction([...sectionUpdates, this.db.task.delete({ where: { id: taskId } })]);
+      const deleteRelations = sections.map((section) =>
+        this.db.taskOfSection.delete({
+          where: {
+            taskId_sectionId: {
+              taskId,
+              sectionId: section.id,
+            },
+          },
+        }),
+      );
+
+      await this.db.$transaction([...sectionUpdates, ...deleteRelations]);
+    } else {
+      // Non-personal project: xóa task hoàn toàn khỏi tất cả project
+      const allSections = await this.db.section.findMany({
+        where: {
+          tasksOfSection: {
+            some: { taskId },
+          },
+        },
+      });
+
+      const sectionUpdates = allSections.map((section) => {
+        const currentList: string[] = JSON.parse(section.listOfTask);
+        const updatedList = currentList.filter((id) => id !== taskId);
+        return this.db.section.update({
+          where: { id: section.id },
+          data: { listOfTask: JSON.stringify(updatedList) },
+        });
+      });
+
+      await this.db.$transaction([...sectionUpdates, this.db.task.delete({ where: { id: taskId } })]);
+    }
 
     return new MessageResponseDto("Task deleted successfully");
   }
-
-  // async importTask(taskId: string, dto: ImportTaskDto, userId: string) {
-  //   const { toSectionId, projectId } = dto;
-
-  //   const task = await this.db.task.findUnique({
-  //     where: { id: taskId },
-  //     include: { tasksOfSection: true },
-  //   });
-  //   if (!task) throw new NotFoundException("Task not found");
-
-  //   const sourceSection = task.tasksOfSection[0];
-  //   if (!sourceSection) throw new NotFoundException("Source task not in section");
-
-  //   // await this.ensureUserCanAccessProject(sourceSection.section.projectId, userId);
-  //   await this.ensureUserCanAccessProject(projectId, userId);
-
-  //   const targetSection = await this.db.section.findUnique({
-  //     where: { id: toSectionId, projectId },
-  //   });
-  //   if (!targetSection) throw new NotFoundException("Target section not found");
-
-  //   const newTask = await this.db.task.create({
-  //     data: {
-  //       title: task.title,
-  //       description: task.description,
-  //       status: task.status,
-  //       priority: task.priority,
-  //       startDate: task.startDate,
-  //       dueDate: task.dueDate,
-  //       parentTaskId: null,
-  //       supervisorId: task.supervisorId,
-  //     },
-  //   });
-
-  //   await this.db.taskOfSection.create({
-  //     data: { taskId: newTask.id, sectionId: toSectionId },
-  //   });
-
-  //   const currentList = this.parseTaskList(targetSection.listOfTask);
-  //   await this.updateSectionTaskOrder(toSectionId, [...currentList, newTask.id]);
-
-  //   const assignees = await this.db.taskOfUser.findMany({
-  //     where: { taskId },
-  //     select: { userId: true },
-  //   });
-  //   if (assignees.length > 0) {
-  //     await this.assignTaskToUsers(
-  //       newTask.id,
-  //       assignees.map((a) => a.userId),
-  //     );
-  //   }
-
-  //   return newTask;
-  // }
-
-  // HELPER: Quyền project
-  private updateTaskStatus() {}
 }

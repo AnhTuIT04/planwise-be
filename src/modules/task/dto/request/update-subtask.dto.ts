@@ -1,7 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsOptional, IsUUID, IsNotEmpty, IsArray, IsEnum } from "class-validator";
-
-import { TaskStatus } from "prisma/client";
+import { IsString, IsOptional, IsUUID, IsNotEmpty, IsArray } from "class-validator";
 
 export class UpdateSubTaskDto {
   @IsNotEmpty()
@@ -27,15 +25,6 @@ export class UpdateSubTaskDto {
     description: "The description of the task",
   })
   readonly description?: string;
-
-  @IsOptional()
-  @IsEnum(TaskStatus)
-  @ApiPropertyOptional({
-    example: TaskStatus.TODO,
-    description: "The status of the task",
-    enum: TaskStatus,
-  })
-  readonly status?: TaskStatus;
 
   @IsOptional()
   @IsArray()

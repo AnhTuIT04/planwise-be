@@ -1,20 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import {
-  IsString,
-  IsOptional,
-  IsUUID,
-  IsDateString,
-  IsNotEmpty,
-  IsEnum,
-  IsArray,
-  IsInt,
-  Min,
-  ValidateNested,
-} from "class-validator";
-import { Type } from "class-transformer";
+import { IsString, IsOptional, IsUUID, IsDateString, IsNotEmpty, IsEnum, IsArray, IsInt, Min } from "class-validator";
 
-import { TaskStatus, PriorityLevel } from "prisma/client";
-import { UpdateSubTaskDto } from "./update-subtask.dto";
+import { PriorityLevel } from "prisma/client";
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -32,15 +19,6 @@ export class UpdateTaskDto {
     description: "The description of the task",
   })
   readonly description?: string;
-
-  @IsOptional()
-  @IsEnum(TaskStatus)
-  @ApiPropertyOptional({
-    example: TaskStatus.TODO,
-    description: "The status of the task",
-    enum: TaskStatus,
-  })
-  readonly status?: TaskStatus;
 
   @IsOptional()
   @IsEnum(PriorityLevel)
@@ -101,14 +79,4 @@ export class UpdateTaskDto {
     description: "Array of user IDs to assign to this task",
   })
   readonly assigneeIds?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => UpdateSubTaskDto)
-  @ApiPropertyOptional({
-    type: () => [UpdateSubTaskDto],
-    description: "Array of subtasks associated with this task",
-  })
-  readonly subtasks?: UpdateSubTaskDto[];
 }

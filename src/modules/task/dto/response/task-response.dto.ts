@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { PriorityLevel, TaskStatus } from "prisma/client";
 import { ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-response.dto";
+import { GetTaskQueryResult } from "../../query/get-task.query";
 
 export class TaskDto {
   @ApiProperty({ example: "923e9512-9319-48a3-8bf4-53b4a1e7b8b7", description: "Task id" })
@@ -62,40 +63,7 @@ export class TaskDto {
   @ApiProperty({ example: "2024-06-20T12:00:00Z", description: "Timestamp of last task update", format: "date-time" })
   readonly updatedAt: Date;
 
-  constructor(task?: {
-    id: string;
-    description: string | null;
-    createdAt: Date;
-    title: string;
-    status: TaskStatus;
-    priority: PriorityLevel | null;
-    timeEstimate: number;
-    timeSpent: number;
-    lastStarted: Date | null;
-    deadline: Date | null;
-    updatedAt: Date;
-    parentTaskId: string | null;
-    assignees: { user: UserBasicDto }[];
-    supervisor: UserBasicDto | null;
-    subtasks: {
-      id: string;
-      description: string | null;
-      createdAt: Date;
-      title: string;
-      status: TaskStatus;
-      priority: PriorityLevel | null;
-      timeEstimate: number;
-      timeSpent: number;
-      lastStarted: Date | null;
-      deadline: Date | null;
-      updatedAt: Date;
-      parentTaskId: string | null;
-      assignees: { user: UserBasicDto }[];
-      supervisor: UserBasicDto | null;
-    }[];
-  }) {
-    if (!task) return;
-
+  constructor(task: GetTaskQueryResult) {
     this.id = task.id;
     this.parentTaskId = task.parentTaskId;
     this.title = task.title;
@@ -108,26 +76,7 @@ export class TaskDto {
     this.deadline = task.deadline;
     this.supervisor = task.supervisor ? new UserBasicDto(task.supervisor) : null;
     this.assignees = task.assignees.map((assignee) => new UserBasicDto(assignee.user));
-    this.subtasks = task.subtasks.map(
-      (subtask) =>
-        new TaskDto({
-          id: subtask.id,
-          parentTaskId: subtask.parentTaskId,
-          title: subtask.title,
-          description: subtask.description,
-          status: subtask.status,
-          priority: subtask.priority,
-          timeEstimate: subtask.timeEstimate,
-          timeSpent: subtask.timeSpent,
-          lastStarted: subtask.lastStarted,
-          deadline: subtask.deadline,
-          assignees: subtask.assignees,
-          supervisor: subtask.supervisor,
-          subtasks: [],
-          createdAt: subtask.createdAt,
-          updatedAt: subtask.updatedAt,
-        }),
-    );
+    this.subtasks = task.subtasks.map((subtask) => new TaskDto({ ...subtask, subtasks: [] }));
     this.createdAt = task.createdAt;
     this.updatedAt = task.updatedAt;
   }
@@ -137,41 +86,7 @@ export class TaskResponseDto extends ResponseDto<TaskDto> {
   @ApiProperty({ type: () => TaskDto, description: "Task data" })
   declare readonly data: TaskDto;
 
-  constructor(
-    data: {
-      id: string;
-      description: string | null;
-      createdAt: Date;
-      title: string;
-      status: TaskStatus;
-      priority: PriorityLevel | null;
-      timeEstimate: number;
-      timeSpent: number;
-      lastStarted: Date | null;
-      deadline: Date | null;
-      updatedAt: Date;
-      parentTaskId: string | null;
-      assignees: { user: UserBasicDto }[];
-      supervisor: UserBasicDto | null;
-      subtasks: {
-        id: string;
-        description: string | null;
-        createdAt: Date;
-        title: string;
-        status: TaskStatus;
-        priority: PriorityLevel | null;
-        timeEstimate: number;
-        timeSpent: number;
-        lastStarted: Date | null;
-        deadline: Date | null;
-        updatedAt: Date;
-        parentTaskId: string | null;
-        assignees: { user: UserBasicDto }[];
-        supervisor: UserBasicDto | null;
-      }[];
-    },
-    message?: string,
-  ) {
+  constructor(data: GetTaskQueryResult, message?: string) {
     super(new TaskDto(data), message);
   }
 }

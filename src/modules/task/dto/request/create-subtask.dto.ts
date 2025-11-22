@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsOptional, IsUUID, IsNotEmpty, IsArray } from "class-validator";
+import { IsString, IsOptional, IsNotEmpty, IsArray, IsUUID, IsInt, Min } from "class-validator";
 
 export class CreateSubTaskDto {
   @IsNotEmpty()
@@ -18,13 +18,22 @@ export class CreateSubTaskDto {
   })
   readonly description?: string;
 
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @ApiPropertyOptional({
+    example: "120",
+    description: "The time estimate for the subtask in minutes",
+  })
+  readonly timeEstimate?: number;
+
   @IsNotEmpty()
   @IsArray()
   @IsUUID(undefined, { each: true })
   @ApiProperty({
     type: [String],
     example: ["550e8400-e29b-41d4-a716-446655440000"],
-    description: "Array of user IDs to assign to this task",
+    description: "Array of user IDs to assign to this subtask",
   })
   readonly assigneeIds: string[];
 }

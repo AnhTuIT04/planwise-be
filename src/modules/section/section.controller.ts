@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
+import { Controller, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
@@ -6,7 +6,7 @@ import { MessageResponseDto } from "@/common/dto/message.dto";
 import { SectionService } from "./section.service";
 import { CreateSectionDto } from "./dto/request/create-section.dto";
 import { UpdateSectionDto } from "./dto/request/update-section.dto";
-import { SectionResponseDto, SectionsListResponseDto } from "./dto/response/section-response.dto";
+import { SectionResponseDto } from "./dto/response/section-response.dto";
 
 @Controller("section")
 export class SectionController {
@@ -22,17 +22,6 @@ export class SectionController {
   })
   create(@GetCurrentUserId() userId: string, @Body() createSectionDto: CreateSectionDto) {
     return this.sectionService.create(userId, createSectionDto);
-  }
-
-  @Get()
-  @ApiOperation({ summary: "Get all sections of a specific project" })
-  @ApiResponse({
-    status: 200,
-    type: SectionsListResponseDto,
-    description: "List of sections retrieved successfully.",
-  })
-  getAllSectionsInProject(@Query("projectId") projectId: string, @GetCurrentUserId() userId: string) {
-    return this.sectionService.getAllSectionsInProject(userId, projectId);
   }
 
   @Patch(":id")

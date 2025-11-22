@@ -1,25 +1,41 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 
 import { DatabaseService } from "@/modules/database/database.service";
+import { DefaultRole } from "@/common/enum/default-role.enum";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
+import { buildGetProjectQuery } from "./query/get-project.query";
 
 @Injectable()
 export class ProjectService {
   constructor(private readonly db: DatabaseService) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
-    const newProject = await this.db.project.create({
-      data: { ...createProjectDto, ownerId: userId },
-      include: {
-        owner: true,
+    const project = await this.db.project.create({
+      data: {
+        ownerId: userId,
+        ...createProjectDto,
+        roles: {
+          create: [
+            {
+              name: DefaultRole.OWNER,
+              isDefault: true,
+              listOfPermission: JSON.stringify(["ALL"]),
+            },
+            {
+              name: DefaultRole.MEMBER,
+              isDefault: true,
+              listOfPermission: JSON.stringify(["ALL"]),
+            },
+          ],
+        },
       },
+      ...buildGetProjectQuery(),
     });
 
-    // TODO: fix role later
-    return new ProjectResponseDto({ ...newProject, memberships: [], sections: [] }, "Project created successfully");
+    return new ProjectResponseDto(project, "Project created successfully");
   }
 
   // For project listing page - not done yet
@@ -27,22 +43,9 @@ export class ProjectService {
     const projects = await this.db.project.findMany({
       where: {
         isPersonal: false,
-        OR: [
-          {
-            ownerId: userId,
-          },
-          {
-            memberships: { some: { userId: userId } },
-          },
-        ],
+        memberships: { some: { userId } },
       },
-      include: {
-        memberships: {
-          include: { user: true },
-        },
-        owner: true,
-        sections: true,
-      },
+      ...buildGetProjectQuery(),
     });
 
     // TODO: Add pagination later
@@ -59,46 +62,59 @@ export class ProjectService {
   async getPersonalProject(userId: string) {
     let project = await this.db.project.findFirst({
       where: { ownerId: userId, isPersonal: true },
-      include: {
-        memberships: {
-          include: { user: true },
-        },
-        owner: true,
-        sections: true,
-      },
+      ...buildGetProjectQuery(),
     });
 
     if (!project) {
-      project = await this.db.project.create({
-        data: {
-          name: "My Workspace",
-          isPersonal: true,
-          ownerId: userId,
-          sections: {
-            create: [
-              {
-                name: "Default",
+      project = await this.db.$transaction(async (tx) => {
+        const newProject = await this.db.project.create({
+          data: {
+            name: "My Workspace",
+            isPersonal: true,
+            ownerId: userId,
+            sections: {
+              create: [
+                {
+                  name: "Default",
+                },
+              ],
+            },
+            roles: {
+              create: [
+                {
+                  name: DefaultRole.OWNER,
+                  isDefault: true,
+                  listOfPermission: JSON.stringify(["ALL"]),
+                },
+                {
+                  name: DefaultRole.MEMBER,
+                  isDefault: true,
+                  listOfPermission: JSON.stringify(["ALL"]),
+                },
+              ],
+            },
+          },
+          select: {
+            id: true,
+            sections: true,
+            roles: true,
+          },
+        });
+
+        return await this.db.project.update({
+          where: { id: newProject.id },
+          data: {
+            listOfSection: JSON.stringify(newProject.sections.map((section) => section.id)),
+            memberships: {
+              create: {
+                userId,
+                roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
               },
-            ],
+            },
           },
-        },
-        include: {
-          memberships: {
-            include: { user: true },
-          },
-          owner: true,
-          sections: true,
-        },
+          ...buildGetProjectQuery(),
+        });
       });
-
-      await this.db.project.update({
-        where: { id: project.id },
-        data: {
-          listOfSection: JSON.stringify(project.sections.map((s) => s.id)),
-        },
-      });
-
-      project.listOfSection = JSON.stringify(project.sections.map((s) => s.id));
     }
 
     return new ProjectResponseDto(project, "Personal project retrieved successfully");
@@ -109,22 +125,9 @@ export class ProjectService {
     const project = await this.db.project.findFirst({
       where: {
         id: projectId,
-        OR: [
-          {
-            ownerId: userId,
-          },
-          {
-            memberships: { some: { userId: userId } },
-          },
-        ],
+        memberships: { some: { userId } },
       },
-      include: {
-        memberships: {
-          include: { user: true },
-        },
-        owner: true,
-        sections: true,
-      },
+      ...buildGetProjectQuery(),
     });
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
@@ -133,24 +136,10 @@ export class ProjectService {
   }
 
   async update(userId: string, projectId: string, updateProjectDto: UpdateProjectDto) {
-    let project = await this.db.project.findFirst({
+    const project = await this.db.project.findFirst({
       where: {
         id: projectId,
-        OR: [
-          {
-            ownerId: userId,
-          },
-          {
-            memberships: { some: { userId: userId } },
-          },
-        ],
-      },
-      include: {
-        memberships: {
-          include: { user: true },
-        },
-        owner: true,
-        sections: true,
+        memberships: { some: { userId: userId } },
       },
     });
 
@@ -167,9 +156,10 @@ export class ProjectService {
           ? JSON.stringify(updateProjectDto.listOfSection)
           : project.listOfSection,
       },
+      ...buildGetProjectQuery(),
     });
 
-    return new ProjectResponseDto({ ...project, ...updatedProject }, "Project updated successfully");
+    return new ProjectResponseDto(updatedProject, "Project updated successfully");
   }
 
   async remove(userId: string, projectId: string) {
