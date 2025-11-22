@@ -13,26 +13,47 @@ export class ProjectService {
   constructor(private readonly db: DatabaseService) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
-    const project = await this.db.project.create({
-      data: {
-        ownerId: userId,
-        ...createProjectDto,
-        roles: {
-          create: [
-            {
-              name: DefaultRole.OWNER,
-              isDefault: true,
-              listOfPermission: JSON.stringify(["ALL"]),
-            },
-            {
-              name: DefaultRole.MEMBER,
-              isDefault: true,
-              listOfPermission: JSON.stringify(["ALL"]),
-            },
-          ],
+    const project = await this.db.$transaction(async (tx) => {
+      const newProject = await this.db.project.create({
+        data: {
+          ownerId: userId,
+          ...createProjectDto,
+          roles: {
+            create: [
+              {
+                name: DefaultRole.OWNER,
+                isDefault: true,
+                listOfPermission: JSON.stringify(["ALL"]),
+              },
+              {
+                name: DefaultRole.MEMBER,
+                isDefault: true,
+                listOfPermission: JSON.stringify(["ALL"]),
+              },
+            ],
+          },
         },
-      },
-      ...buildGetProjectQuery(),
+        select: {
+          id: true,
+          sections: true,
+          roles: true,
+        },
+      });
+
+      return await this.db.project.update({
+        where: { id: newProject.id },
+        data: {
+          memberships: {
+            create: {
+              userId,
+              roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+            },
+          },
+        },
+        ...buildGetProjectQuery({
+          getArchivedTasks: false,
+        }),
+      });
     });
 
     return new ProjectResponseDto(project, "Project created successfully");
@@ -45,7 +66,9 @@ export class ProjectService {
         isPersonal: false,
         memberships: { some: { userId } },
       },
-      ...buildGetProjectQuery(),
+      ...buildGetProjectQuery({
+        getArchivedTasks: false,
+      }),
     });
 
     // TODO: Add pagination later
@@ -62,7 +85,9 @@ export class ProjectService {
   async getPersonalProject(userId: string) {
     let project = await this.db.project.findFirst({
       where: { ownerId: userId, isPersonal: true },
-      ...buildGetProjectQuery(),
+      ...buildGetProjectQuery({
+        getArchivedTasks: false,
+      }),
     });
 
     if (!project) {
@@ -112,7 +137,9 @@ export class ProjectService {
               },
             },
           },
-          ...buildGetProjectQuery(),
+          ...buildGetProjectQuery({
+            getArchivedTasks: false,
+          }),
         });
       });
     }
@@ -127,7 +154,9 @@ export class ProjectService {
         id: projectId,
         memberships: { some: { userId } },
       },
-      ...buildGetProjectQuery(),
+      ...buildGetProjectQuery({
+        getArchivedTasks: false,
+      }),
     });
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
@@ -156,7 +185,9 @@ export class ProjectService {
           ? JSON.stringify(updateProjectDto.listOfSection)
           : project.listOfSection,
       },
-      ...buildGetProjectQuery(),
+      ...buildGetProjectQuery({
+        getArchivedTasks: false,
+      }),
     });
 
     return new ProjectResponseDto(updatedProject, "Project updated successfully");

@@ -13,6 +13,7 @@ import { VerifyOtpDTO } from "./dto/request/verify-otp.dto";
 import { ResetPasswordDTO } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
 import { UserResponseDto } from "./dto/response/user-response.dto";
+import { AuthResponseDto } from "./dto/response/auth-response.dto";
 
 @Injectable()
 export class AuthService {
@@ -94,10 +95,7 @@ export class AuthService {
 
     const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
 
-    return {
-      accessToken,
-      user: user,
-    };
+    return new AuthResponseDto({ accessToken, user }, "Email verified successfully. You are now logged in.");
   }
 
   async resendOtp(email: string, isForVerification: boolean) {
@@ -198,10 +196,7 @@ export class AuthService {
 
     const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
 
-    return {
-      accessToken,
-      user,
-    };
+    return new AuthResponseDto({ accessToken, user }, "Signin successful.");
   }
 
   async getUserData(userId: string) {

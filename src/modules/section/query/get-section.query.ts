@@ -1,12 +1,25 @@
 import { Prisma } from "prisma/client";
 import { buildGetTaskQuery } from "@/modules/task/query/get-task.query";
 
-export function buildGetSectionQuery() {
+interface BuildGetSectionQueryOptions {
+  getArchivedTasks?: boolean;
+}
+
+export function buildGetSectionQuery({ getArchivedTasks }: BuildGetSectionQueryOptions = {}) {
   return {
     include: {
       tasksOfSection: {
+        where: getArchivedTasks
+          ? {}
+          : {
+              task: {
+                status: { not: "ARCHIVED" },
+              },
+            },
         include: {
-          task: buildGetTaskQuery(),
+          task: {
+            ...buildGetTaskQuery(),
+          },
         },
       },
     },

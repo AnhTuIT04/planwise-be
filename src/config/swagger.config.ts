@@ -10,15 +10,19 @@ export function configSwagger(app: INestApplication, apiPrefix: string, apiVersi
     .setTitle("API documentation for PlanWise")
     .setVersion(apiVersion)
     .addServer(`/${apiPrefix}/${apiVersion}`)
-    .addCookieAuth("accessToken", {
-      type: "apiKey",
-      in: "cookie",
-      name: "accessToken",
-      description: "Cookie-based JWT authentication, auto-set after login or email verification.",
-    });
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Authorization header using Bearer token",
+      },
+      "bearer",
+    )
+    .addSecurityRequirements("bearer");
 
   const document = SwaggerModule.createDocument(app, documentBuilder.build(), {
-    ignoreGlobalPrefix: true, // Handle prefixes manually via addServer()
+    ignoreGlobalPrefix: true,
   });
 
   SwaggerModule.setup(`${apiPrefix}/${apiVersion}/docs`, app, document, {

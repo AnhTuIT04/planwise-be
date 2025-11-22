@@ -69,14 +69,4 @@ export class UpdateTaskDto {
     description: "The ID of the supervisor user",
   })
   readonly supervisorId?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID(undefined, { each: true })
-  @ApiPropertyOptional({
-    type: [String],
-    example: ["550e8400-e29b-41d4-a716-446655440000"],
-    description: "Array of user IDs to assign to this task",
-  })
-  readonly assigneeIds?: string[];
 }

@@ -1,7 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsOptional, IsNotEmpty, IsArray, IsUUID, IsInt, Min } from "class-validator";
+import { IsString, IsOptional, IsNotEmpty, IsArray, IsUUID, IsInt, Min, IsEnum } from "class-validator";
 
-export class CreateSubTaskDto {
+enum TaskStatus {
+  TODO = "TODO",
+  DONE = "DONE",
+}
+
+export class CreateSubtaskDto {
+  @IsNotEmpty()
+  @IsUUID()
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the parent task",
+  })
+  readonly parentTaskId: string;
+
   @IsNotEmpty()
   @IsString()
   @ApiProperty({
@@ -17,6 +30,15 @@ export class CreateSubTaskDto {
     description: "The description of the task",
   })
   readonly description?: string;
+
+  @IsOptional()
+  @IsEnum(TaskStatus)
+  @ApiPropertyOptional({
+    example: TaskStatus.TODO,
+    description: "The status of the subtask",
+    enum: TaskStatus,
+  })
+  readonly status?: TaskStatus;
 
   @IsOptional()
   @IsInt()

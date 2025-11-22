@@ -11,6 +11,7 @@ import { MoveTaskDto } from "./dto/request/move-task.dto";
 import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
+import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
 
 @Controller("task")
 export class TaskController {
@@ -63,6 +64,18 @@ export class TaskController {
     return this.taskService.updateStatus(userId, id, dto);
   }
 
+  @Patch(":id/assignees")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update the assignees of a task" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponseDto,
+    description: "The task assignees have been successfully updated.",
+  })
+  updateAssignees(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskAssigneesDto) {
+    return this.taskService.updateAssignees(userId, id, dto);
+  }
+
   @Patch(":id/move")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Move a task to a different section (not subtask)" })
@@ -88,10 +101,10 @@ export class TaskController {
   }
 
   @Delete(":id")
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a task" })
   @ApiResponse({
-    status: 204,
+    status: 200,
     type: MessageResponseDto,
     description: "The task has been successfully deleted.",
   })

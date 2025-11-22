@@ -14,7 +14,43 @@ import {
 import { Type } from "class-transformer";
 
 import { TaskStatus, PriorityLevel } from "prisma/client";
-import { CreateSubTaskDto } from "./create-subtask.dto";
+
+class SubtaskDto {
+  @IsNotEmpty()
+  @IsString()
+  @ApiProperty({
+    example: "Fix login bug",
+    description: "The title of the task",
+  })
+  readonly title: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "Users can't login with Google OAuth",
+    description: "The description of the task",
+  })
+  readonly description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @ApiPropertyOptional({
+    example: "120",
+    description: "The time estimate for the subtask in minutes",
+  })
+  readonly timeEstimate?: number;
+
+  @IsNotEmpty()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  @ApiProperty({
+    type: [String],
+    example: ["550e8400-e29b-41d4-a716-446655440000"],
+    description: "Array of user IDs to assign to this subtask",
+  })
+  readonly assigneeIds: string[];
+}
 
 export class CreateTaskDto {
   @IsNotEmpty()
@@ -114,10 +150,10 @@ export class CreateTaskDto {
   @IsNotEmpty()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateSubTaskDto)
+  @Type(() => SubtaskDto)
   @ApiProperty({
-    type: () => [CreateSubTaskDto],
+    type: () => [SubtaskDto],
     description: "Array of subtasks associated with this task",
   })
-  readonly subtasks: CreateSubTaskDto[];
+  readonly subtasks: SubtaskDto[];
 }

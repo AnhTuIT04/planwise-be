@@ -1,7 +1,11 @@
 import { Prisma } from "prisma/client";
 import { buildGetSectionQuery } from "@/modules/section/query/get-section.query";
 
-export function buildGetProjectQuery() {
+interface BuildGetProjectQueryOptions {
+  getArchivedTasks?: boolean;
+}
+
+export function buildGetProjectQuery({ getArchivedTasks }: BuildGetProjectQueryOptions = {}) {
   return {
     include: {
       memberships: {
@@ -11,7 +15,7 @@ export function buildGetProjectQuery() {
         },
       },
       roles: true,
-      sections: buildGetSectionQuery(),
+      sections: buildGetSectionQuery({ getArchivedTasks }),
     },
   } as const satisfies Omit<Prisma.ProjectFindUniqueArgs, "where">;
 }

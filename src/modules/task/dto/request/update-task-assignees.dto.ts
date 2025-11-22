@@ -1,0 +1,14 @@
+import { ApiProperty } from "@nestjs/swagger";
+import { IsUUID, IsNotEmpty, IsArray } from "class-validator";
+
+export class UpdateTaskAssigneesDto {
+  @IsNotEmpty()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  @ApiProperty({
+    type: [String],
+    example: ["550e8400-e29b-41d4-a716-446655440000"],
+    description: "Array of user IDs to assign to this task",
+  })
+  readonly assigneeIds: string[];
+}
