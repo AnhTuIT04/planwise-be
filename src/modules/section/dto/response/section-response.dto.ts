@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { ResponseDto } from "@/common/dto/response.dto";
+import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
 import { TaskDto } from "@/modules/task/dto/response/task-response.dto";
 import { GetSectionQueryResult } from "../../query/get-section.query";
 
@@ -45,5 +45,20 @@ export class SectionResponseDto extends ResponseDto<SectionDto> {
 
   constructor(data: GetSectionQueryResult, message?: string) {
     super(new SectionDto(data), message);
+  }
+}
+
+export class SectionsListResponseDto extends PaginationResponseDto<SectionDto> {
+  @ApiProperty({ type: () => [SectionDto], description: "Array of sections" })
+  declare readonly data: SectionDto[];
+
+  constructor(data: GetSectionQueryResult[], page: number, limit: number, totalItems: number, message?: string) {
+    super(
+      data.map((section) => new SectionDto(section)),
+      page,
+      limit,
+      totalItems,
+      message,
+    );
   }
 }

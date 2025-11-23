@@ -3,6 +3,7 @@ import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";
+import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
 import { ProjectService } from "./project.service";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
@@ -48,6 +49,18 @@ export class ProjectController {
     return this.projectService.getPersonalProject(userId);
   }
 
+  @Get("personal/sections")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get sections of personal project - my-tasks page" })
+  @ApiResponse({
+    status: 200,
+    type: SectionsListResponseDto,
+    description: "Sections of personal project retrieved successfully",
+  })
+  getPersonalProjectSections(@GetCurrentUserId() userId: string) {
+    return this.projectService.getPersonalProjectSections(userId);
+  }
+
   @Get(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Get detailed project by ID" })
@@ -58,6 +71,18 @@ export class ProjectController {
   })
   getDetailedProject(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.getDetailedProject(userId, id);
+  }
+
+  @Get(":id/sections")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get sections of a project by ID" })
+  @ApiResponse({
+    status: 200,
+    type: SectionsListResponseDto,
+    description: "Sections of the project retrieved successfully",
+  })
+  getProjectSections(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.projectService.getProjectSections(userId, id);
   }
 
   @Patch(":id")
