@@ -33,7 +33,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
     done: Function,
   ): Promise<any> {
     const { displayName, emails, photos } = profile;
-    const user = await this.authService.validateOAuthUser("google", {
+    const user = await this.authService.validateOAuthUser("GOOGLE", {
       email: emails[0].value,
       fullname: displayName,
       avatarUrl: photos[0].value,

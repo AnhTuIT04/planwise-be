@@ -37,30 +37,6 @@ export class ProjectController {
     return this.projectService.getAllProjects(userId);
   }
 
-  @Get("personal")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Get personal project - my-tasks page" })
-  @ApiResponse({
-    status: 200,
-    type: ProjectResponseDto,
-    description: "Personal project retrieved successfully",
-  })
-  getPersonalProject(@GetCurrentUserId() userId: string) {
-    return this.projectService.getPersonalProject(userId);
-  }
-
-  @Get("personal/sections")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Get sections of personal project - my-tasks page" })
-  @ApiResponse({
-    status: 200,
-    type: SectionsListResponseDto,
-    description: "Sections of personal project retrieved successfully",
-  })
-  getPersonalProjectSections(@GetCurrentUserId() userId: string) {
-    return this.projectService.getPersonalProjectSections(userId);
-  }
-
   @Get(":id")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Get detailed project by ID" })
@@ -71,18 +47,6 @@ export class ProjectController {
   })
   getDetailedProject(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.getDetailedProject(userId, id);
-  }
-
-  @Get(":id/sections")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Get sections of a project by ID" })
-  @ApiResponse({
-    status: 200,
-    type: SectionsListResponseDto,
-    description: "Sections of the project retrieved successfully",
-  })
-  getProjectSections(@Param("id") id: string, @GetCurrentUserId() userId: string) {
-    return this.projectService.getProjectSections(userId, id);
   }
 
   @Patch(":id")

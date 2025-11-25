@@ -4,9 +4,9 @@ import { TaskStatus } from "prisma/client";
 import { DatabaseService } from "@/modules/database/database.service";
 import { GetSubtaskStatusQueryResult } from "../query/get-subtask.query";
 
-function getDurationInMinutesFrom(time: Date = new Date()): number {
+function getDurationInSecondsFrom(time: Date = new Date()): number {
   const durationInMilliseconds = new Date().getTime() - time.getTime();
-  return Math.floor(durationInMilliseconds / 60000);
+  return Math.floor(durationInMilliseconds / 1000);
 }
 
 async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
@@ -17,7 +17,7 @@ async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetSu
         where: { id: runningSubtask.id },
         data: {
           status: TaskStatus.DONE,
-          timeSpent: getDurationInMinutesFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.timeSpent,
+          timeSpent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.timeSpent,
         },
       });
 
@@ -60,11 +60,11 @@ async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetSu
     where: { id: task.id },
     data: {
       status: TaskStatus.TODO,
-      timeSpent: getDurationInMinutesFrom(task.lastStarted ?? undefined) + task.timeSpent,
+      timeSpent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.timeSpent,
       parent: {
         update: {
           status: TaskStatus.TODO,
-          timeSpent: getDurationInMinutesFrom(task.parent!.lastStarted ?? undefined) + task.parent!.timeSpent,
+          timeSpent: getDurationInSecondsFrom(task.parent!.lastStarted ?? undefined) + task.parent!.timeSpent,
         },
       },
     },
@@ -76,11 +76,11 @@ async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetSu
     where: { id: task.id },
     data: {
       status: TaskStatus.DONE,
-      timeSpent: getDurationInMinutesFrom(task.lastStarted ?? undefined) + task.timeSpent,
+      timeSpent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.timeSpent,
       parent: {
         update: {
           status: TaskStatus.TODO,
-          timeSpent: getDurationInMinutesFrom(task.parent!.lastStarted ?? undefined) + task.parent!.timeSpent,
+          timeSpent: getDurationInSecondsFrom(task.parent!.lastStarted ?? undefined) + task.parent!.timeSpent,
         },
       },
     },

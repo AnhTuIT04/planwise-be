@@ -223,25 +223,26 @@ export class TaskService {
       throw new ForbiddenException("Task not found or you do not have permission to access it");
     }
 
+    for (const sub of task.subtasks) {
+      const newAssignees = [...new Set([...sub.assignees.map((a) => a.userId), ...dto.assigneeIds])];
+
+      await this.db.task.update({
+        where: { id: sub.id },
+        data: {
+          assignees: {
+            deleteMany: {},
+            create: newAssignees.map((uid) => ({ userId: uid })),
+          },
+        },
+      });
+    }
+
     const updatedTask = await this.db.task.update({
       where: { id: taskId },
       data: {
         assignees: {
           deleteMany: {},
           create: dto.assigneeIds.map((uid) => ({ userId: uid })),
-        },
-        subtasks: {
-          updateMany: task.subtasks.map((subtask) => ({
-            where: { id: subtask.id },
-            data: {
-              assignees: {
-                deleteMany: {},
-                create: Array.from(
-                  new Set([...subtask.assignees.map((assignee) => assignee.userId), ...dto.assigneeIds]),
-                ).map((uid) => ({ userId: uid })),
-              },
-            },
-          })),
         },
       },
       ...buildGetTaskQuery(),
@@ -370,6 +371,7 @@ export class TaskService {
       where: {
         id: toSectionId,
         project: {
+          isPersonal: true,
           memberships: { some: { userId } },
         },
       },

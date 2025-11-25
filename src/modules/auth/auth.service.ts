@@ -13,7 +13,6 @@ import { VerifyOtpDTO } from "./dto/request/verify-otp.dto";
 import { ResetPasswordDTO } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
 import { UserResponseDto } from "./dto/response/user-response.dto";
-import { AuthResponseDto } from "./dto/response/auth-response.dto";
 
 @Injectable()
 export class AuthService {
@@ -56,11 +55,16 @@ export class AuthService {
 
     await Promise.all([
       this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + signUpDto.email, otp, this.OTP_TTL),
-      this.usersService.createOrUpdate(signUpDto.email, {
-        email: signUpDto.email,
-        fullname: signUpDto.fullname,
-        password: hashedPassword,
-      }),
+      !existingUser
+        ? this.usersService.create({
+            email: signUpDto.email,
+            fullname: signUpDto.fullname,
+            password: hashedPassword,
+          })
+        : this.usersService.update(existingUser.id, {
+            fullname: signUpDto.fullname,
+            password: hashedPassword,
+          }),
     ]);
 
     // Send verification email but don't await to avoid delaying response
@@ -95,7 +99,7 @@ export class AuthService {
 
     const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
 
-    return new AuthResponseDto({ accessToken, user }, "Email verified successfully. You are now logged in.");
+    return { accessToken, user };
   }
 
   async resendOtp(email: string, isForVerification: boolean) {
@@ -196,7 +200,7 @@ export class AuthService {
 
     const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
 
-    return new AuthResponseDto({ accessToken, user }, "Signin successful.");
+    return { accessToken, user };
   }
 
   async getUserData(userId: string) {
@@ -233,7 +237,7 @@ export class AuthService {
   }
 
   async validateOAuthUser(
-    provider: "google" | "github",
+    provider: "GOOGLE" | "GITHUB",
     profile: {
       email: string;
       fullname: string;
@@ -241,29 +245,36 @@ export class AuthService {
     },
   ) {
     const { email, fullname: name, avatarUrl: avatar } = profile;
-    const user = await this.usersService.createOrUpdate(
+    const existingUser = await this.usersService.findByEmail(email);
+
+    if (existingUser) {
+      return this.usersService.update(existingUser.id, {
+        oauthAccounts: {
+          connectOrCreate: {
+            where: {
+              userId_provider: {
+                userId: existingUser.id,
+                provider,
+              },
+            },
+            create: {
+              provider,
+            },
+          },
+        },
+      });
+    }
+
+    return this.usersService.create({
       email,
-      {
-        email,
-        fullname: name,
-        avatarUrl: avatar,
-        verified: true,
-
-        accounts: {
-          create: {
-            provider,
-          },
+      fullname: name,
+      avatarUrl: avatar,
+      verified: true,
+      oauthAccounts: {
+        create: {
+          provider,
         },
       },
-      {
-        accounts: {
-          create: {
-            provider,
-          },
-        },
-      },
-    );
-
-    return user;
+    });
   }
 }
