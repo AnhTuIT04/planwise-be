@@ -1,5 +1,4 @@
 import { Prisma } from "prisma/client";
-import { buildGetSectionQuery } from "@/modules/section/query/get-section.query";
 
 interface BuildGetProjectQueryOptions {
   getArchivedTasks?: boolean;
@@ -8,14 +7,24 @@ interface BuildGetProjectQueryOptions {
 export function buildGetProjectQuery({ getArchivedTasks }: BuildGetProjectQueryOptions = {}) {
   return {
     include: {
-      memberships: {
+      owner: true,
+      _count: {
         select: {
-          role: true,
-          user: true,
+          members: true,
+          sections: true,
+          tasks: {
+            where: getArchivedTasks
+              ? {}
+              : {
+                  task: {
+                    status: {
+                      not: "ARCHIVED",
+                    },
+                  },
+                },
+          },
         },
       },
-      roles: true,
-      sections: buildGetSectionQuery({ getArchivedTasks }),
     },
   } as const satisfies Omit<Prisma.ProjectFindUniqueArgs, "where">;
 }

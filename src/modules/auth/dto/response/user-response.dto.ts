@@ -1,67 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { ResponseDto } from "@/common/dto/response.dto";
-import { RoleDto } from "@/modules/role/dto/response/role-response.dto";
-
-export class UserBasicDto {
-  @ApiProperty({
-    example: "167167ca-9760-466d-adff-ede13db5d56a",
-    description: "Unique identifier of the user",
-  })
-  readonly id: string;
-
-  @ApiProperty({
-    example: "user@example.com",
-    description: "Email address of the user",
-  })
-  readonly email: string;
-
-  @ApiProperty({
-    example: "John Doe",
-    description: "Full name of the user",
-  })
-  readonly fullname: string;
-
-  @ApiProperty({
-    example: "https://placehold.co/600x400/EEE/31343C",
-    description: "Avatar image URL",
-    nullable: true,
-  })
-  readonly avatarUrl: string | null;
-
-  constructor(user: { id: string; email: string; fullname: string; avatarUrl: string | null }) {
-    this.id = user.id;
-    this.email = user.email;
-    this.fullname = user.fullname;
-    this.avatarUrl = user.avatarUrl;
-  }
-}
-
-export class UserWithRoleDto extends UserBasicDto {
-  @ApiProperty({ type: () => RoleDto, description: "Role of the user" })
-  readonly role: RoleDto;
-
-  constructor(
-    user: {
-      id: string;
-      email: string;
-      password: string | null;
-      fullname: string;
-      avatarUrl: string | null;
-      verified: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    },
-    role: {
-      id: string;
-      name: string;
-      listOfPermission: string;
-    },
-  ) {
-    super(user);
-    this.role = new RoleDto(role);
-  }
-}
+import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
+import { UserBasicDto } from "./user-basic-response.dto";
 
 export class UserDto extends UserBasicDto {
   @ApiProperty({
@@ -69,6 +9,12 @@ export class UserDto extends UserBasicDto {
     description: "Whether the user has been verified",
   })
   readonly verified: boolean;
+
+  @ApiProperty({
+    example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    description: "Personal project id of the user",
+  })
+  readonly workspaceId: string;
 
   @ApiProperty({
     example: "2025-10-22T16:01:50.014Z",
@@ -90,48 +36,15 @@ export class UserDto extends UserBasicDto {
     fullname: string;
     avatarUrl: string | null;
     verified: boolean;
+    workspaceId: string;
     createdAt: Date;
     updatedAt: Date;
   }) {
     super(user);
     this.verified = user.verified;
+    this.workspaceId = user.workspaceId;
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
-  }
-}
-
-export class UserBasicResponseDto extends ResponseDto<UserBasicDto> {
-  @ApiProperty({ type: () => UserBasicDto, description: "User basic information" })
-  declare readonly data: UserBasicDto;
-
-  constructor(data: UserBasicDto, message: string = "Operation completed successfully.") {
-    super(new UserBasicDto(data), message);
-  }
-}
-
-export class UserWithRoleResponseDto extends ResponseDto<UserWithRoleDto> {
-  @ApiProperty({ type: () => UserWithRoleDto, description: "User information with role" })
-  declare readonly data: UserWithRoleDto;
-
-  constructor(
-    user: {
-      id: string;
-      email: string;
-      password: string | null;
-      fullname: string;
-      avatarUrl: string | null;
-      verified: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    },
-    role: {
-      id: string;
-      name: string;
-      listOfPermission: string;
-    },
-    message?: string,
-  ) {
-    super(new UserWithRoleDto(user, role), message);
   }
 }
 
@@ -139,7 +52,49 @@ export class UserResponseDto extends ResponseDto<UserDto> {
   @ApiProperty({ type: () => UserDto, description: "Detailed user information" })
   declare readonly data: UserDto;
 
-  constructor(data: UserDto, message?: string) {
+  constructor(
+    data: {
+      id: string;
+      email: string;
+      fullname: string;
+      avatarUrl: string | null;
+      verified: boolean;
+      workspaceId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    message?: string,
+  ) {
     super(new UserDto(data), message);
+  }
+}
+
+export class UsersListResponseDto extends PaginationResponseDto<UserDto> {
+  @ApiProperty({ type: () => [UserDto], description: "List of users" })
+  declare readonly data: UserDto[];
+
+  constructor(
+    users: {
+      id: string;
+      email: string;
+      fullname: string;
+      avatarUrl: string | null;
+      verified: boolean;
+      workspaceId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }[],
+    page: number,
+    limit: number,
+    totalItems: number,
+    message?: string,
+  ) {
+    super(
+      users.map((user) => new UserDto(user)),
+      page,
+      limit,
+      totalItems,
+      message,
+    );
   }
 }

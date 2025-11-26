@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 
-import { Prisma, User } from "prisma/client";
+import { Prisma } from "prisma/client";
+import { midpoint } from "@/common/utils";
 import { DefaultRole } from "@/common/enum/default-role.enum";
 import { DatabaseService } from "@/modules/database/database.service";
 
@@ -8,7 +9,7 @@ import { DatabaseService } from "@/modules/database/database.service";
 export class UsersService {
   constructor(private db: DatabaseService) {}
 
-  async create(data: Omit<Prisma.UserCreateInput, "personalProjectId">) {
+  async create(data: Omit<Prisma.UserCreateInput, "workspaceId">) {
     return this.db.$transaction(async (tx) => {
       const newProject = await this.db.project.create({
         data: {
@@ -16,7 +17,7 @@ export class UsersService {
           owner: {
             create: {
               ...data,
-              personalProjectId: "",
+              workspaceId: "",
             },
           },
           isPersonal: true,
@@ -24,7 +25,7 @@ export class UsersService {
             create: [
               {
                 name: "Default",
-                position: "123",
+                position: midpoint(null, null),
               },
             ],
           },
@@ -32,12 +33,12 @@ export class UsersService {
             create: [
               {
                 name: DefaultRole.OWNER,
-                isDefault: true,
+                default: true,
                 permissions: JSON.stringify(["ALL"]),
               },
               {
                 name: DefaultRole.MEMBER,
-                isDefault: true,
+                default: true,
                 permissions: JSON.stringify(["ALL"]),
               },
             ],
@@ -45,12 +46,21 @@ export class UsersService {
         },
         include: {
           owner: true,
+          roles: true,
         },
       });
 
       return tx.user.update({
         where: { id: newProject.owner.id },
-        data: { personalProjectId: newProject.id },
+        data: {
+          workspaceId: newProject.id,
+          memberships: {
+            create: {
+              projectId: newProject.id,
+              roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+            },
+          },
+        },
       });
     });
   }
@@ -63,7 +73,7 @@ export class UsersService {
     return this.db.user.findUnique({ where: { id } });
   }
 
-  async update(id: string, data: Omit<Prisma.UserUpdateInput, "personalProjectId">) {
+  async update(id: string, data: Omit<Prisma.UserUpdateInput, "workspaceId">) {
     return this.db.user.update({
       where: { id },
       data,

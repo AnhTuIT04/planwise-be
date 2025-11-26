@@ -1,9 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { DefaultRole } from "@/common/enum/default-role.enum";
-import { UserWithRoleDto } from "@/modules/auth/dto/response/user-response.dto";
-import { SectionDto } from "@/modules/section/dto/response/section-response.dto";
-import { RoleDto } from "@/modules/role/dto/response/role-response.dto";
+import { UserDto } from "@/modules/auth/dto/response/user-response.dto";
 import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
 import { GetProjectQueryResult } from "../../query/get-project.query";
 
@@ -12,17 +9,10 @@ export class ProjectDto {
   readonly id: string;
 
   @ApiProperty({
-    type: () => UserWithRoleDto,
+    type: () => UserDto,
     description: "Owner information object",
-    nullable: true,
   })
-  readonly owner: UserWithRoleDto | null;
-
-  @ApiProperty({ type: () => [UserWithRoleDto], description: "Array of member information objects" })
-  readonly members: UserWithRoleDto[];
-
-  @ApiProperty({ type: () => [RoleDto], description: "Array of role information objects" })
-  readonly roles: RoleDto[];
+  readonly owner: UserDto;
 
   @ApiProperty({ example: "Website Redesign", description: "Project name" })
   readonly name: string;
@@ -45,8 +35,8 @@ export class ProjectDto {
   @ApiProperty({ example: false, description: "The isPersonal property" })
   readonly isPersonal: boolean;
 
-  @ApiProperty({ type: [SectionDto], description: "Array of sections objects" })
-  readonly sections: SectionDto[];
+  @ApiProperty({ example: 2, description: "Member count" })
+  readonly memberCount: number;
 
   @ApiProperty({ example: 3, description: "Section count" })
   readonly sectionCount: number;
@@ -63,34 +53,14 @@ export class ProjectDto {
 
   constructor(project: GetProjectQueryResult) {
     this.id = project.id;
-
-    // Map owner
-    const owner = project.memberships.find((member) => member.role.name === DefaultRole.OWNER);
-    this.owner = owner ? new UserWithRoleDto(owner.user, owner.role) : null;
-    // Map members
-    this.members = project.memberships.map((membership) => new UserWithRoleDto(membership.user, membership.role));
-    // Map roles
-    this.roles = project.roles.map((role) => new RoleDto(role));
-
+    this.owner = new UserDto(project.owner);
     this.name = project.name;
     this.description = project.description;
     this.logoUrl = project.logoUrl;
     this.isPersonal = project.isPersonal;
-
-    // Sort sections according to the order in sectionIds
-    const sectionMap = new Map(project.sections.map((section) => [section.id, section]));
-    const sectionIds = JSON.parse(project.listOfSection) as string[];
-    this.sections = sectionIds
-      .map((id) => sectionMap.get(id))
-      .filter((section) => section !== undefined)
-      .map((section) => new SectionDto(section));
-
-    this.sectionCount = project.sections.length;
-    this.taskCount = project.sections.reduce((total, section) => {
-      const tasks = JSON.parse(section.listOfTask) as string[];
-      return total + tasks.length;
-    }, 0);
-
+    this.memberCount = project._count.members;
+    this.sectionCount = project._count.sections;
+    this.taskCount = project._count.tasks;
     this.createdAt = project.createdAt;
   }
 }

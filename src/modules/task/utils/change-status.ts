@@ -43,14 +43,13 @@ async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetTa
     where: { id: task.id },
     data: {
       status: TaskStatus.TODO,
-      timeSpent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.timeSpent,
+      spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
       subtasks: {
         updateMany: {
           where: { id: subtaskRunning?.id },
           data: {
             status: TaskStatus.TODO,
-            timeSpent:
-              getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.timeSpent || 0),
+            spent: getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.spent || 0),
           },
         },
       },
@@ -66,15 +65,14 @@ async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetTa
     where: { id: task.id },
     data: {
       status: TaskStatus.DONE,
-      timeSpent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.timeSpent,
+      spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
       subtasks: {
         updateMany: [
           {
             where: { id: subtaskRunning?.id },
             data: {
               status: TaskStatus.DONE,
-              timeSpent:
-                getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.timeSpent || 0),
+              spent: getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.spent || 0),
             },
           },
           {

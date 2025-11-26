@@ -3,7 +3,7 @@ import { Prisma } from "prisma/client";
 export function buildGetSubtaskStatusQuery() {
   return {
     include: {
-      parent: {
+      parentTask: {
         include: {
           subtasks: true,
         },

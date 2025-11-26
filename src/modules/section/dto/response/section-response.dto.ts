@@ -1,7 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
 import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
-import { TaskDto } from "@/modules/task/dto/response/task-response.dto";
 import { GetSectionQueryResult } from "../../query/get-section.query";
 
 export class SectionDto {
@@ -11,11 +10,8 @@ export class SectionDto {
   @ApiProperty({ example: "To Do", description: "Section name" })
   readonly name: string;
 
-  @ApiProperty({
-    type: () => [TaskDto],
-    description: "Array of task belong to this section",
-  })
-  readonly tasks: TaskDto[];
+  @ApiProperty({ example: 5, description: "Task count" })
+  readonly taskCount: number;
 
   @ApiProperty({
     example: "2024-06-15T12:00:00Z",
@@ -27,14 +23,7 @@ export class SectionDto {
   constructor(section: GetSectionQueryResult) {
     this.id = section.id;
     this.name = section.name;
-
-    const taskMap = new Map(section.tasksOfSection.map((task) => [task.task.id, task]));
-    const taskIds = JSON.parse(section.listOfTask) as string[];
-    this.tasks = taskIds
-      .map((id) => taskMap.get(id))
-      .filter((task) => task !== undefined)
-      .map((task) => new TaskDto(task.task));
-
+    this.taskCount = section._count.tasks;
     this.createdAt = section.createdAt;
   }
 }

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray } from "class-validator";
+import { IsString, IsOptional } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 
 export class UpdateProjectDto {
@@ -25,14 +25,4 @@ export class UpdateProjectDto {
     description: "URL of the project logo",
   })
   readonly logoUrl?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @ApiPropertyOptional({
-    type: [String],
-    example: ["section-id-2", "section-id-1", "section-id-3"],
-    description: "Array of section IDs in the new order",
-  })
-  readonly listOfSection?: string[];
 }

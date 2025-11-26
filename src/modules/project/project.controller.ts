@@ -3,7 +3,8 @@ import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";
-import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
+import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
+import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-with-role-response.dto";
 import { ProjectService } from "./project.service";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
@@ -71,5 +72,29 @@ export class ProjectController {
   })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.remove(userId, id);
+  }
+
+  @Get(":id/members")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get all members of a project" })
+  @ApiResponse({
+    status: 200,
+    type: UsersWithRoleListResponseDto,
+    description: "Members of the project retrieved successfully",
+  })
+  getProjectMembers(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.projectService.getProjectMembers(userId, id);
+  }
+
+  @Get(":id/roles")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get all roles of a project" })
+  @ApiResponse({
+    status: 200,
+    type: RolesListResponseDto,
+    description: "Roles of the project retrieved successfully",
+  })
+  getProjectRoles(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.projectService.getProjectRoles(userId, id);
   }
 }

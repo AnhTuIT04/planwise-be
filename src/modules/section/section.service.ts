@@ -1,60 +1,100 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 
-import { Prisma } from "prisma/client";
+import { midpoint } from "@/common/utils";
 import { DatabaseService } from "@/modules/database/database.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { CreateSectionDto } from "./dto/request/create-section.dto";
 import { UpdateSectionDto } from "./dto/request/update-section.dto";
-import { SectionResponseDto } from "./dto/response/section-response.dto";
+import { SectionResponseDto, SectionsListResponseDto } from "./dto/response/section-response.dto";
 import { buildGetSectionQuery } from "./query/get-section.query";
+import { MoveSectionDto } from "./dto/request/move-section.dto";
 
 @Injectable()
 export class SectionService {
   constructor(private db: DatabaseService) {}
 
   async create(userId: string, dto: CreateSectionDto) {
-    const { name, projectId, insertAt } = dto;
-
-    const project = await this.ensureUserCanAccessProject(projectId, userId);
-    const section = await this.db.section.create({
-      data: { name, projectId },
-    });
-
-    const currentList = JSON.parse(project.listOfSection);
-    if (insertAt !== undefined && insertAt >= 0 && insertAt <= currentList.length) {
-      currentList.splice(insertAt, 0, section.id);
-    } else {
-      currentList.push(section.id);
-    }
-
-    await this.db.project.update({
-      where: { id: projectId },
-      data: { listOfSection: JSON.stringify(currentList) },
-    });
-
-    return new SectionResponseDto({ ...section, tasksOfSection: [] }, "Section created successfully");
-  }
-
-  async update(userId: string, sectionId: string, dto: UpdateSectionDto) {
-    const section = await this.db.section.findUnique({
+    const project = await this.db.project.findFirst({
       where: {
-        id: sectionId,
-        projectId: dto.projectId,
-        project: {
-          memberships: { some: { userId } },
+        id: dto.projectId,
+        members: { some: { userId } },
+      },
+      select: {
+        sections: {
+          orderBy: { position: "asc" },
+          select: { id: true, position: true },
         },
       },
     });
 
-    if (!section) {
-      throw new ForbiddenException("Section not found or does not belong to the project");
+    if (!project) throw new ForbiddenException("Project not found or you do not have access");
+
+    let position: string;
+    if (project.sections.length === 0) {
+      position = midpoint(null, null);
+    } else if (dto.insertAt === undefined || dto.insertAt >= project.sections.length) {
+      position = midpoint(project.sections[project.sections.length - 1].position, null);
+    } else if (dto.insertAt === 0) {
+      position = midpoint(null, project.sections[0].position);
+    } else {
+      position = midpoint(project.sections[dto.insertAt - 1].position, project.sections[dto.insertAt].position);
     }
+
+    const section = await this.db.section.create({
+      data: {
+        name: dto.name,
+        projectId: dto.projectId,
+        position,
+      },
+      ...buildGetSectionQuery(),
+    });
+
+    return new SectionResponseDto(section, "Section created successfully");
+  }
+
+  async getAllSections(userId: string, projectId: string) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        members: { some: { userId } },
+      },
+    });
+
+    if (!project) throw new ForbiddenException("Project not found or you do not have access");
+
+    const sections = await this.db.section.findMany({
+      where: {
+        projectId,
+      },
+      orderBy: { position: "asc" },
+      ...buildGetSectionQuery(),
+    });
+
+    return new SectionsListResponseDto(
+      sections,
+      0,
+      sections.length,
+      sections.length,
+      "Sections retrieved successfully",
+    );
+  }
+
+  async update(userId: string, sectionId: string, dto: UpdateSectionDto) {
+    const section = await this.db.section.findFirst({
+      where: {
+        id: sectionId,
+        project: {
+          members: { some: { userId } },
+        },
+      },
+    });
+
+    if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
 
     const updatedProject = await this.db.section.update({
       where: { id: sectionId },
       data: {
         name: dto.name,
-        listOfTask: dto.listOfTask ? JSON.stringify(dto.listOfTask) : section.listOfTask,
       },
       ...buildGetSectionQuery(),
     });
@@ -62,39 +102,68 @@ export class SectionService {
     return new SectionResponseDto(updatedProject, "Section updated successfully");
   }
 
-  async remove(userId: string, projectId: string, sectionId: string) {
-    const section = await this.db.section.findUnique({
+  async moveSection(userId: string, sectionId: string, dto: MoveSectionDto) {
+    const section = await this.db.section.findFirst({
       where: {
         id: sectionId,
-        projectId,
         project: {
-          memberships: { some: { userId } },
+          members: { some: { userId } },
+        },
+      },
+      select: {
+        project: {
+          select: {
+            sections: {
+              orderBy: { position: "asc" },
+              select: { id: true, position: true },
+            },
+          },
         },
       },
     });
 
-    if (!section) {
-      throw new ForbiddenException("Section not found or does not belong to the project");
+    if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
+
+    const sections = section.project.sections.filter((sec) => sec.id !== sectionId);
+
+    let newPosition: string;
+    if (sections.length === 0) {
+      newPosition = midpoint(null, null);
+    } else if (dto.moveTo === 0) {
+      newPosition = midpoint(null, sections[0].position);
+    } else if (dto.moveTo >= sections.length) {
+      newPosition = midpoint(sections[sections.length - 1].position, null);
+    } else {
+      newPosition = midpoint(sections[dto.moveTo - 1].position, sections[dto.moveTo].position);
     }
+
+    const movedSection = await this.db.section.update({
+      where: { id: sectionId },
+      data: {
+        position: newPosition,
+      },
+      ...buildGetSectionQuery(),
+    });
+
+    return new SectionResponseDto(movedSection, "Section moved successfully");
+  }
+
+  async remove(userId: string, sectionId: string) {
+    const section = await this.db.section.findUnique({
+      where: {
+        id: sectionId,
+        project: {
+          members: { some: { userId } },
+        },
+      },
+    });
+
+    if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
 
     await this.db.section.delete({
       where: { id: sectionId },
     });
 
     return new MessageResponseDto("Section deleted successfully");
-  }
-
-  private async ensureUserCanAccessProject(projectId: string, userId: string, include?: Prisma.ProjectInclude) {
-    const project = await this.db.project.findFirst({
-      where: {
-        id: projectId,
-        memberships: { some: { userId } },
-      },
-      include,
-    });
-
-    if (!project) throw new ForbiddenException("Project not found or you don't have access");
-
-    return project;
   }
 }

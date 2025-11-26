@@ -4,7 +4,6 @@ import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
 import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
 
-import { AppConfig } from "@/config/app.config";
 import { Public } from "@/decorators/public.decorator";
 import { GetCurrentUser, GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";

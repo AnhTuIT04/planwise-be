@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 import { PriorityLevel, TaskStatus } from "prisma/client";
 import { ResponseDto } from "@/common/dto/response.dto";
-import { UserBasicDto } from "@/modules/auth/dto/response/user-response.dto";
+import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
 import { GetTaskQueryResult } from "../../query/get-task.query";
 
 export class TaskDto {
@@ -25,10 +25,10 @@ export class TaskDto {
   readonly priority: PriorityLevel | null;
 
   @ApiProperty({ example: 20, description: "Estimated time to complete the task in minutes" })
-  readonly timeEstimate: number;
+  readonly estimate: number;
 
   @ApiProperty({ example: 15, description: "Time spent on the task in minutes" })
-  readonly timeSpent: number;
+  readonly spent: number;
 
   @ApiPropertyOptional({
     example: "2024-07-01T12:00:00Z",
@@ -70,8 +70,8 @@ export class TaskDto {
     this.description = task.description;
     this.status = task.status;
     this.priority = task.priority;
-    this.timeEstimate = task.timeEstimate;
-    this.timeSpent = task.timeSpent;
+    this.estimate = task.estimate;
+    this.spent = task.spent;
     this.lastStarted = task.lastStarted;
     this.deadline = task.deadline;
     this.supervisor = task.supervisor ? new UserBasicDto(task.supervisor) : null;

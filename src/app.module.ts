@@ -14,7 +14,7 @@ import { TaskModule } from "./modules/task/task.module";
 import { SectionModule } from "./modules/section/section.module";
 import { ProjectModule } from "./modules/project/project.module";
 import { CommentModule } from "./modules/comment/comment.module";
-import { SubtaskModule } from './modules/subtask/subtask.module';
+import { SubtaskModule } from "./modules/subtask/subtask.module";
 
 @Module({
   imports: [
@@ -30,11 +30,11 @@ import { SubtaskModule } from './modules/subtask/subtask.module';
     EmailModule,
     UsersModule,
     AuthModule,
-    TaskModule,
-    SectionModule,
     ProjectModule,
-    CommentModule,
+    SectionModule,
+    TaskModule,
     SubtaskModule,
+    CommentModule,
   ],
   controllers: [AppController],
   providers: [

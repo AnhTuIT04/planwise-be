@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { ResponseDto } from "@/common/dto/response.dto";
+import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
 
 export class RoleDto {
   @ApiProperty({
@@ -16,15 +16,21 @@ export class RoleDto {
   readonly name: string;
 
   @ApiProperty({
+    example: false,
+    description: "Whether this role is the default role",
+  })
+  readonly default: boolean;
+
+  @ApiProperty({
     example: ["project:create", "project:delete"],
     description: "Array of permissions associated with the role",
   })
   readonly permissions: string[];
 
-  constructor(role: { id: string; name: string; listOfPermission: string }) {
+  constructor(role: { id: string; name: string; permissions: string }) {
     this.id = role.id;
     this.name = role.name;
-    this.permissions = JSON.parse(role.listOfPermission);
+    this.permissions = JSON.parse(role.permissions);
   }
 }
 
@@ -32,7 +38,28 @@ export class RoleResponseDto extends ResponseDto<RoleDto> {
   @ApiProperty({ type: () => RoleDto, description: "Role data" })
   declare readonly data: RoleDto;
 
-  constructor(role: { id: string; name: string; listOfPermission: string }, message?: string) {
+  constructor(role: { id: string; name: string; permissions: string }, message?: string) {
     super(new RoleDto(role), message);
+  }
+}
+
+export class RolesListResponseDto extends PaginationResponseDto<RoleDto> {
+  @ApiProperty({ type: () => [RoleDto], description: "Array of role data" })
+  declare readonly data: RoleDto[];
+
+  constructor(
+    roles: { id: string; name: string; permissions: string }[],
+    page: number,
+    limit: number,
+    totalItems: number,
+    message?: string,
+  ) {
+    super(
+      roles.map((role) => new RoleDto(role)),
+      page,
+      limit,
+      totalItems,
+      message,
+    );
   }
 }

@@ -9,15 +9,15 @@ datasource db {
 }
 
 model User {
-  id                String   @id @default(uuid())
-  email             String   @unique
-  password          String?
-  fullname          String
-  avatarUrl         String?
-  verified          Boolean  @default(false)
-  personalProjectId String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String?
+  fullname    String
+  avatarUrl   String?
+  verified    Boolean  @default(false)
+  workspaceId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   oauthAccounts   OAuthAccount[]
   ownedProjects   Project[]           @relation("UserOwnsProjects")
@@ -198,7 +198,7 @@ model Role {
   id          String  @id @default(uuid())
   name        String
   permissions String  @default("[]")
-  isDefault   Boolean @default(false)
+  default     Boolean @default(false)
 
   members ProjectMember[]
 

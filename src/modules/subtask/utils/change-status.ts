@@ -10,14 +10,14 @@ function getDurationInSecondsFrom(time: Date = new Date()): number {
 }
 
 async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
-  const runningSubtask = task.parent!.subtasks.find((st) => st.status === TaskStatus.RUNNING);
+  const runningSubtask = task.parentTask!.subtasks.find((st) => st.status === TaskStatus.RUNNING);
   if (runningSubtask) {
     return db.$transaction(async (tx) => {
       await tx.task.update({
         where: { id: runningSubtask.id },
         data: {
           status: TaskStatus.DONE,
-          timeSpent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.timeSpent,
+          spent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.spent,
         },
       });
 
@@ -36,7 +36,7 @@ async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetSu
     data: {
       status: TaskStatus.RUNNING,
       lastStarted: new Date(),
-      parent: {
+      parentTask: {
         update: {
           status: TaskStatus.RUNNING,
           lastStarted: new Date(),
@@ -60,11 +60,11 @@ async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetSu
     where: { id: task.id },
     data: {
       status: TaskStatus.TODO,
-      timeSpent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.timeSpent,
-      parent: {
+      spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
+      parentTask: {
         update: {
           status: TaskStatus.TODO,
-          timeSpent: getDurationInSecondsFrom(task.parent!.lastStarted ?? undefined) + task.parent!.timeSpent,
+          spent: getDurationInSecondsFrom(task.parentTask!.lastStarted ?? undefined) + task.parentTask!.spent,
         },
       },
     },
@@ -76,11 +76,11 @@ async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetSu
     where: { id: task.id },
     data: {
       status: TaskStatus.DONE,
-      timeSpent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.timeSpent,
-      parent: {
+      spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
+      parentTask: {
         update: {
           status: TaskStatus.TODO,
-          timeSpent: getDurationInSecondsFrom(task.parent!.lastStarted ?? undefined) + task.parent!.timeSpent,
+          spent: getDurationInSecondsFrom(task.parentTask!.lastStarted ?? undefined) + task.parentTask!.spent,
         },
       },
     },
@@ -88,12 +88,12 @@ async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetSu
 }
 
 async function changeStatusFrom_DONE_To_TODO(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
-  if (task.parent!.status === TaskStatus.DONE) {
+  if (task.parentTask!.status === TaskStatus.DONE) {
     return db.task.update({
       where: { id: task.id },
       data: {
         status: TaskStatus.TODO,
-        parent: {
+        parentTask: {
           update: {
             status: TaskStatus.TODO,
           },
@@ -115,11 +115,11 @@ async function changeStatusFrom_DONE_To_RUNNING(db: DatabaseService, task: GetSu
 }
 
 async function changeStatusFrom_TODO_To_ARCHIVED(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
-  throw new BadRequestException("Only parent tasks can be archived.");
+  throw new BadRequestException("Only parentTask tasks can be archived.");
 }
 
 async function changeStatusFrom_DONE_To_ARCHIVED(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
-  throw new BadRequestException("Only parent tasks can be archived.");
+  throw new BadRequestException("Only parentTask tasks can be archived.");
 }
 
 async function changeStatusFrom_RUNNING_To_ARCHIVED(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
@@ -127,7 +127,7 @@ async function changeStatusFrom_RUNNING_To_ARCHIVED(db: DatabaseService, task: G
 }
 
 async function changeStatusFrom_ARCHIVED_To_TODO(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
-  throw new BadRequestException("Only parent tasks can be unarchived.");
+  throw new BadRequestException("Only parentTask tasks can be unarchived.");
 }
 
 async function changeStatusFrom_ARCHIVED_To_RUNNING(db: DatabaseService, task: GetSubtaskStatusQueryResult) {

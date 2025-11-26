@@ -1,9 +1,10 @@
-import { ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { DatabaseService } from "@/modules/database/database.service";
 import { DefaultRole } from "@/common/enum/default-role.enum";
 import { MessageResponseDto } from "@/common/dto/message.dto";
-import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
+import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
+import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-with-role-response.dto";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
@@ -23,13 +24,13 @@ export class ProjectService {
             create: [
               {
                 name: DefaultRole.OWNER,
-                isDefault: true,
-                listOfPermission: JSON.stringify(["ALL"]),
+                default: true,
+                permissions: JSON.stringify(["ALL"]),
               },
               {
                 name: DefaultRole.MEMBER,
-                isDefault: true,
-                listOfPermission: JSON.stringify(["ALL"]),
+                default: true,
+                permissions: JSON.stringify(["ALL"]),
               },
             ],
           },
@@ -44,35 +45,29 @@ export class ProjectService {
       return await this.db.project.update({
         where: { id: newProject.id },
         data: {
-          memberships: {
+          members: {
             create: {
               userId,
               roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
             },
           },
         },
-        ...buildGetProjectQuery({
-          getArchivedTasks: false,
-        }),
+        ...buildGetProjectQuery(),
       });
     });
 
     return new ProjectResponseDto(project, "Project created successfully");
   }
 
-  // For project listing page - not done yet
   async getAllProjects(userId: string) {
     const projects = await this.db.project.findMany({
       where: {
         isPersonal: false,
-        memberships: { some: { userId } },
+        members: { some: { userId } },
       },
-      ...buildGetProjectQuery({
-        getArchivedTasks: false,
-      }),
+      ...buildGetProjectQuery(),
     });
 
-    // TODO: Add pagination later
     return new ProjectsListResponseDto(
       projects,
       0,
@@ -82,53 +77,13 @@ export class ProjectService {
     );
   }
 
-  // Get user's personal project
-  async getPersonalProject(userId: string) {
-    let project = await this.db.project.findFirst({
-      where: { ownerId: userId, isPersonal: true },
-      ...buildGetProjectQuery({
-        getArchivedTasks: false,
-      }),
-    });
-
-    if (!project) {
-      project = await this.createPersonalProjectForUser(userId);
-    }
-
-    return new ProjectResponseDto(project, "Personal project retrieved successfully");
-  }
-
-  async getPersonalProjectSections(userId: string) {
-    let project = await this.db.project.findFirst({
-      where: { ownerId: userId, isPersonal: true },
-      ...buildGetProjectQuery({
-        getArchivedTasks: false,
-      }),
-    });
-
-    if (!project) {
-      project = await this.createPersonalProjectForUser(userId);
-    }
-
-    return new SectionsListResponseDto(
-      project.sections,
-      0,
-      project.sections.length,
-      project.sections.length,
-      "Sections of personal project retrieved successfully",
-    );
-  }
-
-  // For project detail page (includes sections + tasks)
   async getDetailedProject(userId: string, projectId: string) {
     const project = await this.db.project.findFirst({
       where: {
         id: projectId,
-        memberships: { some: { userId } },
+        members: { some: { userId } },
       },
-      ...buildGetProjectQuery({
-        getArchivedTasks: false,
-      }),
+      ...buildGetProjectQuery(),
     });
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
@@ -136,33 +91,11 @@ export class ProjectService {
     return new ProjectResponseDto(project, "Detailed project retrieved successfully");
   }
 
-  async getProjectSections(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
-      where: {
-        id: projectId,
-        memberships: { some: { userId } },
-      },
-      ...buildGetProjectQuery({
-        getArchivedTasks: false,
-      }),
-    });
-
-    if (!project) throw new NotFoundException("Project not found or you don't have access");
-
-    return new SectionsListResponseDto(
-      project.sections,
-      0,
-      project.sections.length,
-      project.sections.length,
-      "Sections of the project retrieved successfully",
-    );
-  }
-
   async update(userId: string, projectId: string, updateProjectDto: UpdateProjectDto) {
     const project = await this.db.project.findFirst({
       where: {
         id: projectId,
-        memberships: { some: { userId: userId } },
+        members: { some: { userId } },
       },
     });
 
@@ -175,33 +108,33 @@ export class ProjectService {
         name: updateProjectDto.name,
         description: updateProjectDto.description,
         logoUrl: updateProjectDto.logoUrl,
-        listOfSection: updateProjectDto.listOfSection
-          ? JSON.stringify(updateProjectDto.listOfSection)
-          : project.listOfSection,
       },
-      ...buildGetProjectQuery({
-        getArchivedTasks: false,
-      }),
+      ...buildGetProjectQuery(),
     });
 
     return new ProjectResponseDto(updatedProject, "Project updated successfully");
   }
 
   async remove(userId: string, projectId: string) {
-    // TODO: check role later
     const project = await this.db.project.findFirst({
       where: {
         id: projectId,
         ownerId: userId,
       },
       include: {
-        sections: true,
+        _count: {
+          select: {
+            sections: true,
+            tasks: true,
+          },
+        },
       },
     });
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
     if (project.isPersonal === true) throw new ForbiddenException("Cannot delete personal project");
-    if (project.sections.length > 0) throw new ForbiddenException("Cannot delete project with existing sections");
+    if (project._count.sections > 0 || project._count.tasks > 0)
+      throw new ForbiddenException("Cannot delete project with existing sections or tasks");
 
     await this.db.project.delete({
       where: { id: projectId },
@@ -210,57 +143,52 @@ export class ProjectService {
     return new MessageResponseDto("Project deleted successfully");
   }
 
-  private async createPersonalProjectForUser(userId: string) {
-    return this.db.$transaction(async (tx) => {
-      const newProject = await this.db.project.create({
-        data: {
-          name: "My Workspace",
-          isPersonal: true,
-          ownerId: userId,
-          sections: {
-            create: [
-              {
-                name: "Default",
-              },
-            ],
-          },
-          roles: {
-            create: [
-              {
-                name: DefaultRole.OWNER,
-                isDefault: true,
-                listOfPermission: JSON.stringify(["ALL"]),
-              },
-              {
-                name: DefaultRole.MEMBER,
-                isDefault: true,
-                listOfPermission: JSON.stringify(["ALL"]),
-              },
-            ],
+  async getProjectMembers(userId: string, projectId: string) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        members: { some: { userId } },
+      },
+      select: {
+        members: {
+          select: {
+            user: true,
+            role: true,
           },
         },
-        select: {
-          id: true,
-          sections: true,
-          roles: true,
-        },
-      });
-
-      return await this.db.project.update({
-        where: { id: newProject.id },
-        data: {
-          listOfSection: JSON.stringify(newProject.sections.map((section) => section.id)),
-          memberships: {
-            create: {
-              userId,
-              roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
-            },
-          },
-        },
-        ...buildGetProjectQuery({
-          getArchivedTasks: false,
-        }),
-      });
+      },
     });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    return new UsersWithRoleListResponseDto(
+      project.members,
+      0,
+      project.members.length,
+      project.members.length,
+      "Members of the project retrieved successfully",
+    );
+  }
+
+  async getProjectRoles(userId: string, projectId: string) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        members: { some: { userId } },
+      },
+      select: {
+        roles: true,
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    return new RolesListResponseDto(
+      project.roles,
+      0,
+      project.roles.length,
+      project.roles.length,
+      "Roles of the project retrieved successfully",
+    );
   }
 }
