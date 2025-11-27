@@ -36,7 +36,7 @@ export class UpdateTaskDto {
     example: "120",
     description: "The time estimate for the task in minutes",
   })
-  readonly timeEstimate?: number;
+  readonly estimate?: number;
 
   @IsOptional()
   @IsDateString()
@@ -45,14 +45,6 @@ export class UpdateTaskDto {
     description: "The deadline of the task in ISO 8601 format",
   })
   readonly deadline?: string;
-
-  @IsNotEmpty()
-  @IsUUID()
-  @ApiProperty({
-    example: "550e8400-e29b-41d4-a716-446655440000",
-    description: "The ID of the project the task belongs to",
-  })
-  readonly projectId: string;
 
   @IsNotEmpty()
   @IsUUID()
@@ -69,4 +61,13 @@ export class UpdateTaskDto {
     description: "The ID of the supervisor user",
   })
   readonly supervisorId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @ApiPropertyOptional({
+    example: 1,
+    description: "The index to move the task to (0-based)",
+  })
+  readonly moveTo?: number;
 }

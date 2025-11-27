@@ -47,7 +47,7 @@ export class CreateSubtaskDto {
     example: "120",
     description: "The time estimate for the subtask in minutes",
   })
-  readonly timeEstimate?: number;
+  readonly estimate?: number;
 
   @IsNotEmpty()
   @IsArray()

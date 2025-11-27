@@ -39,7 +39,7 @@ class SubtaskDto {
     example: "120",
     description: "The time estimate for the subtask in minutes",
   })
-  readonly timeEstimate?: number;
+  readonly estimate?: number;
 
   @IsNotEmpty()
   @IsArray()
@@ -94,7 +94,7 @@ export class CreateTaskDto {
     example: "120",
     description: "The time estimate for the task in minutes",
   })
-  readonly timeEstimate?: number;
+  readonly estimate?: number;
 
   @IsOptional()
   @IsDateString()
