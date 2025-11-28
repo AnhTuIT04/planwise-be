@@ -1,15 +1,20 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { DatabaseService } from "@/modules/database/database.service";
 import { DefaultRole } from "@/common/enum/default-role.enum";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
 import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-with-role-response.dto";
+import { buildGetSectionQuery } from "@/modules/section/query/get-section.query";
+import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
-import { buildGetProjectQuery } from "./query/get-project.query";
 import { InviteMemberDto } from "./dto/request/invite-member.dto";
+import { GetProjectTasksQueryDto } from "./dto/request/query/get-project-tasks-query.dto";
+import { buildGetProjectQuery } from "./query/get-project.query";
+import { buildGetProjectTasksQuery, GetProjectTasksQueryResult } from "./query/get-project-tasks.query";
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
+import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
 
 @Injectable()
 export class ProjectService {
@@ -142,6 +147,101 @@ export class ProjectService {
     });
 
     return new MessageResponseDto("Project deleted successfully");
+  }
+
+  async getProjectSections(userId: string, projectId: string) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        members: { some: { userId } },
+      },
+    });
+
+    if (!project) throw new ForbiddenException("Project not found or you do not have access");
+
+    const sections = await this.db.section.findMany({
+      where: {
+        projectId,
+      },
+      orderBy: { position: "asc" },
+      ...buildGetSectionQuery(),
+    });
+
+    return new SectionsListResponseDto(
+      sections,
+      0,
+      sections.length,
+      sections.length,
+      "Sections retrieved successfully",
+    );
+  }
+
+  async getProjectTasks(userId: string, projectId: string, dto: GetProjectTasksQueryDto) {
+    if (dto.deadlineFrom && dto.deadlineTo && dto.deadlineFrom > dto.deadlineTo) {
+      throw new BadRequestException("Invalid deadline range: 'deadlineFrom' cannot be later than 'deadlineTo'");
+    }
+
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        members: { some: { userId } },
+      },
+    });
+
+    if (!project) throw new ForbiddenException("Project not found or you do not have access");
+
+    const sections = await this.db.section.findMany({
+      where: {
+        projectId,
+        project: {
+          members: { some: { userId } },
+        },
+      },
+      orderBy: { position: "asc" },
+      ...buildGetProjectTasksQuery({
+        qDeadlineFrom: dto.deadlineFrom,
+        qDeadlineTo: dto.deadlineTo,
+        qSections: dto.sections,
+        qStatuses: dto.statuses,
+        aPriorities: dto.priorities,
+        searchQuery: dto.q,
+      }),
+    });
+
+    const tasksInWorkspace = await this.db.taskProject.findMany({
+      where: {
+        project: {
+          ownerId: userId,
+          isPersonal: true,
+        },
+      },
+      select: { taskId: true },
+    });
+    const taskIdsInWorkspace = tasksInWorkspace.map((tp) => tp.taskId);
+
+    let tasksInSections: GetProjectTasksQueryResult[] = [];
+    for (const section of sections) {
+      const tasks = section.tasks.map((t) => t.task);
+      const tasksWithExtras: GetProjectTasksQueryResult = {
+        ...section,
+        tasks: tasks.map((task) => {
+          const originalProject = task.originalProjectId === projectId ? null : task.originalProject;
+          const canImport =
+            !originalProject && (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
+          const isImported = taskIdsInWorkspace.includes(task.id);
+          return { task: { ...task, originalProject, canImport, isImported } };
+        }),
+      };
+      tasksInSections.push(tasksWithExtras);
+    }
+
+    return new ProjectTasksListResponseDto(
+      tasksInSections,
+      0,
+      sections.length,
+      sections.length,
+      "Tasks in project retrieved successfully",
+    );
   }
 
   async inviteMember(userId: string, projectId: string, dto: InviteMemberDto) {

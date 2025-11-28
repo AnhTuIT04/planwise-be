@@ -1,15 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
 import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-with-role-response.dto";
+import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
 import { ProjectService } from "./project.service";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
 import { InviteMemberDto } from "./dto/request/invite-member.dto";
+import { GetProjectTasksQueryDto } from "./dto/request/query/get-project-tasks-query.dto";
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
+import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
 
 @Controller("project")
 export class ProjectController {
@@ -73,6 +76,30 @@ export class ProjectController {
   })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.remove(userId, id);
+  }
+
+  @Get(":id/sections")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get all sections in a project" })
+  @ApiResponse({
+    status: 200,
+    type: SectionsListResponseDto,
+    description: "Sections in the project retrieved successfully",
+  })
+  getProjectSections(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.projectService.getProjectSections(userId, id);
+  }
+
+  @Get(":id/tasks")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get all tasks in a project" })
+  @ApiResponse({
+    status: 200,
+    type: ProjectTasksListResponseDto,
+    description: "Tasks in the project retrieved successfully",
+  })
+  getProjectTasks(@Param("id") id: string, @GetCurrentUserId() userId: string, @Query() dto: GetProjectTasksQueryDto) {
+    return this.projectService.getProjectTasks(userId, id, dto);
   }
 
   @Post(":id/members")

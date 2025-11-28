@@ -3,11 +3,14 @@ import { ForbiddenException, Injectable } from "@nestjs/common";
 import { midpoint } from "@/common/utils";
 import { DatabaseService } from "@/modules/database/database.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
+import { GetProjectTasksQueryDto } from "@/modules/project/dto/request/query/get-project-tasks-query.dto";
+import { TasksListResponseDto } from "@/modules/task/dto/response/task-response.dto";
 import { CreateSectionDto } from "./dto/request/create-section.dto";
 import { UpdateSectionDto } from "./dto/request/update-section.dto";
-import { SectionResponseDto, SectionsListResponseDto } from "./dto/response/section-response.dto";
-import { buildGetSectionQuery } from "./query/get-section.query";
 import { MoveSectionDto } from "./dto/request/move-section.dto";
+import { buildGetSectionQuery } from "./query/get-section.query";
+import { buildGetTaskQuery, GetTaskQueryResult } from "../task/query/get-task.query";
+import { SectionResponseDto } from "./dto/response/section-response.dto";
 
 @Injectable()
 export class SectionService {
@@ -50,33 +53,6 @@ export class SectionService {
     });
 
     return new SectionResponseDto(section, "Section created successfully");
-  }
-
-  async getAllSections(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
-      where: {
-        id: projectId,
-        members: { some: { userId } },
-      },
-    });
-
-    if (!project) throw new ForbiddenException("Project not found or you do not have access");
-
-    const sections = await this.db.section.findMany({
-      where: {
-        projectId,
-      },
-      orderBy: { position: "asc" },
-      ...buildGetSectionQuery(),
-    });
-
-    return new SectionsListResponseDto(
-      sections,
-      0,
-      sections.length,
-      sections.length,
-      "Sections retrieved successfully",
-    );
   }
 
   async update(userId: string, sectionId: string, dto: UpdateSectionDto) {
@@ -165,5 +141,74 @@ export class SectionService {
     });
 
     return new MessageResponseDto("Section deleted successfully");
+  }
+
+  async getSectionTasks(userId: string, sectionId: string, dto: GetProjectTasksQueryDto) {
+    const section = await this.db.section.findFirst({
+      where: {
+        id: sectionId,
+        project: {
+          members: { some: { userId } },
+        },
+      },
+      select: {
+        projectId: true,
+      },
+    });
+
+    if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
+
+    const tasks = await this.db.taskSection.findMany({
+      where: {
+        sectionId,
+        task: {
+          ...(dto.deadlineFrom && { deadline: { gte: dto.deadlineFrom } }),
+          ...(dto.deadlineTo && { deadline: { lte: dto.deadlineTo } }),
+          ...(dto.sections && dto.sections.length > 0 && { sectionId: { in: dto.sections } }),
+          ...(dto.statuses && dto.statuses.length > 0 && { status: { in: dto.statuses } }),
+          ...(dto.priorities && dto.priorities.length > 0 && { priority: { in: dto.priorities } }),
+          ...(dto.q && {
+            OR: [
+              { title: { contains: dto.q, mode: "insensitive" } },
+              { description: { contains: dto.q, mode: "insensitive" } },
+            ],
+          }),
+        },
+      },
+      orderBy: { position: "asc" },
+      include: {
+        task: buildGetTaskQuery(),
+      },
+    });
+
+    const tasksInWorkspace = await this.db.taskProject.findMany({
+      where: {
+        project: {
+          ownerId: userId,
+          isPersonal: true,
+        },
+      },
+      select: { taskId: true },
+    });
+
+    const projectId = section.projectId;
+    const taskIdsInWorkspace = tasksInWorkspace.map((tp) => tp.taskId);
+
+    const tasksInSection: GetTaskQueryResult[] = tasks.map((task) => {
+      const originalProject = task.task.originalProjectId === projectId ? null : task.task.originalProject;
+      const canImport =
+        !originalProject &&
+        (task.task.supervisorId === userId || task.task.assignees.some((a) => a.user.id === userId));
+      const isImported = taskIdsInWorkspace.includes(task.task.id);
+      return { ...task.task, originalProject, canImport, isImported };
+    });
+
+    return new TasksListResponseDto(
+      tasksInSection,
+      0,
+      tasks.length,
+      tasks.length,
+      "Tasks in the section retrieved successfully",
+    );
   }
 }

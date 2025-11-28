@@ -1,10 +1,12 @@
-import { Prisma } from "prisma/client";
+import { Prisma, TaskStatus } from "prisma/client";
 
 interface BuildGetProjectQueryOptions {
-  getArchivedTasks?: boolean;
+  qStatuses?: TaskStatus[];
 }
 
-export function buildGetProjectQuery({ getArchivedTasks }: BuildGetProjectQueryOptions = {}) {
+export function buildGetProjectQuery(
+  { qStatuses }: BuildGetProjectQueryOptions = { qStatuses: [TaskStatus.TODO, TaskStatus.RUNNING, TaskStatus.DONE] },
+) {
   return {
     include: {
       owner: true,
@@ -13,15 +15,11 @@ export function buildGetProjectQuery({ getArchivedTasks }: BuildGetProjectQueryO
           members: true,
           sections: true,
           tasks: {
-            where: getArchivedTasks
-              ? {}
-              : {
-                  task: {
-                    status: {
-                      not: "ARCHIVED",
-                    },
-                  },
-                },
+            where: {
+              task: {
+                ...(qStatuses && qStatuses.length > 0 && { status: { in: qStatuses } }),
+              },
+            },
           },
         },
       },

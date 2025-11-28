@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 import { PriorityLevel, TaskStatus } from "prisma/client";
-import { ResponseDto } from "@/common/dto/response.dto";
+import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
 import { ProjectBasicDto } from "@/modules/project/dto/response/project-basic-response.dto";
 import { SubtaskDto } from "@/modules/subtask/dto/response/subtask-response.dto";
@@ -100,5 +100,20 @@ export class TaskResponseDto extends ResponseDto<TaskDto> {
 
   constructor(data: GetTaskQueryResult, message?: string) {
     super(new TaskDto(data), message);
+  }
+}
+
+export class TasksListResponseDto extends PaginationResponseDto<TaskDto> {
+  @ApiProperty({ type: () => [TaskDto], description: "Array of task data" })
+  declare readonly data: TaskDto[];
+
+  constructor(data: GetTaskQueryResult[], page: number, limit: number, totalItems: number, message?: string) {
+    super(
+      data.map((task) => new TaskDto(task)),
+      page,
+      limit,
+      totalItems,
+      message,
+    );
   }
 }

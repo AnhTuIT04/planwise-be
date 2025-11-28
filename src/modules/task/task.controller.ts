@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
@@ -10,10 +10,8 @@ import { UpdateTaskStatusDto } from "./dto/request/update-task-status.dto";
 import { MoveTaskDto } from "./dto/request/move-task.dto";
 import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { DeleteTaskDto } from "./dto/request/delete-task.dto";
-import { TaskResponseDto } from "./dto/response/task-response.dto";
 import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
-import { TasksInProjectListResponseDto } from "./dto/response/tasks-in-project-response.dto";
-import { GetTasksInProjectQueryDto } from "./dto/request/query/get-tasks-in-project-query.dto";
+import { TaskResponseDto } from "./dto/response/task-response.dto";
 
 @Controller("task")
 export class TaskController {
@@ -29,18 +27,6 @@ export class TaskController {
   })
   create(@GetCurrentUserId() userId: string, @Body() dto: CreateTaskDto) {
     return this.taskService.create(userId, dto);
-  }
-
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Get tasks in project" })
-  @ApiResponse({
-    status: 200,
-    type: TasksInProjectListResponseDto,
-    description: "The tasks have been successfully retrieved.",
-  })
-  getTasksInProject(@GetCurrentUserId() userId: string, @Query() dto: GetTasksInProjectQueryDto) {
-    return this.taskService.getTasksInProject(userId, dto.projectId);
   }
 
   @Get(":id")
@@ -68,7 +54,7 @@ export class TaskController {
 
   @Patch(":id/status")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Update task status  (not subtask)" })
+  @ApiOperation({ summary: "Update task status (not subtask)" })
   @ApiResponse({
     status: 200,
     type: TaskResponseDto,
@@ -80,7 +66,7 @@ export class TaskController {
 
   @Patch(":id/assignees")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Update the assignees of a task" })
+  @ApiOperation({ summary: "Update the assignees of a task (not subtask)" })
   @ApiResponse({
     status: 200,
     type: TaskResponseDto,
@@ -116,7 +102,7 @@ export class TaskController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Delete a task" })
+  @ApiOperation({ summary: "Delete a task (not subtask)" })
   @ApiResponse({
     status: 200,
     type: MessageResponseDto,

@@ -1,10 +1,10 @@
 import { ApiProperty } from "@nestjs/swagger";
 
 import { PaginationResponseDto } from "@/common/dto/response.dto";
-import { TaskDto } from "./task-response.dto";
-import { GetTasksInProjectQueryResult } from "../../query/get-tasks-in-project.query";
+import { TaskDto } from "@/modules/task/dto/response/task-response.dto";
+import { GetProjectTasksQueryResult } from "../../query/get-project-tasks.query";
 
-export class TasksInProjectDto {
+export class ProjectTasksDto {
   @ApiProperty({ example: "923e9512-9319-48a3-8bf4-53b4a1e7b8b7", description: "Section id" })
   readonly id: string;
 
@@ -24,7 +24,7 @@ export class TasksInProjectDto {
   })
   readonly createdAt: Date;
 
-  constructor(section: GetTasksInProjectQueryResult) {
+  constructor(section: GetProjectTasksQueryResult) {
     this.id = section.id;
     this.name = section.name;
     this.taskCount = section.tasks.length;
@@ -33,19 +33,19 @@ export class TasksInProjectDto {
   }
 }
 
-export class TasksInProjectListResponseDto extends PaginationResponseDto<TasksInProjectDto> {
-  @ApiProperty({ type: () => [TasksInProjectDto], description: "Array of sections with their tasks" })
-  declare readonly data: TasksInProjectDto[];
+export class ProjectTasksListResponseDto extends PaginationResponseDto<ProjectTasksDto> {
+  @ApiProperty({ type: () => [ProjectTasksDto], description: "Array of sections with their tasks" })
+  declare readonly data: ProjectTasksDto[];
 
   constructor(
-    sections: GetTasksInProjectQueryResult[],
+    sections: GetProjectTasksQueryResult[],
     page: number,
     limit: number,
     totalItems: number,
     message?: string,
   ) {
     super(
-      sections.map((section) => new TasksInProjectDto(section)),
+      sections.map((section) => new ProjectTasksDto(section)),
       page,
       limit,
       totalItems,

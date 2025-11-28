@@ -1,24 +1,22 @@
-import { Prisma } from "prisma/client";
+import { Prisma, TaskStatus } from "prisma/client";
 
 interface BuildGetSectionQueryOptions {
-  getArchivedTasks?: boolean;
+  qStatuses?: TaskStatus[];
 }
 
-export function buildGetSectionQuery({ getArchivedTasks }: BuildGetSectionQueryOptions = {}) {
+export function buildGetSectionQuery(
+  { qStatuses }: BuildGetSectionQueryOptions = { qStatuses: [TaskStatus.TODO, TaskStatus.RUNNING, TaskStatus.DONE] },
+) {
   return {
     include: {
       _count: {
         select: {
           tasks: {
-            where: getArchivedTasks
-              ? {}
-              : {
-                  task: {
-                    status: {
-                      not: "ARCHIVED",
-                    },
-                  },
-                },
+            where: {
+              task: {
+                ...(qStatuses && qStatuses.length > 0 && { status: { in: qStatuses } }),
+              },
+            },
           },
         },
       },
