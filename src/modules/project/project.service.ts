@@ -7,8 +7,9 @@ import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.
 import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-with-role-response.dto";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
-import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 import { buildGetProjectQuery } from "./query/get-project.query";
+import { InviteMemberDto } from "./dto/request/invite-member.dto";
+import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 
 @Injectable()
 export class ProjectService {
@@ -16,7 +17,7 @@ export class ProjectService {
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
     const project = await this.db.$transaction(async (tx) => {
-      const newProject = await this.db.project.create({
+      const newProject = await tx.project.create({
         data: {
           ownerId: userId,
           ...createProjectDto,
@@ -42,7 +43,7 @@ export class ProjectService {
         },
       });
 
-      return await this.db.project.update({
+      return await tx.project.update({
         where: { id: newProject.id },
         data: {
           members: {
@@ -141,6 +142,46 @@ export class ProjectService {
     });
 
     return new MessageResponseDto("Project deleted successfully");
+  }
+
+  async inviteMember(userId: string, projectId: string, dto: InviteMemberDto) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        members: { some: { userId } },
+      },
+      include: {
+        roles: true,
+        members: {
+          select: {
+            user: {
+              select: { email: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    const memberExists = project.members.some((member) => member.user.email === dto.email);
+    if (memberExists) throw new ForbiddenException("User is already a member of the project");
+
+    const roleToInvite = dto.roleId && project.roles.find((role) => role.id === dto.roleId);
+    if (dto.roleId && !roleToInvite) throw new NotFoundException("Role not found in the project");
+
+    const userToInvite = await this.db.user.findUnique({ where: { email: dto.email } });
+    if (!userToInvite) throw new NotFoundException("User with the provided email does not exist");
+
+    await this.db.projectMember.create({
+      data: {
+        projectId: project.id,
+        userId: userToInvite.id,
+        roleId: roleToInvite ? roleToInvite.id : project.roles.find((role) => role.name === DefaultRole.MEMBER)!.id,
+      },
+    });
+
+    return new MessageResponseDto("Member invited successfully");
   }
 
   async getProjectMembers(userId: string, projectId: string) {

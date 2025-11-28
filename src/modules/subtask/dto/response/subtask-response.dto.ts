@@ -3,11 +3,9 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { PriorityLevel, TaskStatus } from "prisma/client";
 import { ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
-import { ProjectBasicDto } from "@/modules/project/dto/response/project-basic-response.dto";
-import { SubtaskDto } from "@/modules/subtask/dto/response/subtask-response.dto";
-import { GetTaskQueryResult } from "../../query/get-task.query";
+import { GetSubtaskQueryResult } from "../../query/get-subtask.query";
 
-export class TaskDto {
+export class SubtaskDto {
   @ApiProperty({ example: "923e9512-9319-48a3-8bf4-53b4a1e7b8b7", description: "Task id" })
   readonly id: string;
 
@@ -46,17 +44,12 @@ export class TaskDto {
   readonly deadline: Date | null;
 
   @ApiProperty({
-    type: () => ProjectBasicDto,
-    description: "Project information object",
-    nullable: true,
+    example: "aam",
+    description: "position string for ordering tasks",
+    format: "string",
+    nullable: false,
   })
-  readonly originalProject: ProjectBasicDto | null;
-
-  @ApiProperty({ example: true, description: "Indicates if the task can be imported to my-task" })
-  readonly canImport: boolean;
-
-  @ApiProperty({ example: true, description: "Indicates if the task has been imported to my-task" })
-  readonly isImported: boolean;
+  readonly position: string;
 
   @ApiProperty({ type: () => UserBasicDto, description: "Supervisor information object", nullable: true })
   readonly supervisor: UserBasicDto | null;
@@ -64,16 +57,13 @@ export class TaskDto {
   @ApiProperty({ type: () => [UserBasicDto], description: "Array of assignee information objects" })
   readonly assignees: UserBasicDto[];
 
-  @ApiPropertyOptional({ type: () => [SubtaskDto], description: "Array of sub-task objects" })
-  readonly subtasks: SubtaskDto[];
-
   @ApiProperty({ example: "2024-06-15T12:00:00Z", description: "Timestamp of task creation", format: "date-time" })
   readonly createdAt: Date;
 
   @ApiProperty({ example: "2024-06-20T12:00:00Z", description: "Timestamp of last task update", format: "date-time" })
   readonly updatedAt: Date;
 
-  constructor(task: GetTaskQueryResult) {
+  constructor(task: GetSubtaskQueryResult) {
     this.id = task.id;
     this.title = task.title;
     this.description = task.description;
@@ -83,22 +73,18 @@ export class TaskDto {
     this.spent = task.spent;
     this.lastStarted = task.lastStarted;
     this.deadline = task.deadline;
-    this.originalProject = task.originalProject ? new ProjectBasicDto(task.originalProject) : null;
-    this.canImport = task.canImport;
-    this.isImported = task.isImported;
     this.supervisor = task.supervisor ? new UserBasicDto(task.supervisor) : null;
     this.assignees = task.assignees.map((assignee) => new UserBasicDto(assignee.user));
-    this.subtasks = task.subtasks.map((subtask) => new SubtaskDto(subtask));
     this.createdAt = task.createdAt;
     this.updatedAt = task.updatedAt;
   }
 }
 
-export class TaskResponseDto extends ResponseDto<TaskDto> {
-  @ApiProperty({ type: () => TaskDto, description: "Task data" })
-  declare readonly data: TaskDto;
+export class SubtaskResponseDto extends ResponseDto<SubtaskDto> {
+  @ApiProperty({ type: () => SubtaskDto, description: "Subtask data" })
+  declare readonly data: SubtaskDto;
 
-  constructor(data: GetTaskQueryResult, message?: string) {
-    super(new TaskDto(data), message);
+  constructor(data: GetSubtaskQueryResult, message?: string) {
+    super(new SubtaskDto(data), message);
   }
 }

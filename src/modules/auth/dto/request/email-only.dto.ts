@@ -1,7 +1,7 @@
-import { IsString, IsNotEmpty, Length, IsEmail } from "class-validator";
+import { IsString, IsNotEmpty, IsEmail } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
-export class EmailOnlyDTO {
+export class EmailOnlyDto {
   @IsNotEmpty()
   @IsString()
   @IsEmail()

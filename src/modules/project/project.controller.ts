@@ -8,6 +8,7 @@ import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-w
 import { ProjectService } from "./project.service";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
+import { InviteMemberDto } from "./dto/request/invite-member.dto";
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 
 @Controller("project")
@@ -72,6 +73,18 @@ export class ProjectController {
   })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.remove(userId, id);
+  }
+
+  @Post(":id/members")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Invite a member to the project" })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "Member invited successfully",
+  })
+  inviteMember(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: InviteMemberDto) {
+    return this.projectService.inviteMember(userId, id, dto);
   }
 
   @Get(":id/members")

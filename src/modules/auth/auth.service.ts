@@ -2,15 +2,16 @@ import { BadRequestException, ConflictException, Injectable, UnauthorizedExcepti
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 
+import { User } from "prisma/client";
 import { UsersService } from "@/modules/users/users.service";
 import { CacheService } from "@/modules/cache/cache.service";
 import { EmailService } from "@/modules/email/email.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
-import { JwtPayloadDTO } from "./dto/jwt-payload.dto";
+import { JwtPayloadDto } from "./dto/jwt-payload.dto";
 import { SignInDto } from "./dto/request/signin.dto";
 import { SignUpDto } from "./dto/request/signup.dto";
-import { VerifyOtpDTO } from "./dto/request/verify-otp.dto";
-import { ResetPasswordDTO } from "./dto/request/reset-password.dto";
+import { VerifyOtpDto } from "./dto/request/verify-otp.dto";
+import { ResetPasswordDto } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
 import { UserResponseDto } from "./dto/response/user-response.dto";
 
@@ -18,6 +19,8 @@ import { UserResponseDto } from "./dto/response/user-response.dto";
 export class AuthService {
   private readonly OTP_TTL = 5 * 60; // 5 minutes
   private readonly OTP_CACHE_KEY_PREFIX = "auth-service:otp_";
+  private readonly OTC_TTL = 1 * 60; // 1 minutes
+  private readonly OTC_CACHE_KEY_PREFIX = "auth-service:otc_";
 
   constructor(
     private usersService: UsersService,
@@ -35,11 +38,18 @@ export class AuthService {
   }
 
   private generateOtp() {
-    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit numeric OTP
+    // 6-digit numeric OTP
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  signAccessTokenToken(user: { id: string; email: string }) {
-    const payload: JwtPayloadDTO = { sub: user.id, email: user.email };
+  private generateOtc() {
+    // 32-character alphanumeric one-time code
+    const code = [...Array(32)].map(() => Math.random().toString(36)[2]).join("");
+    return code;
+  }
+
+  async signAccessTokenToken(user: { id: string; email: string }) {
+    const payload: JwtPayloadDto = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload);
     return accessToken;
   }
@@ -75,7 +85,7 @@ export class AuthService {
     return new MessageResponseDto("Signup successful. Please check your email for the OTP to verify your account.");
   }
 
-  async verifyEmail(verifyEmailDto: VerifyOtpDTO) {
+  async verifyEmail(verifyEmailDto: VerifyOtpDto) {
     const existingUser = await this.usersService.findByEmail(verifyEmailDto.email);
     if (!existingUser) {
       throw new BadRequestException("User not found");
@@ -97,7 +107,7 @@ export class AuthService {
       this.cacheService.del(this.OTP_CACHE_KEY_PREFIX + verifyEmailDto.email),
     ]);
 
-    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
+    const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
 
     return { accessToken, user };
   }
@@ -151,7 +161,7 @@ export class AuthService {
     return new MessageResponseDto("OTP for password reset has been sent to your email.");
   }
 
-  async verifyResetPassword(verifyPasswordDto: VerifyOtpDTO) {
+  async verifyResetPassword(verifyPasswordDto: VerifyOtpDto) {
     const existingUser = await this.usersService.findByEmail(verifyPasswordDto.email);
     if (!existingUser) {
       throw new BadRequestException("User not found");
@@ -166,7 +176,7 @@ export class AuthService {
     return new MessageResponseDto("OTP verified successfully. You can now reset your password.");
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDTO) {
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const existingUser = await this.usersService.findByEmail(resetPasswordDto.email);
     if (!existingUser) {
       throw new BadRequestException("User not found");
@@ -198,7 +208,7 @@ export class AuthService {
       throw new UnauthorizedException("Please verify your email before signing in");
     }
 
-    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
+    const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
 
     return { accessToken, user };
   }
@@ -234,6 +244,28 @@ export class AuthService {
 
     const updatedUser = await this.usersService.update(userId, updateData);
     return new UserResponseDto(updatedUser, "Profile updated successfully.");
+  }
+
+  async handleOAuthCallback(user: User) {
+    const otc = this.generateOtc();
+
+    // Store the OTC with associated user data in cache
+    await this.cacheService.set(this.OTC_CACHE_KEY_PREFIX + otc, user, this.OTC_TTL);
+    return otc;
+  }
+
+  async exchangeOAuthToken(otc: string) {
+    const user = await this.cacheService.get<User>(this.OTC_CACHE_KEY_PREFIX + otc);
+
+    if (!user) {
+      throw new BadRequestException("Invalid or expired one-time code (OTC)");
+    }
+
+    // Remove the OTC from cache after use
+    await this.cacheService.del(this.OTC_CACHE_KEY_PREFIX + otc);
+
+    const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
+    return { accessToken, user };
   }
 
   async validateOAuthUser(

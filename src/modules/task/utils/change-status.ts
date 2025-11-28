@@ -2,14 +2,15 @@ import { BadRequestException } from "@nestjs/common";
 
 import { TaskStatus } from "prisma/client";
 import { DatabaseService } from "@/modules/database/database.service";
-import { GetTaskStatsQueryResult, buildGetTaskQuery } from "../query/get-task.query";
+import { buildGetTaskQuery } from "../query/get-task.query";
+import { GetTaskStatusQueryResult } from "../query/get-task-status.query";
 
 function getDurationInSecondsFrom(time: Date = new Date()): number {
   const durationInMilliseconds = new Date().getTime() - time.getTime();
   return Math.floor(durationInMilliseconds / 1000);
 }
 
-async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetTaskStatusQueryResult) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -20,7 +21,7 @@ async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetTa
   });
 }
 
-async function changeStatusFrom_TODO_To_DONE(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_TODO_To_DONE(db: DatabaseService, task: GetTaskStatusQueryResult) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -36,7 +37,7 @@ async function changeStatusFrom_TODO_To_DONE(db: DatabaseService, task: GetTaskS
   });
 }
 
-async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetTaskStatusQueryResult) {
   const subtaskRunning = task.subtasks.find((st) => st.status === TaskStatus.RUNNING);
 
   return db.task.update({
@@ -58,7 +59,7 @@ async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetTa
   });
 }
 
-async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetTaskStatusQueryResult) {
   const subtaskRunning = task.subtasks.find((st) => st.status === TaskStatus.RUNNING);
 
   return db.task.update({
@@ -86,7 +87,7 @@ async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetTa
   });
 }
 
-async function changeStatusFrom_DONE_To_TODO(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_DONE_To_TODO(db: DatabaseService, task: GetTaskStatusQueryResult) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -96,11 +97,11 @@ async function changeStatusFrom_DONE_To_TODO(db: DatabaseService, task: GetTaskS
   });
 }
 
-async function changeStatusFrom_DONE_To_RUNNING(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_DONE_To_RUNNING(db: DatabaseService, task: GetTaskStatusQueryResult) {
   throw new BadRequestException("Cannot change status from DONE to RUNNING.");
 }
 
-async function changeStatusFrom_TODO_To_ARCHIVED(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_TODO_To_ARCHIVED(db: DatabaseService, task: GetTaskStatusQueryResult) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -110,7 +111,7 @@ async function changeStatusFrom_TODO_To_ARCHIVED(db: DatabaseService, task: GetT
   });
 }
 
-async function changeStatusFrom_DONE_To_ARCHIVED(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_DONE_To_ARCHIVED(db: DatabaseService, task: GetTaskStatusQueryResult) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -120,11 +121,11 @@ async function changeStatusFrom_DONE_To_ARCHIVED(db: DatabaseService, task: GetT
   });
 }
 
-async function changeStatusFrom_RUNNING_To_ARCHIVED(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_RUNNING_To_ARCHIVED(db: DatabaseService, task: GetTaskStatusQueryResult) {
   throw new BadRequestException("Cannot archive a task that is RUNNING. Please change its status first.");
 }
 
-async function changeStatusFrom_ARCHIVED_To_TODO(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_ARCHIVED_To_TODO(db: DatabaseService, task: GetTaskStatusQueryResult) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -134,11 +135,11 @@ async function changeStatusFrom_ARCHIVED_To_TODO(db: DatabaseService, task: GetT
   });
 }
 
-async function changeStatusFrom_ARCHIVED_To_RUNNING(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_ARCHIVED_To_RUNNING(db: DatabaseService, task: GetTaskStatusQueryResult) {
   throw new BadRequestException("Cannot change status from ARCHIVED to RUNNING.");
 }
 
-async function changeStatusFrom_ARCHIVED_To_DONE(db: DatabaseService, task: GetTaskStatsQueryResult) {
+async function changeStatusFrom_ARCHIVED_To_DONE(db: DatabaseService, task: GetTaskStatusQueryResult) {
   throw new BadRequestException("Cannot change status from ARCHIVED to DONE.");
 }
 
@@ -146,7 +147,7 @@ export async function changeStatus(
   fromStatus: TaskStatus,
   toStatus: TaskStatus,
   db: DatabaseService,
-  task: GetTaskStatsQueryResult,
+  task: GetTaskStatusQueryResult,
 ) {
   const handlers: Record<string, Function> = {
     changeStatusFrom_TODO_To_RUNNING: changeStatusFrom_TODO_To_RUNNING,

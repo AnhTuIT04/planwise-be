@@ -2,7 +2,7 @@ import { BadRequestException } from "@nestjs/common";
 
 import { TaskStatus } from "prisma/client";
 import { DatabaseService } from "@/modules/database/database.service";
-import { GetSubtaskStatusQueryResult } from "../query/get-subtask.query";
+import { GetSubtaskStatusQueryResult } from "../query/get-subtask-status.query";
 
 function getDurationInSecondsFrom(time: Date = new Date()): number {
   const durationInMilliseconds = new Date().getTime() - time.getTime();

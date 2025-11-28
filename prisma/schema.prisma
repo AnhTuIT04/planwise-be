@@ -189,7 +189,7 @@ model ProjectMember {
 
   user    User    @relation("UserProjectMemberships", fields: [userId], references: [id], onDelete: Cascade)
   project Project @relation("ProjectHasMembers", fields: [projectId], references: [id], onDelete: Cascade)
-  role    Role    @relation(fields: [roleId], references: [id])
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([userId, projectId])
 }

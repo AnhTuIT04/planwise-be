@@ -7,7 +7,7 @@ import { TaskStatus } from "prisma/client";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { UpdateTaskStatusDto } from "../task/dto/request/update-task-status.dto";
 import { changeStatus } from "./utils/change-status";
-import { buildGetSubtaskStatusQuery } from "./query/get-subtask.query";
+import { buildGetSubtaskStatusQuery } from "./query/get-subtask-status.query";
 import { UpdateSubtaskAssigneesDto } from "./dto/request/update-subtask-assignees.dto";
 
 @Injectable()

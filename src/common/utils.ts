@@ -1,4 +1,4 @@
-const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const MIN = 0;
 const MAX = ALPHABET.length - 1;
 

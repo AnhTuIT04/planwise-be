@@ -1,4 +1,4 @@
-import { Prisma } from "prisma/client";
+import { Prisma, Project } from "prisma/client";
 
 export function buildGetTaskQuery() {
   return {
@@ -19,18 +19,14 @@ export function buildGetTaskQuery() {
           supervisor: true,
         },
       },
+      originalProject: true,
     },
   } as const satisfies Omit<Prisma.TaskFindUniqueArgs, "where">;
 }
 
-export type GetTaskQueryResult = Prisma.TaskGetPayload<ReturnType<typeof buildGetTaskQuery>>;
-
-export function buildGetTaskStatsQuery() {
-  return {
-    include: {
-      subtasks: true,
-    },
-  } as const satisfies Omit<Prisma.TaskFindUniqueArgs, "where">;
+export interface GetTaskQueryResult
+  extends Omit<Prisma.TaskGetPayload<ReturnType<typeof buildGetTaskQuery>>, "originalProject"> {
+  originalProject: Project | null;
+  canImport: boolean;
+  isImported: boolean;
 }
-
-export type GetTaskStatsQueryResult = Prisma.TaskGetPayload<ReturnType<typeof buildGetTaskStatsQuery>>;

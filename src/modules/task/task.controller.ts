@@ -12,6 +12,8 @@ import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
 import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
+import { TasksInProjectListResponseDto } from "./dto/response/tasks-in-project-response.dto";
+import { GetTasksInProjectQueryDto } from "./dto/request/query/get-tasks-in-project-query.dto";
 
 @Controller("task")
 export class TaskController {
@@ -27,6 +29,18 @@ export class TaskController {
   })
   create(@GetCurrentUserId() userId: string, @Body() dto: CreateTaskDto) {
     return this.taskService.create(userId, dto);
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get tasks in project" })
+  @ApiResponse({
+    status: 200,
+    type: TasksInProjectListResponseDto,
+    description: "The tasks have been successfully retrieved.",
+  })
+  getTasksInProject(@GetCurrentUserId() userId: string, @Query() dto: GetTasksInProjectQueryDto) {
+    return this.taskService.getTasksInProject(userId, dto.projectId);
   }
 
   @Get(":id")

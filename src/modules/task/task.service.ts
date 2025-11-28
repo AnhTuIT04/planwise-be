@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
+import { midpoint } from "@/common/utils";
 import { DatabaseService } from "@/modules/database/database.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { ImportTaskDto } from "./dto/request/import-task.dto";
@@ -9,31 +10,52 @@ import { UpdateTaskStatusDto } from "./dto/request/update-task-status.dto";
 import { MoveTaskDto } from "./dto/request/move-task.dto";
 import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
-import { buildGetTaskQuery, buildGetTaskStatsQuery } from "./query/get-task.query";
 import { changeStatus } from "./utils/change-status";
 import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
-import { midpoint } from "@/common/utils";
+import { buildGetTaskQuery, GetTaskQueryResult } from "./query/get-task.query";
+import { buildGetTaskStatusQuery } from "./query/get-task-status.query";
+import { buildGetTasksInProjectQuery, GetTasksInProjectQueryResult } from "./query/get-tasks-in-project.query";
+import { TasksInProjectListResponseDto } from "./dto/response/tasks-in-project-response.dto";
 
 @Injectable()
 export class TaskService {
   constructor(private db: DatabaseService) {}
 
+  private async queryTaskHelper(
+    userId: string,
+    projectId: string,
+    task: Omit<GetTaskQueryResult, "canImport" | "isImported">,
+  ) {
+    const taskInWorkspace = await this.db.taskProject.findFirst({
+      where: {
+        taskId: task.id,
+        project: {
+          ownerId: userId,
+          isPersonal: true,
+        },
+      },
+    });
+
+    const originalProject = task.originalProjectId === projectId ? null : task.originalProject;
+    const canImport =
+      !originalProject && (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
+    const isImported = !!taskInWorkspace;
+    return { originalProject, canImport, isImported };
+  }
+
   async create(userId: string, dto: CreateTaskDto) {
-    const { projectId, sectionId } = dto;
     const section = await this.db.section.findFirst({
       where: {
-        id: sectionId,
-        projectId,
+        id: dto.sectionId,
         project: {
           members: { some: { userId } },
         },
       },
       include: {
         tasks: {
-          orderBy: { position: 'asc' },
+          orderBy: { position: "asc" },
         },
-        
-      }
+      },
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
@@ -47,19 +69,16 @@ export class TaskService {
     }
 
     // Calculate position in section
-    const currentPos: string[] = section.tasks.map(t => t.position);
-    let newTaskPosition;
-    if (dto.insertAt !== undefined) {
-      if(dto.insertAt > 0 && dto.insertAt < section.tasks.length) { // insert in middle
-        newTaskPosition = midpoint(
-          currentPos[dto.insertAt - 1],
-          currentPos[dto.insertAt]
-        );
-      } else if (dto.insertAt <= 0) { // insert at beginning
-        newTaskPosition = midpoint(null, currentPos[0]);
-      }
-    } else { // no insertAt provided or insertAt === currentPos.length, add to end
-      newTaskPosition = midpoint(currentPos[currentPos.length - 1], null);
+    const positions: string[] = section.tasks.map((t) => t.position);
+    let position: string;
+    if (positions.length === 0) {
+      position = midpoint(null, null);
+    } else if (dto.insertAt === undefined || dto.insertAt >= positions.length) {
+      position = midpoint(positions[positions.length - 1], null);
+    } else if (dto.insertAt === 0) {
+      position = midpoint(null, positions[0]);
+    } else {
+      position = midpoint(positions[dto.insertAt - 1], positions[dto.insertAt]);
     }
 
     const task = await this.db.task.create({
@@ -71,7 +90,7 @@ export class TaskService {
         estimate: estimate,
         deadline: dto.deadline,
         supervisorId: dto.supervisorId,
-        originalProjectId: projectId,
+        originalProjectId: section.projectId,
         subtasks: {
           create: dto.subtasks.map((sub) => ({
             title: sub.title,
@@ -81,7 +100,7 @@ export class TaskService {
             estimate: sub.estimate,
             deadline: dto.deadline,
             supervisorId: dto.supervisorId,
-            originalProjectId: projectId,
+            originalProjectId: section.projectId,
             assignees: {
               create: Array.from(new Set([...dto.assigneeIds, ...sub.assigneeIds])).map((userId) => ({
                 userId,
@@ -92,16 +111,71 @@ export class TaskService {
         assignees: {
           create: dto.assigneeIds.map((userId) => ({ userId })),
         },
+        projects: {
+          create: {
+            projectId: section.projectId,
+          },
+        },
         sections: {
           create: {
+            position,
             sectionId: section.id,
-            position: newTaskPosition,
           },
         },
       },
       ...buildGetTaskQuery(),
     });
-    return new TaskResponseDto(task, "Task created successfully");
+
+    const taskExtras = await this.queryTaskHelper(userId, section.projectId, task);
+    return new TaskResponseDto({ ...task, ...taskExtras }, "Task created successfully");
+  }
+
+  async getTasksInProject(userId: string, projectId: string) {
+    const sections = await this.db.section.findMany({
+      where: {
+        projectId,
+        project: {
+          members: { some: { userId } },
+        },
+      },
+      orderBy: { position: "asc" },
+      ...buildGetTasksInProjectQuery({ getArchivedTasks: false }),
+    });
+
+    const tasksInWorkspace = await this.db.taskProject.findMany({
+      where: {
+        project: {
+          ownerId: userId,
+          isPersonal: true,
+        },
+      },
+      select: { taskId: true },
+    });
+    const taskIdsInWorkspace = tasksInWorkspace.map((tp) => tp.taskId);
+
+    let tasksInSections: GetTasksInProjectQueryResult[] = [];
+    for (const section of sections) {
+      const tasks = section.tasks.map((t) => t.task);
+      const tasksWithExtras: GetTasksInProjectQueryResult = {
+        ...section,
+        tasks: tasks.map((task) => {
+          const originalProject = task.originalProjectId === projectId ? null : task.originalProject;
+          const canImport =
+            !originalProject && (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
+          const isImported = taskIdsInWorkspace.includes(task.id);
+          return { task: { ...task, originalProject, canImport, isImported } };
+        }),
+      };
+      tasksInSections.push(tasksWithExtras);
+    }
+
+    return new TasksInProjectListResponseDto(
+      tasksInSections,
+      0,
+      sections.length,
+      sections.length,
+      "Tasks in project retrieved successfully",
+    );
   }
 
   async getById(userId: string, taskId: string) {
@@ -109,29 +183,31 @@ export class TaskService {
     const task = await this.db.task.findFirst({
       where: {
         id: taskId,
-        sections: {
+        projects: {
           some: {
-            section: {
-              project: { members: { some: { userId } } },
+            project: {
+              members: { some: { userId } },
             },
           },
         },
       },
       ...buildGetTaskQuery(),
     });
+
     if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
-    return new TaskResponseDto(task, "Task retrieved successfully");
+
+    const taskExtras = await this.queryTaskHelper(userId, task.originalProjectId, task);
+    return new TaskResponseDto({ ...task, ...taskExtras }, "Task retrieved successfully");
   }
 
   async update(userId: string, taskId: string, dto: UpdateTaskDto) {
-    const { sectionId } = dto;
     const task = await this.db.task.findFirst({
       where: {
         id: taskId,
         sections: {
           some: {
             section: {
-              id: sectionId,
+              id: dto.sectionId,
               project: {
                 members: { some: { userId } },
               },
@@ -145,22 +221,22 @@ export class TaskService {
     });
 
     if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
-    
+
     const tasks = await this.db.taskSection.findMany({
-      where: { sectionId },
-      orderBy: { position: 'asc' },
-    })
-    
-    let newTaskPosition : string | undefined = undefined;
+      where: { sectionId: dto.sectionId },
+      orderBy: { position: "asc" },
+    });
+
+    let newTaskPosition: string | undefined = undefined;
     if (dto.moveTo !== undefined) {
-      if(dto.moveTo > 0 && dto.moveTo < tasks.length) { // move in middle
-        newTaskPosition = midpoint(
-          tasks[dto.moveTo - 1].position,
-          tasks[dto.moveTo].position
-        );
-      } else if (dto.moveTo <= 0) { // move to beginning
+      if (dto.moveTo > 0 && dto.moveTo < tasks.length) {
+        // move in middle
+        newTaskPosition = midpoint(tasks[dto.moveTo - 1].position, tasks[dto.moveTo].position);
+      } else if (dto.moveTo <= 0) {
+        // move to beginning
         newTaskPosition = midpoint(null, tasks[0].position);
-      } else { // move to end
+      } else {
+        // move to end
         newTaskPosition = midpoint(tasks[tasks.length - 1].position, null);
       }
     }
@@ -186,51 +262,51 @@ export class TaskService {
         },
         sections: {
           update: {
-            where: { taskId_sectionId: { taskId, sectionId } },
+            where: { taskId_sectionId: { taskId, sectionId: dto.sectionId } },
             data: {
               position: newTaskPosition,
-            }
-          }
-        }
-      },
-      ...buildGetTaskQuery(),
-    });
-    return new TaskResponseDto(updated, "Task updated successfully");
-  }
-
-  async updateStatus(userId: string, taskId: string, dto: UpdateTaskStatusDto) {
-    const { status } = dto;
-    const task = await this.db.task.findFirst({
-      where: {
-        id: taskId,
-        sections: {
-          some: {
-            section: {
-              project: { members: { some: { userId } } },
             },
           },
         },
       },
-      ...buildGetTaskStatsQuery(),
+      ...buildGetTaskQuery(),
     });
-    if (!task) {
-      throw new ForbiddenException("Task not found or you do not have permission.");
-    }
-    if (task.status === status) {
-      throw new BadRequestException("Task is already in the requested status");
-    }
-    const updatedTask = await changeStatus(task.status, status, this.db, task);
-    return new TaskResponseDto(updatedTask, "Task status updated successfully");
+
+    const taskExtras = await this.queryTaskHelper(userId, updated.originalProjectId, updated);
+    return new TaskResponseDto({ ...updated, ...taskExtras }, "Task updated successfully");
+  }
+
+  async updateStatus(userId: string, taskId: string, dto: UpdateTaskStatusDto) {
+    const task = await this.db.task.findFirst({
+      where: {
+        id: taskId,
+        projects: {
+          some: {
+            project: {
+              members: { some: { userId } },
+            },
+          },
+        },
+      },
+      ...buildGetTaskStatusQuery(),
+    });
+
+    if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
+    if (task.status === dto.status) throw new BadRequestException("Task is already in the requested status");
+
+    const updatedTask = await changeStatus(task.status, dto.status, this.db, task);
+    const taskExtras = await this.queryTaskHelper(userId, updatedTask.originalProjectId, updatedTask);
+    return new TaskResponseDto({ ...updatedTask, ...taskExtras }, "Task status updated successfully");
   }
 
   async updateAssignees(userId: string, taskId: string, dto: UpdateTaskAssigneesDto) {
     const task = await this.db.task.findFirst({
       where: {
         id: taskId,
-        sections: {
+        projects: {
           some: {
-            section: {
-              project: { members: { some: { userId } } },
+            project: {
+              members: { some: { userId } },
             },
           },
         },
@@ -244,39 +320,49 @@ export class TaskService {
         },
       },
     });
-    if (!task) {
-      throw new ForbiddenException("Task not found or you do not have permission to access it");
-    }
-    for (const sub of task.subtasks) {
-      const newAssignees = [...new Set([...sub.assignees.map((a) => a.userId), ...dto.assigneeIds])];
-      await this.db.task.update({
-        where: { id: sub.id },
+
+    if (!task) throw new ForbiddenException("Task not found or you do not have permission to access it");
+
+    const updatedTask = await this.db.$transaction(async (tx) => {
+      const updateAssignees = task.subtasks.map((sub) => {
+        const newAssignees = [...new Set([...sub.assignees.map((a) => a.userId), ...dto.assigneeIds])];
+
+        return tx.task.update({
+          where: { id: sub.id },
+          data: {
+            assignees: {
+              deleteMany: {},
+              create: newAssignees.map((uid) => ({ userId: uid })),
+            },
+          },
+        });
+      });
+
+      await Promise.all(updateAssignees);
+
+      return tx.task.update({
+        where: { id: taskId },
         data: {
           assignees: {
             deleteMany: {},
-            create: newAssignees.map((uid) => ({ userId: uid })),
+            create: dto.assigneeIds.map((uid) => ({ userId: uid })),
           },
         },
+        ...buildGetTaskQuery(),
       });
-    }
-    const updatedTask = await this.db.task.update({
-      where: { id: taskId },
-      data: {
-        assignees: {
-          deleteMany: {},
-          create: dto.assigneeIds.map((uid) => ({ userId: uid })),
-        },
-      },
-      ...buildGetTaskQuery(),
     });
-    return new TaskResponseDto(updatedTask, "Task assignees updated successfully");
+
+    const taskExtras = await this.queryTaskHelper(userId, updatedTask.originalProjectId, updatedTask);
+    return new TaskResponseDto({ ...updatedTask, ...taskExtras }, "Task assignees updated successfully");
   }
 
   async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
     const { fromSectionId, toSectionId, insertAt } = dto;
+
     if (fromSectionId === toSectionId) {
       throw new BadRequestException("Source and target sections are the same");
     }
+
     const task = await this.db.task.findUnique({
       where: {
         id: taskId,
@@ -299,7 +385,9 @@ export class TaskService {
         },
       },
     });
+
     if (!task) throw new ForbiddenException("Task not found or you do not have permission.");
+
     const fromSection = task.sections[0]?.section;
     const toSection = await this.db.section.findUnique({
       where: {
@@ -310,69 +398,82 @@ export class TaskService {
       },
       include: {
         tasks: {
-          orderBy: { position: 'asc' },
+          orderBy: { position: "asc" },
         },
-      }
+      },
     });
+
     if (!fromSection || !toSection || fromSection.projectId !== toSection.projectId) {
       throw new BadRequestException("Invalid source or target section");
     }
 
     // Calculate new position in target section
-    const currentPosToSection: string[] = toSection.tasks.map(t => t.position);
-    let newTaskPosition;
-    if (insertAt > 0 && insertAt < currentPosToSection.length) {
-      newTaskPosition = midpoint(
-        currentPosToSection[insertAt - 1],
-        currentPosToSection[insertAt]
-      );
+    const positions: string[] = toSection.tasks.map((t) => t.position);
+    let position: string;
+    if (insertAt > 0 && insertAt < positions.length) {
+      position = midpoint(positions[insertAt - 1], positions[insertAt]);
     } else if (insertAt <= 0) {
-      newTaskPosition = midpoint(null, currentPosToSection[0]);
+      position = midpoint(null, positions[0]);
     } else {
-      newTaskPosition = midpoint(currentPosToSection[currentPosToSection.length - 1], null);
+      position = midpoint(positions[positions.length - 1], null);
     }
+
     // Transaction: update TaskSection join table
-    await this.db.$transaction([
-      // Remove old relation
-      this.db.taskSection.delete({
-        where: {
-          taskId_sectionId: {
-            taskId,
-            sectionId: fromSectionId,
+    await this.db.$transaction(async (tx) => {
+      await Promise.all([
+        // Remove old relation
+        tx.taskSection.delete({
+          where: {
+            taskId_sectionId: {
+              taskId,
+              sectionId: fromSectionId,
+            },
           },
-        },
-      }),
-      // Create new relation
-      this.db.taskSection.create({
-        data: {
-          taskId,
-          sectionId: toSectionId,
-          position: newTaskPosition,
-        },
-      }),
-    ]);
+        }),
+
+        // Create new relation
+        tx.taskSection.create({
+          data: {
+            taskId,
+            position,
+            sectionId: toSectionId,
+          },
+        }),
+      ]);
+    });
+
     return new MessageResponseDto("Task moved successfully");
   }
 
   async importTask(userId: string, taskId: string, dto: ImportTaskDto) {
-    const { fromProjectId, toSectionId, insertAt } = dto;
+    const { fromProjectId, toSectionId } = dto;
     const task = await this.db.task.findFirst({
       where: {
         id: taskId,
-        sections: {
-          some: {
-            section: {
-              projectId: fromProjectId,
-              project: {
-                members: { some: { userId } },
-              },
-            },
-          },
-        },
+        originalProjectId: fromProjectId,
+      },
+      include: {
+        originalProject: true,
+        assignees: true,
       },
     });
-    
-    if (!task) throw new ForbiddenException("Task not found or you do not have permission to access it");
+
+    if (!task) {
+      throw new ForbiddenException("Task not found or you do not have permission to access it");
+    }
+
+    if (task.parentTaskId) {
+      throw new BadRequestException("Cannot import a subtask. Please import the parent task.");
+    }
+
+    if (task.originalProject.isPersonal) {
+      throw new BadRequestException("Cannot import task from a personal project");
+    }
+
+    if (task.supervisorId !== userId && !task.assignees.some((a) => a.userId === userId)) {
+      throw new ForbiddenException("You do not have permission to import this task");
+    }
+
     const targetSection = await this.db.section.findFirst({
       where: {
         id: toSectionId,
@@ -382,9 +483,13 @@ export class TaskService {
         },
       },
       include: {
-        project: true,
+        project: {
+          select: {
+            tasks: true,
+          },
+        },
         tasks: {
-          orderBy: { position: 'asc' },
+          orderBy: { position: "asc" },
         },
       },
     });
@@ -393,45 +498,41 @@ export class TaskService {
       throw new ForbiddenException("Target section not found or you do not have permission");
     }
 
-    if (targetSection.projectId === fromProjectId) {
-      throw new BadRequestException("Cannot import task to the same project. Use move instead");
-    }
-
-    const existingRelation = await this.db.taskSection.findUnique({
-      where: {
-        taskId_sectionId: {
-          taskId,
-          sectionId: toSectionId,
-        },
-      },
-    });
-    if (existingRelation) {
-      throw new BadRequestException("Task already exists in this section");
+    if (targetSection.project.tasks.some((t) => t.taskId === taskId)) {
+      throw new BadRequestException("Task already exists in your personal project");
     }
 
     // Calculate new position in target section
-    const currentPosTargetSection: string[] = targetSection.tasks.map(t => t.position);
-    let newTaskPosition;
-    if (insertAt > 0 && insertAt < currentPosTargetSection.length) {
-      newTaskPosition = midpoint(
-        currentPosTargetSection[insertAt - 1],
-        currentPosTargetSection[insertAt]
-      );
-    } else if (insertAt <= 0) {
-      newTaskPosition = midpoint(null, currentPosTargetSection[0]);
+    const positions: string[] = targetSection.tasks.map((t) => t.position);
+    let position: string;
+    if (positions.length === 0) {
+      position = midpoint(null, null);
+    } else if (dto.insertAt === undefined || dto.insertAt >= positions.length) {
+      position = midpoint(positions[positions.length - 1], null);
+    } else if (dto.insertAt === 0) {
+      position = midpoint(null, positions[0]);
     } else {
-      newTaskPosition = midpoint(currentPosTargetSection[currentPosTargetSection.length - 1], null);
+      position = midpoint(positions[dto.insertAt - 1], positions[dto.insertAt]);
     }
 
     // Thêm task vào target section
-    await this.db.taskSection.create({
+    await this.db.task.update({
+      where: { id: taskId },
       data: {
-        taskId,
-        sectionId: toSectionId,
-        position: newTaskPosition,
+        sections: {
+          create: {
+            sectionId: toSectionId,
+            position,
+          },
+        },
+        projects: {
+          create: {
+            projectId: targetSection.projectId,
+          },
+        },
       },
     });
-    
+
     return new MessageResponseDto("Task imported successfully");
   }
 
@@ -440,53 +541,56 @@ export class TaskService {
     const task = await this.db.task.findUnique({
       where: {
         id: taskId,
-        sections: {
+        projects: {
           some: {
-            section: {
-              projectId,
-              project: {
-                members: { some: { userId } },
-              },
+            projectId,
+            project: {
+              members: { some: { userId } },
             },
           },
         },
       },
       include: {
-        sections: {
+        projects: {
+          where: { projectId },
           include: {
-            section: {
+            project: {
               include: {
-                project: true,
+                sections: true,
+                tasks: true,
               },
             },
           },
         },
       },
     });
-    if (!task) throw new NotFoundException("Task not found");
-    const sections = task.sections.map((tos) => tos.section);
-    if (sections.length === 0) throw new BadRequestException("Task does not belong to this project");
-    const project = sections.find((sec) => sec.project.id === projectId)!.project;
 
+    if (!task) throw new NotFoundException("Task not found or you do not have permission to access it");
+
+    const project = task.projects.find((p) => p.project.id === projectId)!.project;
     if (project.isPersonal) {
-      // Personal project: chỉ xóa khỏi TaskSection
-      const sectionProject = sections.filter((sec) => sec.project.id === projectId);
-      
-      const deleteRelations = sectionProject.map((section) =>
-        this.db.taskSection.delete({
-          where: {
-            taskId_sectionId: {
+      // Delete relations only
+      await this.db.$transaction(async (tx) => {
+        await Promise.all([
+          tx.taskSection.deleteMany({
+            where: {
               taskId,
-              sectionId: section.id,
+              section: { projectId },
             },
-          },
-        }),
-      );
-      await this.db.$transaction([ ...deleteRelations]);
+          }),
+          tx.taskProject.deleteMany({
+            where: {
+              taskId,
+              projectId,
+            },
+          }),
+        ]);
+      });
     } else {
-      // Non-personal project: xóa task hoàn toàn khỏi tất cả project
-      await this.db.$transaction([this.db.task.delete({ where: { id: taskId } })]);
+      // Delete task entire
+      await this.db.task.delete({ where: { id: taskId } });
     }
+
     return new MessageResponseDto("Task deleted successfully");
   }
 }

@@ -45,6 +45,10 @@ export class AppConfig {
   @Max(65535)
   PORT: number = 8080;
 
+  /** Domain name for CORS and cookie settings */
+  @IsString()
+  DOMAIN: string;
+
   /** API route prefix (e.g., 'api' for /api/v1/...) */
   @IsString()
   API_PREFIX: string = "api";
@@ -53,9 +57,9 @@ export class AppConfig {
   @IsString()
   API_VERSION: string = "v1";
 
-  /** Comma-separated list of allowed CORS origins */
+  /** Allowed origin for CORS */
   @IsString()
-  CORS_ORIGINS: string;
+  CORS_ORIGIN: string;
 
   /** Secret key for JWT token signing and verification */
   @IsString()

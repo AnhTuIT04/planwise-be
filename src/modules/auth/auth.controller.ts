@@ -4,26 +4,31 @@ import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
 import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
 
+import { AppConfig } from "@/config/app.config";
 import { Public } from "@/decorators/public.decorator";
 import { GetCurrentUser, GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { AuthService } from "./auth.service";
 import { SignInDto } from "./dto/request/signin.dto";
 import { SignUpDto } from "./dto/request/signup.dto";
-import { EmailOnlyDTO } from "./dto/request/email-only.dto";
-import { VerifyOtpDTO } from "./dto/request/verify-otp.dto";
-import { ResetPasswordDTO } from "./dto/request/reset-password.dto";
+import { EmailOnlyDto } from "./dto/request/email-only.dto";
+import { VerifyOtpDto } from "./dto/request/verify-otp.dto";
+import { ResetPasswordDto } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
 import { UserResponseDto } from "./dto/response/user-response.dto";
+import { ExchangeTokenDto } from "./dto/request/exchange-token.dto";
 
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
   private getCookieOptions() {
+    const { NODE_ENV, DOMAIN } = this.configService.get<AppConfig>("env")!;
+
     return {
       httpOnly: true,
-      secure: true,
-      sameSite: "none" as const,
+      domain: DOMAIN,
+      sameSite: "strict" as const,
+      secure: NODE_ENV === "production",
     };
   }
 
@@ -66,7 +71,7 @@ export class AuthController {
     type: UserResponseDto,
     description: "Email verified successfully and user logged in.",
   })
-  async verifyEmail(@Body() verifyEmailDto: VerifyOtpDTO, @Res() res: Response) {
+  async verifyEmail(@Body() verifyEmailDto: VerifyOtpDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.verifyEmail(verifyEmailDto);
     this.setAccessTokenToCookie(res, accessToken);
 
@@ -82,7 +87,7 @@ export class AuthController {
     type: MessageResponseDto,
     description: "OTP resent successfully.",
   })
-  async resendVerificationOtp(@Body() dto: EmailOnlyDTO) {
+  async resendVerificationOtp(@Body() dto: EmailOnlyDto) {
     return this.authService.resendOtp(dto.email, true);
   }
 
@@ -99,7 +104,7 @@ export class AuthController {
     type: MessageResponseDto,
     description: "OTP sent to email successfully.",
   })
-  async forgotPassword(@Body() dto: EmailOnlyDTO) {
+  async forgotPassword(@Body() dto: EmailOnlyDto) {
     return this.authService.forgotPassword(dto.email);
   }
 
@@ -112,7 +117,7 @@ export class AuthController {
     type: MessageResponseDto,
     description: "OTP verified successfully.",
   })
-  async verifyResetPasswordOtp(@Body() verifyEmailDto: VerifyOtpDTO) {
+  async verifyResetPasswordOtp(@Body() verifyEmailDto: VerifyOtpDto) {
     return this.authService.verifyResetPassword(verifyEmailDto);
   }
 
@@ -125,7 +130,7 @@ export class AuthController {
     type: MessageResponseDto,
     description: "Password reset successfully.",
   })
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDTO) {
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
@@ -138,7 +143,7 @@ export class AuthController {
     type: MessageResponseDto,
     description: "OTP resent successfully.",
   })
-  async resendPasswordResetOtp(@Body() dto: EmailOnlyDTO) {
+  async resendPasswordResetOtp(@Body() dto: EmailOnlyDto) {
     return this.authService.resendOtp(dto.email, false);
   }
 
@@ -157,10 +162,8 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: "Google OAuth callback" })
   async googleCallback(@GetCurrentUser() user, @Res() res: Response) {
-    const accessToken = this.authService.signAccessTokenToken(user);
-    this.setAccessTokenToCookie(res, accessToken);
-
-    return res.redirect(this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")!);
+    const otc = await this.authService.handleOAuthCallback(user);
+    return res.redirect(this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")! + `?otc=${otc}`);
   }
 
   // -------------------------------
@@ -178,10 +181,26 @@ export class AuthController {
   @UseGuards(GithubAuthGuard)
   @ApiOperation({ summary: "GitHub OAuth callback" })
   async githubCallback(@GetCurrentUser() user, @Res() res: Response) {
-    const accessToken = this.authService.signAccessTokenToken(user);
-    this.setAccessTokenToCookie(res, accessToken);
+    const otc = await this.authService.handleOAuthCallback(user);
+    return res.redirect(this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")! + `?otc=${otc}`);
+  }
 
-    return res.redirect(this.configService.get<string>("OAUTH_SUCCESS_REDIRECT_URL")!);
+  // -------------------------------
+  // OAUTH TOKEN EXCHANGE
+  // -------------------------------
+  @Post("oauth/exchange-token")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Exchange OTC for access token after OAuth login" })
+  @ApiResponse({
+    status: 200,
+    type: UserResponseDto,
+    description: "Access token issued successfully.",
+  })
+  async exchangeOAuthToken(@Body() dto: ExchangeTokenDto, @Res() res: Response) {
+    const { accessToken, user } = await this.authService.exchangeOAuthToken(dto.otc);
+    this.setAccessTokenToCookie(res, accessToken);
+    return res.json(new UserResponseDto(user, "Sign-in successful."));
   }
 
   // -------------------------------

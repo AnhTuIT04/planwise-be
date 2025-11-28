@@ -24,11 +24,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
 
   // Extract application configuration from ConfigService
-  const { NODE_ENV, PORT, API_PREFIX, API_VERSION, CORS_ORIGINS } = app.get(ConfigService).get<AppConfig>("env")!;
+  const { NODE_ENV, PORT, API_PREFIX, API_VERSION, CORS_ORIGIN } = app.get(ConfigService).get<AppConfig>("env")!;
 
   // Configure CORS (Cross-Origin Resource Sharing) with allowed methods and origins
   app.enableCors({
-    origin: CORS_ORIGINS.split(",").filter(Boolean),
+    origin: CORS_ORIGIN,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true, // Allow cookies and authorization headers
   });
@@ -56,7 +56,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Strip properties that don't have decorators
-      transform: true, // Automatically transform payloads to DTO instances
+      transform: true, // Automatically transform payloads to Dto instances
       forbidNonWhitelisted: true, // Throw error if non-whitelisted properties are present
       transformOptions: { enableImplicitConversion: true }, // Allow primitive type conversions
     }),
