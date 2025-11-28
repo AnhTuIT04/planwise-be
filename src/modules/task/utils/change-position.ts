@@ -1,14 +1,15 @@
 import { midpoint } from "@/common/utils";
 import { DatabaseService } from "@/modules/database/database.service";
+import { PrismaClient } from "@prisma/client";
 
-export async function moveToFirstPosition(db: DatabaseService | any, taskId: string, sectionId: string) {
+export async function moveToFirstPosition(db: DatabaseService | PrismaClient, taskId: string, sectionId: string) {
   const tasksNeedToChangePosition = await db.taskSection.findMany({
-      where: {
-        sectionId: sectionId,
-      },
-      orderBy: { position: "asc" },
-    });
-    
+    where: {
+      sectionId: sectionId,
+    },
+    orderBy: { position: "asc" },
+  });
+
   if (tasksNeedToChangePosition.length === 1) return; // Only the task itself exists in the section
 
   const newPosition = midpoint(null, tasksNeedToChangePosition[0].position);
@@ -25,14 +26,14 @@ export async function moveToFirstPosition(db: DatabaseService | any, taskId: str
   });
 }
 
-export async function moveToLastPosition(db: DatabaseService | any, taskId: string, sectionId: string) {
+export async function moveToLastPosition(db: DatabaseService | PrismaClient, taskId: string, sectionId: string) {
   const tasksNeedToChangePosition = await db.taskSection.findMany({
-      where: {
-        sectionId: sectionId,
-      },
-      orderBy: { position: "desc" },
-    });
-    
+    where: {
+      sectionId: sectionId,
+    },
+    orderBy: { position: "desc" },
+  });
+
   if (tasksNeedToChangePosition.length === 1) return; // Only the task itself exists in the section
 
   const newPosition = midpoint(tasksNeedToChangePosition[0].position, null);

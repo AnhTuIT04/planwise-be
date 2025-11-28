@@ -31,13 +31,14 @@ export class SubtaskService {
       },
       include: { assignees: true },
     });
+
     if (!parentTask) {
       throw new Error("Parent task not found or you do not have permission to access it");
     }
 
     await this.db.$transaction(async (tx) => {
       if (data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE) {
-        await this.db.task.update({
+        await tx.task.update({
           where: { id: parentTask.id },
           data: {
             status: TaskStatus.TODO,
@@ -45,6 +46,7 @@ export class SubtaskService {
           },
         });
       }
+
       return tx.task.create({
         data: {
           parentTaskId: parentTask.id,
@@ -65,6 +67,7 @@ export class SubtaskService {
         },
       });
     });
+
     return new MessageResponseDto("Subtask created successfully");
   }
 
@@ -90,9 +93,11 @@ export class SubtaskService {
         },
       },
     });
+
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
+
     await this.db.task.update({
       where: { id: subtaskId },
       data: {
@@ -108,6 +113,7 @@ export class SubtaskService {
         },
       },
     });
+
     return new MessageResponseDto("Subtask updated successfully");
   }
 
@@ -129,12 +135,15 @@ export class SubtaskService {
       },
       ...buildGetSubtaskStatusQuery(),
     });
+
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
+
     if (subtask.status === dto.status) {
       throw new BadRequestException("Subtask is already in the requested status");
     }
+
     await changeStatus(subtask.status, dto.status, this.db, subtask, dto.sectionId);
     return new MessageResponseDto("Subtask status updated successfully");
   }
@@ -161,9 +170,11 @@ export class SubtaskService {
         },
       },
     });
+
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
+
     await this.db.task.update({
       where: { id: subtaskId },
       data: {
@@ -177,6 +188,7 @@ export class SubtaskService {
         },
       },
     });
+
     return new MessageResponseDto("Subtask assignees updated successfully");
   }
 
@@ -197,12 +209,15 @@ export class SubtaskService {
         },
       },
     });
+
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
+
     await this.db.task.delete({
       where: { id: subtaskId },
     });
+
     return new MessageResponseDto("Subtask deleted successfully");
   }
 }

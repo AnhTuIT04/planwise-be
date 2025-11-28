@@ -11,7 +11,7 @@ export class UsersService {
 
   async create(data: Omit<Prisma.UserCreateInput, "workspaceId">) {
     return this.db.$transaction(async (tx) => {
-      const newProject = await this.db.project.create({
+      const newProject = await tx.project.create({
         data: {
           name: "My Workspace",
           owner: {
