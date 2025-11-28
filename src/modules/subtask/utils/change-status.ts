@@ -3,13 +3,18 @@ import { BadRequestException } from "@nestjs/common";
 import { TaskStatus } from "prisma/client";
 import { DatabaseService } from "@/modules/database/database.service";
 import { GetSubtaskStatusQueryResult } from "../query/get-subtask-status.query";
+import { moveToFirstPosition } from "@/modules/task/utils/change-position";
 
 function getDurationInSecondsFrom(time: Date = new Date()): number {
   const durationInMilliseconds = new Date().getTime() - time.getTime();
   return Math.floor(durationInMilliseconds / 1000);
 }
 
-async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_TODO_To_RUNNING(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   const runningSubtask = task.parentTask!.subtasks.find((st) => st.status === TaskStatus.RUNNING);
   if (runningSubtask) {
     return db.$transaction(async (tx) => {
@@ -31,22 +36,29 @@ async function changeStatusFrom_TODO_To_RUNNING(db: DatabaseService, task: GetSu
     });
   }
 
-  return db.task.update({
-    where: { id: task.id },
-    data: {
-      status: TaskStatus.RUNNING,
-      lastStarted: new Date(),
-      parentTask: {
-        update: {
-          status: TaskStatus.RUNNING,
-          lastStarted: new Date(),
+  return await db.$transaction(async (tx) => {
+    await moveToFirstPosition(tx, task.parentTaskId!, sectionId);
+    return tx.task.update({
+      where: { id: task.id },
+      data: {
+        status: TaskStatus.RUNNING,
+        lastStarted: new Date(),
+        parentTask: {
+          update: {
+            status: TaskStatus.RUNNING,
+            lastStarted: new Date(),
+          },
         },
       },
-    },
+    });
   });
 }
 
-async function changeStatusFrom_TODO_To_DONE(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_TODO_To_DONE(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -55,7 +67,11 @@ async function changeStatusFrom_TODO_To_DONE(db: DatabaseService, task: GetSubta
   });
 }
 
-async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_RUNNING_To_TODO(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -71,7 +87,11 @@ async function changeStatusFrom_RUNNING_To_TODO(db: DatabaseService, task: GetSu
   });
 }
 
-async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_RUNNING_To_DONE(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   return db.task.update({
     where: { id: task.id },
     data: {
@@ -87,7 +107,11 @@ async function changeStatusFrom_RUNNING_To_DONE(db: DatabaseService, task: GetSu
   });
 }
 
-async function changeStatusFrom_DONE_To_TODO(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_DONE_To_TODO(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   if (task.parentTask!.status === TaskStatus.DONE) {
     return db.task.update({
       where: { id: task.id },
@@ -110,31 +134,59 @@ async function changeStatusFrom_DONE_To_TODO(db: DatabaseService, task: GetSubta
   });
 }
 
-async function changeStatusFrom_DONE_To_RUNNING(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_DONE_To_RUNNING(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   throw new BadRequestException("Cannot change status from DONE to RUNNING.");
 }
 
-async function changeStatusFrom_TODO_To_ARCHIVED(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_TODO_To_ARCHIVED(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   throw new BadRequestException("Only parentTask tasks can be archived.");
 }
 
-async function changeStatusFrom_DONE_To_ARCHIVED(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_DONE_To_ARCHIVED(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   throw new BadRequestException("Only parentTask tasks can be archived.");
 }
 
-async function changeStatusFrom_RUNNING_To_ARCHIVED(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_RUNNING_To_ARCHIVED(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   throw new BadRequestException("Cannot archive a task that is RUNNING. Please change its status first.");
 }
 
-async function changeStatusFrom_ARCHIVED_To_TODO(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_ARCHIVED_To_TODO(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   throw new BadRequestException("Only parentTask tasks can be unarchived.");
 }
 
-async function changeStatusFrom_ARCHIVED_To_RUNNING(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_ARCHIVED_To_RUNNING(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   throw new BadRequestException("Cannot change status from ARCHIVED to RUNNING.");
 }
 
-async function changeStatusFrom_ARCHIVED_To_DONE(db: DatabaseService, task: GetSubtaskStatusQueryResult) {
+async function changeStatusFrom_ARCHIVED_To_DONE(
+  db: DatabaseService,
+  task: GetSubtaskStatusQueryResult,
+  sectionId: string,
+) {
   throw new BadRequestException("Cannot change status from ARCHIVED to DONE.");
 }
 
@@ -143,6 +195,7 @@ export async function changeStatus(
   toStatus: TaskStatus,
   db: DatabaseService,
   task: GetSubtaskStatusQueryResult,
+  sectionId: string,
 ) {
   const handlers: Record<string, Function> = {
     changeStatusFrom_TODO_To_RUNNING: changeStatusFrom_TODO_To_RUNNING,
@@ -163,5 +216,5 @@ export async function changeStatus(
   };
 
   const handler = handlers[`changeStatusFrom_${fromStatus}_To_${toStatus}`];
-  return await handler(db, task);
+  return await handler(db, task, sectionId);
 }

@@ -135,7 +135,7 @@ export class SubtaskService {
     if (subtask.status === dto.status) {
       throw new BadRequestException("Subtask is already in the requested status");
     }
-    await changeStatus(subtask.status, dto.status, this.db, subtask);
+    await changeStatus(subtask.status, dto.status, this.db, subtask, dto.sectionId);
     return new MessageResponseDto("Subtask status updated successfully");
   }
 

@@ -265,7 +265,7 @@ export class TaskService {
       throw new BadRequestException("Task is already in the requested status");
     }
 
-    const updatedTask = await changeStatus(task.status, dto.status, this.db, task);
+    const updatedTask = await changeStatus(task.status, dto.status, this.db, task, dto.sectionId);
     const taskExtras = await this.queryTaskHelper(userId, updatedTask.originalProjectId, updatedTask);
     return new TaskResponseDto({ ...updatedTask, ...taskExtras }, "Task status updated successfully");
   }
