@@ -36,37 +36,43 @@ export class SubtaskService {
       throw new Error("Parent task not found or you do not have permission to access it");
     }
 
-    await this.db.$transaction(async (tx) => {
-      if (data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE) {
-        await tx.task.update({
-          where: { id: parentTask.id },
+    await this.db.$transaction(
+      async (tx) => {
+        if (data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE) {
+          await tx.task.update({
+            where: { id: parentTask.id },
+            data: {
+              status: TaskStatus.TODO,
+              estimate: parentTask.estimate + (data.estimate ?? 1200),
+            },
+          });
+        }
+
+        return tx.task.create({
           data: {
-            status: TaskStatus.TODO,
-            estimate: parentTask.estimate + (data.estimate ?? 1200),
+            parentTaskId: parentTask.id,
+            title: data.title,
+            description: data.description,
+            estimate: data.estimate,
+            priority: parentTask.priority,
+            deadline: parentTask.deadline,
+            status: data.status,
+            originalProjectId: parentTask.originalProjectId,
+            assignees: {
+              create: Array.from(
+                new Set([...parentTask.assignees.map((assignee) => assignee.userId), ...data.assigneeIds]),
+              ).map((userId) => ({
+                userId,
+              })),
+            },
           },
         });
-      }
-
-      return tx.task.create({
-        data: {
-          parentTaskId: parentTask.id,
-          title: data.title,
-          description: data.description,
-          estimate: data.estimate,
-          priority: parentTask.priority,
-          deadline: parentTask.deadline,
-          status: data.status,
-          originalProjectId: parentTask.originalProjectId,
-          assignees: {
-            create: Array.from(
-              new Set([...parentTask.assignees.map((assignee) => assignee.userId), ...data.assigneeIds]),
-            ).map((userId) => ({
-              userId,
-            })),
-          },
-        },
-      });
-    });
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
 
     return new MessageResponseDto("Subtask created successfully");
   }

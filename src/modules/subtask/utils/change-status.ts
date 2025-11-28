@@ -17,41 +17,53 @@ async function changeStatusFrom_TODO_To_RUNNING(
 ) {
   const runningSubtask = task.parentTask!.subtasks.find((st) => st.status === TaskStatus.RUNNING);
   if (runningSubtask) {
-    return db.$transaction(async (tx) => {
-      await tx.task.update({
-        where: { id: runningSubtask.id },
-        data: {
-          status: TaskStatus.DONE,
-          spent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.spent,
-        },
-      });
+    return db.$transaction(
+      async (tx) => {
+        await tx.task.update({
+          where: { id: runningSubtask.id },
+          data: {
+            status: TaskStatus.DONE,
+            spent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.spent,
+          },
+        });
 
+        return tx.task.update({
+          where: { id: task.id },
+          data: {
+            status: TaskStatus.RUNNING,
+            lastStarted: new Date(),
+          },
+        });
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
+  }
+
+  return await db.$transaction(
+    async (tx) => {
+      await moveToFirstPosition(tx, task.parentTaskId!, sectionId);
       return tx.task.update({
         where: { id: task.id },
         data: {
           status: TaskStatus.RUNNING,
           lastStarted: new Date(),
-        },
-      });
-    });
-  }
-
-  return await db.$transaction(async (tx) => {
-    await moveToFirstPosition(tx, task.parentTaskId!, sectionId);
-    return tx.task.update({
-      where: { id: task.id },
-      data: {
-        status: TaskStatus.RUNNING,
-        lastStarted: new Date(),
-        parentTask: {
-          update: {
-            status: TaskStatus.RUNNING,
-            lastStarted: new Date(),
+          parentTask: {
+            update: {
+              status: TaskStatus.RUNNING,
+              lastStarted: new Date(),
+            },
           },
         },
-      },
-    });
-  });
+      });
+    },
+    {
+      maxWait: 5000,
+      timeout: 20000,
+    },
+  );
 }
 
 async function changeStatusFrom_TODO_To_DONE(

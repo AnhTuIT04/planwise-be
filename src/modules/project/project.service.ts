@@ -21,46 +21,52 @@ export class ProjectService {
   constructor(private readonly db: DatabaseService) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
-    const project = await this.db.$transaction(async (tx) => {
-      const newProject = await tx.project.create({
-        data: {
-          ownerId: userId,
-          ...createProjectDto,
-          roles: {
-            create: [
-              {
-                name: DefaultRole.OWNER,
-                default: true,
-                permissions: JSON.stringify(["ALL"]),
-              },
-              {
-                name: DefaultRole.MEMBER,
-                default: true,
-                permissions: JSON.stringify(["ALL"]),
-              },
-            ],
-          },
-        },
-        select: {
-          id: true,
-          sections: true,
-          roles: true,
-        },
-      });
-
-      return await tx.project.update({
-        where: { id: newProject.id },
-        data: {
-          members: {
-            create: {
-              userId,
-              roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+    const project = await this.db.$transaction(
+      async (tx) => {
+        const newProject = await tx.project.create({
+          data: {
+            ownerId: userId,
+            ...createProjectDto,
+            roles: {
+              create: [
+                {
+                  name: DefaultRole.OWNER,
+                  default: true,
+                  permissions: JSON.stringify(["ALL"]),
+                },
+                {
+                  name: DefaultRole.MEMBER,
+                  default: true,
+                  permissions: JSON.stringify(["ALL"]),
+                },
+              ],
             },
           },
-        },
-        ...buildGetProjectQuery(),
-      });
-    });
+          select: {
+            id: true,
+            sections: true,
+            roles: true,
+          },
+        });
+
+        return await tx.project.update({
+          where: { id: newProject.id },
+          data: {
+            members: {
+              create: {
+                userId,
+                roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+              },
+            },
+          },
+          ...buildGetProjectQuery(),
+        });
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
 
     return new ProjectResponseDto(project, "Project created successfully");
   }

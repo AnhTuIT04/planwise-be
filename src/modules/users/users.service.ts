@@ -10,59 +10,65 @@ export class UsersService {
   constructor(private db: DatabaseService) {}
 
   async create(data: Omit<Prisma.UserCreateInput, "workspaceId">) {
-    return this.db.$transaction(async (tx) => {
-      const newProject = await tx.project.create({
-        data: {
-          name: "My Workspace",
-          owner: {
-            create: {
-              ...data,
-              workspaceId: "",
+    return this.db.$transaction(
+      async (tx) => {
+        const newProject = await tx.project.create({
+          data: {
+            name: "My Workspace",
+            owner: {
+              create: {
+                ...data,
+                workspaceId: "",
+              },
+            },
+            isPersonal: true,
+            sections: {
+              create: [
+                {
+                  name: "Default",
+                  position: midpoint(null, null),
+                },
+              ],
+            },
+            roles: {
+              create: [
+                {
+                  name: DefaultRole.OWNER,
+                  default: true,
+                  permissions: JSON.stringify(["ALL"]),
+                },
+                {
+                  name: DefaultRole.MEMBER,
+                  default: true,
+                  permissions: JSON.stringify(["ALL"]),
+                },
+              ],
             },
           },
-          isPersonal: true,
-          sections: {
-            create: [
-              {
-                name: "Default",
-                position: midpoint(null, null),
-              },
-            ],
+          include: {
+            owner: true,
+            roles: true,
           },
-          roles: {
-            create: [
-              {
-                name: DefaultRole.OWNER,
-                default: true,
-                permissions: JSON.stringify(["ALL"]),
-              },
-              {
-                name: DefaultRole.MEMBER,
-                default: true,
-                permissions: JSON.stringify(["ALL"]),
-              },
-            ],
-          },
-        },
-        include: {
-          owner: true,
-          roles: true,
-        },
-      });
+        });
 
-      return tx.user.update({
-        where: { id: newProject.owner.id },
-        data: {
-          workspaceId: newProject.id,
-          memberships: {
-            create: {
-              projectId: newProject.id,
-              roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+        return tx.user.update({
+          where: { id: newProject.owner.id },
+          data: {
+            workspaceId: newProject.id,
+            memberships: {
+              create: {
+                projectId: newProject.id,
+                roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+              },
             },
           },
-        },
-      });
-    });
+        });
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
   }
 
   async findByEmail(email: string) {

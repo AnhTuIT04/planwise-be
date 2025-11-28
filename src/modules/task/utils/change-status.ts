@@ -16,38 +16,50 @@ async function changeStatusFrom_TODO_To_RUNNING(
   task: GetTaskStatusQueryResult,
   sectionId: string,
 ) {
-  return await db.$transaction(async (tx) => {
-    await moveToFirstPosition(tx, task.id, sectionId);
+  return await db.$transaction(
+    async (tx) => {
+      await moveToFirstPosition(tx, task.id, sectionId);
 
-    return tx.task.update({
-      where: { id: task.id },
-      data: {
-        status: TaskStatus.RUNNING,
-        lastStarted: new Date(),
-      },
-      ...buildGetTaskQuery(),
-    });
-  });
+      return tx.task.update({
+        where: { id: task.id },
+        data: {
+          status: TaskStatus.RUNNING,
+          lastStarted: new Date(),
+        },
+        ...buildGetTaskQuery(),
+      });
+    },
+    {
+      maxWait: 5000,
+      timeout: 20000,
+    },
+  );
 }
 
 async function changeStatusFrom_TODO_To_DONE(db: DatabaseService, task: GetTaskStatusQueryResult, sectionId: string) {
-  return await db.$transaction(async (tx) => {
-    await moveToLastPosition(tx, task.id, sectionId);
+  return await db.$transaction(
+    async (tx) => {
+      await moveToLastPosition(tx, task.id, sectionId);
 
-    return tx.task.update({
-      where: { id: task.id },
-      data: {
-        status: TaskStatus.DONE,
-        subtasks: {
-          updateMany: {
-            where: { status: { not: TaskStatus.DONE } },
-            data: { status: TaskStatus.DONE },
+      return tx.task.update({
+        where: { id: task.id },
+        data: {
+          status: TaskStatus.DONE,
+          subtasks: {
+            updateMany: {
+              where: { status: { not: TaskStatus.DONE } },
+              data: { status: TaskStatus.DONE },
+            },
           },
         },
-      },
-      ...buildGetTaskQuery(),
-    });
-  });
+        ...buildGetTaskQuery(),
+      });
+    },
+    {
+      maxWait: 5000,
+      timeout: 20000,
+    },
+  );
 }
 
 async function changeStatusFrom_RUNNING_To_TODO(
@@ -83,33 +95,39 @@ async function changeStatusFrom_RUNNING_To_DONE(
 ) {
   const subtaskRunning = task.subtasks.find((st) => st.status === TaskStatus.RUNNING);
 
-  return await db.$transaction(async (tx) => {
-    await moveToLastPosition(tx, task.id, sectionId);
-    return tx.task.update({
-      where: { id: task.id },
-      data: {
-        status: TaskStatus.DONE,
-        spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
-        subtasks: {
-          updateMany: [
-            {
-              where: { id: subtaskRunning?.id },
-              data: {
-                status: TaskStatus.DONE,
-                spent:
-                  getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.spent || 0),
+  return await db.$transaction(
+    async (tx) => {
+      await moveToLastPosition(tx, task.id, sectionId);
+      return tx.task.update({
+        where: { id: task.id },
+        data: {
+          status: TaskStatus.DONE,
+          spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
+          subtasks: {
+            updateMany: [
+              {
+                where: { id: subtaskRunning?.id },
+                data: {
+                  status: TaskStatus.DONE,
+                  spent:
+                    getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.spent || 0),
+                },
               },
-            },
-            {
-              where: { status: { not: TaskStatus.DONE } },
-              data: { status: TaskStatus.DONE },
-            },
-          ],
+              {
+                where: { status: { not: TaskStatus.DONE } },
+                data: { status: TaskStatus.DONE },
+              },
+            ],
+          },
         },
-      },
-      ...buildGetTaskQuery(),
-    });
-  });
+        ...buildGetTaskQuery(),
+      });
+    },
+    {
+      maxWait: 5000,
+      timeout: 20000,
+    },
+  );
 }
 
 async function changeStatusFrom_DONE_To_TODO(db: DatabaseService, task: GetTaskStatusQueryResult, sectionId: string) {

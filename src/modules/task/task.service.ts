@@ -300,34 +300,40 @@ export class TaskService {
       throw new BadRequestException("Cannot update assignees of a subtask using this endpoint");
     }
 
-    const updatedTask = await this.db.$transaction(async (tx) => {
-      const updateAssignees = task.subtasks.map((sub) => {
-        const newAssignees = [...new Set([...sub.assignees.map((a) => a.userId), ...dto.assigneeIds])];
+    const updatedTask = await this.db.$transaction(
+      async (tx) => {
+        const updateAssignees = task.subtasks.map((sub) => {
+          const newAssignees = [...new Set([...sub.assignees.map((a) => a.userId), ...dto.assigneeIds])];
+
+          return tx.task.update({
+            where: { id: sub.id },
+            data: {
+              assignees: {
+                deleteMany: {},
+                create: newAssignees.map((uid) => ({ userId: uid })),
+              },
+            },
+          });
+        });
+
+        await Promise.all(updateAssignees);
 
         return tx.task.update({
-          where: { id: sub.id },
+          where: { id: taskId },
           data: {
             assignees: {
               deleteMany: {},
-              create: newAssignees.map((uid) => ({ userId: uid })),
+              create: dto.assigneeIds.map((uid) => ({ userId: uid })),
             },
           },
+          ...buildGetTaskQuery(),
         });
-      });
-
-      await Promise.all(updateAssignees);
-
-      return tx.task.update({
-        where: { id: taskId },
-        data: {
-          assignees: {
-            deleteMany: {},
-            create: dto.assigneeIds.map((uid) => ({ userId: uid })),
-          },
-        },
-        ...buildGetTaskQuery(),
-      });
-    });
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
 
     const taskExtras = await this.queryTaskHelper(userId, updatedTask.originalProjectId, updatedTask);
     return new TaskResponseDto({ ...updatedTask, ...taskExtras }, "Task assignees updated successfully");
@@ -402,28 +408,34 @@ export class TaskService {
     }
 
     // Transaction: update TaskSection join table
-    await this.db.$transaction(async (tx) => {
-      await Promise.all([
-        // Remove old relation
-        tx.taskSection.delete({
-          where: {
-            taskId_sectionId: {
-              taskId,
-              sectionId: fromSectionId,
+    await this.db.$transaction(
+      async (tx) => {
+        await Promise.all([
+          // Remove old relation
+          tx.taskSection.delete({
+            where: {
+              taskId_sectionId: {
+                taskId,
+                sectionId: fromSectionId,
+              },
             },
-          },
-        }),
+          }),
 
-        // Create new relation
-        tx.taskSection.create({
-          data: {
-            taskId,
-            position,
-            sectionId: toSectionId,
-          },
-        }),
-      ]);
-    });
+          // Create new relation
+          tx.taskSection.create({
+            data: {
+              taskId,
+              position,
+              sectionId: toSectionId,
+            },
+          }),
+        ]);
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
 
     return new MessageResponseDto("Task moved successfully");
   }
@@ -559,22 +571,28 @@ export class TaskService {
     const project = task.projects.find((p) => p.project.id === projectId)!.project;
     if (project.isPersonal) {
       // Delete relations only
-      await this.db.$transaction(async (tx) => {
-        await Promise.all([
-          tx.taskSection.deleteMany({
-            where: {
-              taskId,
-              section: { projectId },
-            },
-          }),
-          tx.taskProject.deleteMany({
-            where: {
-              taskId,
-              projectId,
-            },
-          }),
-        ]);
-      });
+      await this.db.$transaction(
+        async (tx) => {
+          await Promise.all([
+            tx.taskSection.deleteMany({
+              where: {
+                taskId,
+                section: { projectId },
+              },
+            }),
+            tx.taskProject.deleteMany({
+              where: {
+                taskId,
+                projectId,
+              },
+            }),
+          ]);
+        },
+        {
+          maxWait: 5000,
+          timeout: 20000,
+        },
+      );
     } else {
       // Delete task entire
       await this.db.task.delete({ where: { id: taskId } });
