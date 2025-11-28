@@ -36,7 +36,8 @@ export class TaskService {
 
     const originalProject = task.originalProjectId === projectId ? null : task.originalProject;
     const canImport =
-      !originalProject && (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
+      !task.originalProject?.isPersonal &&
+      (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
     const isImported = !!taskInWorkspace;
     return { originalProject, canImport, isImported };
   }

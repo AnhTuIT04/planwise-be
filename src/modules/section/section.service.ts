@@ -197,7 +197,7 @@ export class SectionService {
     const tasksInSection: GetTaskQueryResult[] = tasks.map((task) => {
       const originalProject = task.task.originalProjectId === projectId ? null : task.task.originalProject;
       const canImport =
-        !originalProject &&
+        !task.task.originalProject.isPersonal &&
         (task.task.supervisorId === userId || task.task.assignees.some((a) => a.user.id === userId));
       const isImported = taskIdsInWorkspace.includes(task.task.id);
       return { ...task.task, originalProject, canImport, isImported };

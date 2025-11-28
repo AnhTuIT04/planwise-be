@@ -233,7 +233,8 @@ export class ProjectService {
         tasks: tasks.map((task) => {
           const originalProject = task.originalProjectId === projectId ? null : task.originalProject;
           const canImport =
-            !originalProject && (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
+            !task.originalProject.isPersonal &&
+            (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
           const isImported = taskIdsInWorkspace.includes(task.id);
           return { task: { ...task, originalProject, canImport, isImported } };
         }),
