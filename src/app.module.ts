@@ -13,6 +13,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { TaskModule } from "./modules/task/task.module";
 import { SectionModule } from "./modules/section/section.module";
 import { ProjectModule } from "./modules/project/project.module";
+import { RoleModule } from "./modules/role/role.module";
 import { CommentModule } from "./modules/comment/comment.module";
 import { SubtaskModule } from "./modules/subtask/subtask.module";
 
@@ -31,6 +32,7 @@ import { SubtaskModule } from "./modules/subtask/subtask.module";
     UsersModule,
     AuthModule,
     ProjectModule,
+    RoleModule,
     SectionModule,
     TaskModule,
     SubtaskModule,

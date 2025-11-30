@@ -343,11 +343,7 @@ export class TaskService {
   async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
     const { fromSectionId, toSectionId, insertAt } = dto;
 
-    if (fromSectionId === toSectionId) {
-      throw new BadRequestException("Source and target sections are the same");
-    }
-
-    const task = await this.db.task.findUnique({
+    const task = await this.db.task.findFirst({
       where: {
         id: taskId,
         sections: {
@@ -366,6 +362,7 @@ export class TaskService {
           select: {
             section: true,
           },
+          where: { sectionId: fromSectionId },
         },
       },
     });
@@ -406,6 +403,21 @@ export class TaskService {
       position = midpoint(null, positions[0]);
     } else {
       position = midpoint(positions[positions.length - 1], null);
+    }
+
+    if (fromSectionId === toSectionId) {
+      // Moving within the same section
+      await this.db.taskSection.update({
+        where: {
+          taskId_sectionId: {
+            taskId,
+            sectionId: toSectionId,
+          },
+        },
+        data: {
+          position,
+        },
+      });
     }
 
     // Transaction: update TaskSection join table
