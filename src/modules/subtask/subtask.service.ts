@@ -9,6 +9,8 @@ import { UpdateTaskStatusDto } from "../task/dto/request/update-task-status.dto"
 import { changeStatus } from "./utils/change-status";
 import { buildGetSubtaskStatusQuery } from "./query/get-subtask-status.query";
 import { UpdateSubtaskAssigneesDto } from "./dto/request/update-subtask-assignees.dto";
+import { SubtaskResponseDto } from "./dto/response/subtask-response.dto";
+import { buildGetSubtaskQuery, GetSubtaskQueryResult } from "./query/get-subtask.query";
 
 @Injectable()
 export class SubtaskService {
@@ -36,7 +38,7 @@ export class SubtaskService {
       throw new Error("Parent task not found or you do not have permission to access it");
     }
 
-    await this.db.$transaction(
+    const newSubtask: GetSubtaskQueryResult = await this.db.$transaction(
       async (tx) => {
         if (data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE) {
           await tx.task.update({
@@ -66,6 +68,7 @@ export class SubtaskService {
               })),
             },
           },
+          ...buildGetSubtaskQuery(),
         });
       },
       {
@@ -74,7 +77,7 @@ export class SubtaskService {
       },
     );
 
-    return new MessageResponseDto("Subtask created successfully");
+    return new SubtaskResponseDto(newSubtask, "Subtask created successfully");
   }
 
   async update(userId: string, subtaskId: string, updateSubtaskDto: UpdateSubtaskDto) {
@@ -104,7 +107,7 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    await this.db.task.update({
+    const updatedSubtask : GetSubtaskQueryResult = await this.db.task.update({
       where: { id: subtaskId },
       data: {
         title: updateSubtaskDto.title,
@@ -118,9 +121,10 @@ export class SubtaskService {
             : {},
         },
       },
+      ...buildGetSubtaskQuery(),
     });
 
-    return new MessageResponseDto("Subtask updated successfully");
+    return new SubtaskResponseDto(updatedSubtask, "Subtask updated successfully");
   }
 
   async changeStatus(userId: string, subtaskId: string, dto: UpdateTaskStatusDto) {
@@ -150,8 +154,8 @@ export class SubtaskService {
       throw new BadRequestException("Subtask is already in the requested status");
     }
 
-    await changeStatus(subtask.status, dto.status, this.db, subtask, dto.sectionId);
-    return new MessageResponseDto("Subtask status updated successfully");
+    const updatedSubtask : GetSubtaskQueryResult = await changeStatus(subtask.status, dto.status, this.db, subtask, dto.sectionId);
+    return new SubtaskResponseDto(updatedSubtask, "Subtask status updated successfully");
   }
 
   async updateAssignees(userId: string, subtaskId: string, dto: UpdateSubtaskAssigneesDto) {
@@ -181,7 +185,7 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    await this.db.task.update({
+    const updatedSubtask : GetSubtaskQueryResult = await this.db.task.update({
       where: { id: subtaskId },
       data: {
         assignees: {
@@ -193,9 +197,10 @@ export class SubtaskService {
           })),
         },
       },
+      ...buildGetSubtaskQuery(),
     });
 
-    return new MessageResponseDto("Subtask assignees updated successfully");
+    return new SubtaskResponseDto(updatedSubtask, "Subtask assignees updated successfully");
   }
 
   async remove(userId: string, subtaskId: string) {

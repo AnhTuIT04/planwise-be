@@ -43,14 +43,6 @@ export class SubtaskDto {
   })
   readonly deadline: Date | null;
 
-  @ApiProperty({
-    example: "aam",
-    description: "position string for ordering tasks",
-    format: "string",
-    nullable: false,
-  })
-  readonly position: string;
-
   @ApiProperty({ type: () => UserBasicDto, description: "Supervisor information object", nullable: true })
   readonly supervisor: UserBasicDto | null;
 
