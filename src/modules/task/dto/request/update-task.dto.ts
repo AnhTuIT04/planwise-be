@@ -61,13 +61,4 @@ export class UpdateTaskDto {
     description: "The ID of the supervisor user",
   })
   readonly supervisorId?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @ApiPropertyOptional({
-    example: 1,
-    description: "The index to move the task to (0-based)",
-  })
-  readonly moveTo?: number;
 }

@@ -185,25 +185,6 @@ export class TaskService {
       throw new BadRequestException("Cannot update subtask by using this endpoint");
     }
 
-    const tasks = await this.db.taskSection.findMany({
-      where: { sectionId: dto.sectionId },
-      orderBy: { position: "asc" },
-    });
-
-    let newTaskPosition: string | undefined = undefined;
-    if (dto.moveTo !== undefined) {
-      if (dto.moveTo > 0 && dto.moveTo < tasks.length) {
-        // move in middle
-        newTaskPosition = midpoint(tasks[dto.moveTo - 1].position, tasks[dto.moveTo].position);
-      } else if (dto.moveTo <= 0) {
-        // move to beginning
-        newTaskPosition = midpoint(null, tasks[0].position);
-      } else {
-        // move to end
-        newTaskPosition = midpoint(tasks[tasks.length - 1].position, null);
-      }
-    }
-
     // Execute update
     const updated = await this.db.task.update({
       where: { id: taskId },
@@ -222,14 +203,6 @@ export class TaskService {
               deadline: dto.deadline,
             },
           })),
-        },
-        sections: {
-          update: {
-            where: { taskId_sectionId: { taskId, sectionId: dto.sectionId } },
-            data: {
-              position: newTaskPosition,
-            },
-          },
         },
       },
       ...buildGetTaskQuery(),
@@ -394,18 +367,24 @@ export class TaskService {
       throw new BadRequestException("Invalid source or target section");
     }
 
-    // Calculate new position in target section
-    const positions: string[] = toSection.tasks.map((t) => t.position);
-    let position: string;
-    if (insertAt > 0 && insertAt < positions.length) {
-      position = midpoint(positions[insertAt - 1], positions[insertAt]);
-    } else if (insertAt <= 0) {
-      position = midpoint(null, positions[0]);
-    } else {
-      position = midpoint(positions[positions.length - 1], null);
-    }
-
     if (fromSectionId === toSectionId) {
+      // Calculate new position in target section
+      const positions: string[] = toSection.tasks.map((t) => t.position);
+      const currIndex = toSection.tasks.findIndex((t) => t.taskId === taskId);
+
+      const insertAtAdjusted = insertAt > currIndex ? insertAt + 1 : insertAt;
+
+      let position: string;
+      if (positions.length === 0) {
+        position = midpoint(null, null);
+      } else if (insertAtAdjusted >= positions.length) {
+        position = midpoint(positions[positions.length - 1], null);
+      } else if (insertAtAdjusted === 0) {
+        position = midpoint(null, positions[0]);
+      } else {
+        position = midpoint(positions[insertAtAdjusted - 1], positions[insertAtAdjusted]);
+      }
+
       // Moving within the same section
       await this.db.taskSection.update({
         where: {
@@ -418,6 +397,21 @@ export class TaskService {
           position,
         },
       });
+
+      return new MessageResponseDto("Task moved successfully");
+    }
+
+    // Calculate new position in target section
+    const positions: string[] = toSection.tasks.map((t) => t.position);
+    let position: string;
+    if (positions.length === 0) {
+      position = midpoint(null, null);
+    } else if (dto.insertAt === undefined || dto.insertAt >= positions.length) {
+      position = midpoint(positions[positions.length - 1], null);
+    } else if (dto.insertAt === 0) {
+      position = midpoint(null, positions[0]);
+    } else {
+      position = midpoint(positions[dto.insertAt - 1], positions[dto.insertAt]);
     }
 
     // Transaction: update TaskSection join table
