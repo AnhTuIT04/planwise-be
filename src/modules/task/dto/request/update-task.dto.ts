@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsString, IsOptional, IsUUID, IsDateString, IsNotEmpty, IsEnum, IsArray, IsInt, Min } from "class-validator";
 
 import { PriorityLevel } from "prisma/client";
@@ -45,14 +45,6 @@ export class UpdateTaskDto {
     description: "The deadline of the task in ISO 8601 format",
   })
   readonly deadline?: string;
-
-  @IsNotEmpty()
-  @IsUUID()
-  @ApiProperty({
-    example: "550e8400-e29b-41d4-a716-446655440000",
-    description: "The ID of the section the task belongs to",
-  })
-  readonly sectionId: string;
 
   @IsOptional()
   @IsUUID()

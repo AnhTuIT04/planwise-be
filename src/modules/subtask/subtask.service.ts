@@ -40,21 +40,21 @@ export class SubtaskService {
 
     const newSubtask: GetSubtaskQueryResult = await this.db.$transaction(
       async (tx) => {
-        if (data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE) {
-          await tx.task.update({
-            where: { id: parentTask.id },
-            data: {
-              status: TaskStatus.TODO,
-              estimate: parentTask.estimate + (data.estimate ?? 1200),
-            },
-          });
-        }
+        await tx.task.update({
+          where: { id: parentTask.id },
+          data: {
+            status:
+              data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE
+                ? TaskStatus.TODO
+                : undefined,
+            estimate: parentTask.estimate + (data.estimate ?? 1200000),
+          },
+        });
 
         return tx.task.create({
           data: {
             parentTaskId: parentTask.id,
             title: data.title,
-            description: data.description,
             estimate: data.estimate,
             priority: parentTask.priority,
             deadline: parentTask.deadline,
@@ -107,11 +107,10 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    const updatedSubtask : GetSubtaskQueryResult = await this.db.task.update({
+    const updatedSubtask: GetSubtaskQueryResult = await this.db.task.update({
       where: { id: subtaskId },
       data: {
         title: updateSubtaskDto.title,
-        description: updateSubtaskDto.description,
         estimate: updateSubtaskDto.estimate,
         parentTask: {
           update: updateSubtaskDto.estimate
@@ -154,7 +153,13 @@ export class SubtaskService {
       throw new BadRequestException("Subtask is already in the requested status");
     }
 
-    const updatedSubtask : GetSubtaskQueryResult = await changeStatus(subtask.status, dto.status, this.db, subtask, dto.sectionId);
+    const updatedSubtask: GetSubtaskQueryResult = await changeStatus(
+      subtask.status,
+      dto.status,
+      this.db,
+      subtask,
+      dto.sectionId,
+    );
     return new SubtaskResponseDto(updatedSubtask, "Subtask status updated successfully");
   }
 
@@ -185,7 +190,7 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    const updatedSubtask : GetSubtaskQueryResult = await this.db.task.update({
+    const updatedSubtask: GetSubtaskQueryResult = await this.db.task.update({
       where: { id: subtaskId },
       data: {
         assignees: {
@@ -225,8 +230,17 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    await this.db.task.delete({
-      where: { id: subtaskId },
+    await this.db.$transaction(async (tx) => {
+      await tx.task.update({
+        where: { id: subtask.parentTaskId! },
+        data: {
+          estimate: {
+            decrement: subtask.estimate,
+          },
+        },
+      });
+
+      await tx.task.delete({ where: { id: subtaskId } });
     });
 
     return new MessageResponseDto("Subtask deleted successfully");

@@ -24,14 +24,6 @@ export class CreateSubtaskDto {
   readonly title: string;
 
   @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({
-    example: "Users can't login with Google OAuth",
-    description: "The description of the task",
-  })
-  readonly description?: string;
-
-  @IsOptional()
   @IsEnum(TaskStatus)
   @ApiPropertyOptional({
     example: TaskStatus.TODO,

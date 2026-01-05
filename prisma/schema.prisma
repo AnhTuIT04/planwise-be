@@ -80,8 +80,8 @@ model Task {
   description String?
   status      TaskStatus    @default(TODO)
   priority    PriorityLevel @default(NORMAL)
-  estimate    Int           @default(1200) // 20 minutes in seconds
-  spent       Int           @default(0) // in seconds
+  estimate    Int           @default(1200000) // 20 minutes in milliseconds
+  spent       Int           @default(0) // in milliseconds
   lastStarted DateTime?
   deadline    DateTime?
   createdAt   DateTime      @default(now())

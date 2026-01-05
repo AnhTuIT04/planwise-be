@@ -11,14 +11,6 @@ export class UpdateSubtaskDto {
   readonly title?: string;
 
   @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({
-    example: "Users can't login with Google OAuth",
-    description: "The description of the task",
-  })
-  readonly description?: string;
-
-  @IsOptional()
   @IsInt()
   @Min(0)
   @ApiPropertyOptional({

@@ -8,6 +8,7 @@ import { CreateSubtaskDto } from "./dto/request/create-subtask.dto";
 import { UpdateSubtaskDto } from "./dto/request/update-subtask.dto";
 import { UpdateTaskStatusDto } from "../task/dto/request/update-task-status.dto";
 import { UpdateSubtaskAssigneesDto } from "./dto/request/update-subtask-assignees.dto";
+import { SubtaskResponseDto } from "./dto/response/subtask-response.dto";
 
 @Controller("subtask")
 export class SubtaskController {
@@ -18,7 +19,7 @@ export class SubtaskController {
   @ApiOperation({ summary: "Create a new subtask" })
   @ApiResponse({
     status: 201,
-    type: MessageResponseDto,
+    type: SubtaskResponseDto,
     description: "The subtask has been successfully created.",
   })
   create(@GetCurrentUserId() userId: string, @Body() createSubtaskDto: CreateSubtaskDto) {
@@ -30,7 +31,7 @@ export class SubtaskController {
   @ApiOperation({ summary: "Update an existing subtask" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: SubtaskResponseDto,
     description: "The subtask has been successfully updated.",
   })
   update(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() updateSubtaskDto: UpdateSubtaskDto) {
@@ -42,7 +43,7 @@ export class SubtaskController {
   @ApiOperation({ summary: "Change the status of a subtask" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: SubtaskResponseDto,
     description: "The subtask status has been successfully changed.",
   })
   changeStatus(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskStatusDto) {
@@ -54,7 +55,7 @@ export class SubtaskController {
   @ApiOperation({ summary: "Update the assignees of a subtask" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: SubtaskResponseDto,
     description: "The subtask assignees have been successfully updated.",
   })
   updateAssignees(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateSubtaskAssigneesDto) {

@@ -15,7 +15,7 @@ import { Type } from "class-transformer";
 
 import { TaskStatus, PriorityLevel } from "prisma/client";
 
-class SubtaskDto {
+class SubtaskOfCreateTaskDto {
   @IsNotEmpty()
   @IsString()
   @ApiProperty({
@@ -23,14 +23,6 @@ class SubtaskDto {
     description: "The title of the task",
   })
   readonly title: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({
-    example: "Users can't login with Google OAuth",
-    description: "The description of the task",
-  })
-  readonly description?: string;
 
   @IsOptional()
   @IsInt()
@@ -142,10 +134,10 @@ export class CreateTaskDto {
   @IsNotEmpty()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SubtaskDto)
+  @Type(() => SubtaskOfCreateTaskDto)
   @ApiProperty({
-    type: () => [SubtaskDto],
+    type: () => [SubtaskOfCreateTaskDto],
     description: "Array of subtasks associated with this task",
   })
-  readonly subtasks: SubtaskDto[];
+  readonly subtasks: SubtaskOfCreateTaskDto[];
 }

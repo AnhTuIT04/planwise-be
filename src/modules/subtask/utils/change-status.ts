@@ -2,12 +2,13 @@ import { BadRequestException } from "@nestjs/common";
 
 import { TaskStatus } from "prisma/client";
 import { DatabaseService } from "@/modules/database/database.service";
-import { GetSubtaskStatusQueryResult } from "../query/get-subtask-status.query";
 import { moveToFirstPosition } from "@/modules/task/utils/change-position";
+import { GetSubtaskStatusQueryResult } from "../query/get-subtask-status.query";
+import { buildGetSubtaskQuery } from "../query/get-subtask.query";
 
-function getDurationInSecondsFrom(time: Date = new Date()): number {
+function getDurationInMillisecondsFrom(time: Date = new Date()): number {
   const durationInMilliseconds = new Date().getTime() - time.getTime();
-  return Math.floor(durationInMilliseconds / 1000);
+  return durationInMilliseconds;
 }
 
 async function changeStatusFrom_TODO_To_RUNNING(
@@ -23,7 +24,7 @@ async function changeStatusFrom_TODO_To_RUNNING(
           where: { id: runningSubtask.id },
           data: {
             status: TaskStatus.DONE,
-            spent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.spent,
+            spent: getDurationInMillisecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.spent,
           },
         });
 
@@ -33,6 +34,7 @@ async function changeStatusFrom_TODO_To_RUNNING(
             status: TaskStatus.RUNNING,
             lastStarted: new Date(),
           },
+          ...buildGetSubtaskQuery(),
         });
       },
       {
@@ -57,6 +59,7 @@ async function changeStatusFrom_TODO_To_RUNNING(
             },
           },
         },
+        ...buildGetSubtaskQuery(),
       });
     },
     {
@@ -76,6 +79,7 @@ async function changeStatusFrom_TODO_To_DONE(
     data: {
       status: TaskStatus.DONE,
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 
@@ -88,14 +92,15 @@ async function changeStatusFrom_RUNNING_To_TODO(
     where: { id: task.id },
     data: {
       status: TaskStatus.TODO,
-      spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
+      spent: getDurationInMillisecondsFrom(task.lastStarted ?? undefined) + task.spent,
       parentTask: {
         update: {
           status: TaskStatus.TODO,
-          spent: getDurationInSecondsFrom(task.parentTask!.lastStarted ?? undefined) + task.parentTask!.spent,
+          spent: getDurationInMillisecondsFrom(task.parentTask!.lastStarted ?? undefined) + task.parentTask!.spent,
         },
       },
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 
@@ -108,14 +113,15 @@ async function changeStatusFrom_RUNNING_To_DONE(
     where: { id: task.id },
     data: {
       status: TaskStatus.DONE,
-      spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
+      spent: getDurationInMillisecondsFrom(task.lastStarted ?? undefined) + task.spent,
       parentTask: {
         update: {
           status: TaskStatus.TODO,
-          spent: getDurationInSecondsFrom(task.parentTask!.lastStarted ?? undefined) + task.parentTask!.spent,
+          spent: getDurationInMillisecondsFrom(task.parentTask!.lastStarted ?? undefined) + task.parentTask!.spent,
         },
       },
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 
@@ -135,6 +141,7 @@ async function changeStatusFrom_DONE_To_TODO(
           },
         },
       },
+      ...buildGetSubtaskQuery(),
     });
   }
 
@@ -143,6 +150,7 @@ async function changeStatusFrom_DONE_To_TODO(
     data: {
       status: TaskStatus.TODO,
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 

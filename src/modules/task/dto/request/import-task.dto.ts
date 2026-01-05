@@ -1,5 +1,5 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsUUID, IsNotEmpty, IsInt, Min } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsUUID, IsNotEmpty, IsInt, Min, IsOptional } from "class-validator";
 
 export class ImportTaskDto {
   @IsNotEmpty()
@@ -18,12 +18,12 @@ export class ImportTaskDto {
   })
   readonly toSectionId: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 1,
     description: "Insert the task at this index (0-based) in the target section",
   })
-  readonly insertAt: number;
+  readonly insertAt?: number;
 }

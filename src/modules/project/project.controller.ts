@@ -73,7 +73,7 @@ export class ProjectController {
     status: 200,
     type: MessageResponseDto,
     description: "Project deleted successfully",
-  })  
+  })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.remove(userId, id);
   }

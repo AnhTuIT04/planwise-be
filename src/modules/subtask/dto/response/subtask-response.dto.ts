@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
-import { PriorityLevel, TaskStatus } from "prisma/client";
+import { TaskStatus } from "prisma/client";
 import { ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
 import { GetSubtaskQueryResult } from "../../query/get-subtask.query";
@@ -12,14 +12,8 @@ export class SubtaskDto {
   @ApiProperty({ example: "Implement authentication", description: "Task title" })
   readonly title: string;
 
-  @ApiPropertyOptional({ example: "Detailed task description", description: "Task description", nullable: true })
-  readonly description: string | null;
-
   @ApiProperty({ example: "TODO", description: "Task status" })
   readonly status: TaskStatus;
-
-  @ApiPropertyOptional({ example: "NORMAL", description: "Task priority level", nullable: true })
-  readonly priority: PriorityLevel;
 
   @ApiProperty({ example: 20, description: "Estimated time to complete the task in minutes" })
   readonly estimate: number;
@@ -35,17 +29,6 @@ export class SubtaskDto {
   })
   readonly lastStarted: Date | null;
 
-  @ApiPropertyOptional({
-    example: "2024-07-15T12:00:00Z",
-    description: "Deadline for the task",
-    format: "date-time",
-    nullable: true,
-  })
-  readonly deadline: Date | null;
-
-  @ApiProperty({ type: () => UserBasicDto, description: "Supervisor information object", nullable: true })
-  readonly supervisor: UserBasicDto | null;
-
   @ApiProperty({ type: () => [UserBasicDto], description: "Array of assignee information objects" })
   readonly assignees: UserBasicDto[];
 
@@ -58,14 +41,10 @@ export class SubtaskDto {
   constructor(task: GetSubtaskQueryResult) {
     this.id = task.id;
     this.title = task.title;
-    this.description = task.description;
     this.status = task.status;
-    this.priority = task.priority;
     this.estimate = task.estimate;
     this.spent = task.spent;
     this.lastStarted = task.lastStarted;
-    this.deadline = task.deadline;
-    this.supervisor = task.supervisor ? new UserBasicDto(task.supervisor) : null;
     this.assignees = task.assignees.map((assignee) => new UserBasicDto(assignee.user));
     this.createdAt = task.createdAt;
     this.updatedAt = task.updatedAt;

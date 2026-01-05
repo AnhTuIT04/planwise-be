@@ -6,9 +6,9 @@ import { buildGetTaskQuery } from "../query/get-task.query";
 import { GetTaskStatusQueryResult } from "../query/get-task-status.query";
 import { moveToFirstPosition, moveToLastPosition } from "./change-position";
 
-function getDurationInSecondsFrom(time: Date = new Date()): number {
+function getDurationInMillisecondsFrom(time: Date = new Date()): number {
   const durationInMilliseconds = new Date().getTime() - time.getTime();
-  return Math.floor(durationInMilliseconds / 1000);
+  return durationInMilliseconds;
 }
 
 async function changeStatusFrom_TODO_To_RUNNING(
@@ -73,13 +73,14 @@ async function changeStatusFrom_RUNNING_To_TODO(
     where: { id: task.id },
     data: {
       status: TaskStatus.TODO,
-      spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
+      spent: getDurationInMillisecondsFrom(task.lastStarted ?? undefined) + task.spent,
       subtasks: {
         updateMany: {
           where: { id: subtaskRunning?.id },
           data: {
             status: TaskStatus.TODO,
-            spent: getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.spent || 0),
+            spent:
+              getDurationInMillisecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.spent || 0),
           },
         },
       },
@@ -102,7 +103,7 @@ async function changeStatusFrom_RUNNING_To_DONE(
         where: { id: task.id },
         data: {
           status: TaskStatus.DONE,
-          spent: getDurationInSecondsFrom(task.lastStarted ?? undefined) + task.spent,
+          spent: getDurationInMillisecondsFrom(task.lastStarted ?? undefined) + task.spent,
           subtasks: {
             updateMany: [
               {
@@ -110,7 +111,8 @@ async function changeStatusFrom_RUNNING_To_DONE(
                 data: {
                   status: TaskStatus.DONE,
                   spent:
-                    getDurationInSecondsFrom(subtaskRunning?.lastStarted ?? undefined) + (subtaskRunning?.spent || 0),
+                    getDurationInMillisecondsFrom(subtaskRunning?.lastStarted ?? undefined) +
+                    (subtaskRunning?.spent || 0),
                 },
               },
               {

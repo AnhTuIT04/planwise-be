@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { UserDto } from "@/modules/auth/dto/response/user-response.dto";
+import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
 import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
 import { GetProjectQueryResult } from "../../query/get-project.query";
 
@@ -9,10 +9,10 @@ export class ProjectDto {
   readonly id: string;
 
   @ApiProperty({
-    type: () => UserDto,
+    type: () => UserBasicDto,
     description: "Owner information object",
   })
-  readonly owner: UserDto;
+  readonly owner: UserBasicDto;
 
   @ApiProperty({ example: "Website Redesign", description: "Project name" })
   readonly name: string;
@@ -53,7 +53,7 @@ export class ProjectDto {
 
   constructor(project: GetProjectQueryResult) {
     this.id = project.id;
-    this.owner = new UserDto(project.owner);
+    this.owner = new UserBasicDto(project.owner);
     this.name = project.name;
     this.description = project.description;
     this.logoUrl = project.logoUrl;

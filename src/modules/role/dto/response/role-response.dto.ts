@@ -27,10 +27,11 @@ export class RoleDto {
   })
   readonly permissions: string[];
 
-  constructor(role: { id: string; name: string; permissions: string }) {
+  constructor(role: { id: string; name: string; permissions: string; default: boolean }) {
     this.id = role.id;
     this.name = role.name;
     this.permissions = JSON.parse(role.permissions);
+    this.default = role.default;
   }
 }
 
@@ -38,7 +39,7 @@ export class RoleResponseDto extends ResponseDto<RoleDto> {
   @ApiProperty({ type: () => RoleDto, description: "Role data" })
   declare readonly data: RoleDto;
 
-  constructor(role: { id: string; name: string; permissions: string }, message?: string) {
+  constructor(role: { id: string; name: string; permissions: string; default: boolean }, message?: string) {
     super(new RoleDto(role), message);
   }
 }
@@ -48,7 +49,7 @@ export class RolesListResponseDto extends PaginationResponseDto<RoleDto> {
   declare readonly data: RoleDto[];
 
   constructor(
-    roles: { id: string; name: string; permissions: string }[],
+    roles: { id: string; name: string; permissions: string; default: boolean }[],
     page: number,
     limit: number,
     totalItems: number,

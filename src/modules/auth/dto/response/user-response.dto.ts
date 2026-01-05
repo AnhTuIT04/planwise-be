@@ -5,12 +5,6 @@ import { UserBasicDto } from "./user-basic-response.dto";
 
 export class UserDto extends UserBasicDto {
   @ApiProperty({
-    example: true,
-    description: "Whether the user has been verified",
-  })
-  readonly verified: boolean;
-
-  @ApiProperty({
     example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     description: "Personal project id of the user",
   })
@@ -35,13 +29,11 @@ export class UserDto extends UserBasicDto {
     email: string;
     fullname: string;
     avatarUrl: string | null;
-    verified: boolean;
     workspaceId: string;
     createdAt: Date;
     updatedAt: Date;
   }) {
     super(user);
-    this.verified = user.verified;
     this.workspaceId = user.workspaceId;
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
@@ -58,7 +50,6 @@ export class UserResponseDto extends ResponseDto<UserDto> {
       email: string;
       fullname: string;
       avatarUrl: string | null;
-      verified: boolean;
       workspaceId: string;
       createdAt: Date;
       updatedAt: Date;
@@ -79,7 +70,6 @@ export class UsersListResponseDto extends PaginationResponseDto<UserDto> {
       email: string;
       fullname: string;
       avatarUrl: string | null;
-      verified: boolean;
       workspaceId: string;
       createdAt: Date;
       updatedAt: Date;

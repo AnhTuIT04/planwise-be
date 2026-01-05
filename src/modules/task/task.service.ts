@@ -64,7 +64,7 @@ export class TaskService {
     // Otherwise, timeEstimate will be taken from the dto
     let estimate = dto.estimate;
     if (dto.subtasks.length > 0) {
-      estimate = dto.subtasks.reduce((sum, sub) => sum + (sub.estimate || 1200), 0);
+      estimate = dto.subtasks.reduce((sum, sub) => sum + (sub.estimate || 1200000), 0);
     }
 
     // Calculate position in section
@@ -93,7 +93,6 @@ export class TaskService {
         subtasks: {
           create: dto.subtasks.map((sub) => ({
             title: sub.title,
-            description: sub.description,
             status: dto.status,
             priority: dto.priority,
             estimate: sub.estimate,
@@ -161,13 +160,10 @@ export class TaskService {
     const task = await this.db.task.findFirst({
       where: {
         id: taskId,
-        sections: {
+        projects: {
           some: {
-            section: {
-              id: dto.sectionId,
-              project: {
-                members: { some: { userId } },
-              },
+            project: {
+              members: { some: { userId } },
             },
           },
         },

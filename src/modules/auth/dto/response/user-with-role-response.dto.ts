@@ -19,6 +19,7 @@ export class UserWithRoleDto extends UserBasicDto {
       id: string;
       name: string;
       permissions: string;
+      default: boolean;
     };
   }) {
     super(user.user);
@@ -46,6 +47,7 @@ export class UserWithRoleResponseDto extends ResponseDto<UserWithRoleDto> {
         id: string;
         name: string;
         permissions: string;
+        default: boolean;
       };
     },
     message?: string,
@@ -70,6 +72,7 @@ export class UsersWithRoleListResponseDto extends PaginationResponseDto<UserWith
         id: string;
         name: string;
         permissions: string;
+        default: boolean;
       };
     }[],
     page: number,
