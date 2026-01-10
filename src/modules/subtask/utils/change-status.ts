@@ -2,8 +2,9 @@ import { BadRequestException } from "@nestjs/common";
 
 import { TaskStatus } from "prisma/client";
 import { DatabaseService } from "@/modules/database/database.service";
-import { GetSubtaskStatusQueryResult } from "../query/get-subtask-status.query";
 import { moveToFirstPosition } from "@/modules/task/utils/change-position";
+import { GetSubtaskStatusQueryResult } from "../query/get-subtask-status.query";
+import { buildGetSubtaskQuery } from "../query/get-subtask.query";
 
 function getDurationInSecondsFrom(time: Date = new Date()): number {
   const durationInMilliseconds = new Date().getTime() - time.getTime();
@@ -33,6 +34,7 @@ async function changeStatusFrom_TODO_To_RUNNING(
             status: TaskStatus.RUNNING,
             lastStarted: new Date(),
           },
+          ...buildGetSubtaskQuery(),
         });
       },
       {
@@ -57,6 +59,7 @@ async function changeStatusFrom_TODO_To_RUNNING(
             },
           },
         },
+        ...buildGetSubtaskQuery(),
       });
     },
     {
@@ -76,6 +79,7 @@ async function changeStatusFrom_TODO_To_DONE(
     data: {
       status: TaskStatus.DONE,
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 
@@ -96,6 +100,7 @@ async function changeStatusFrom_RUNNING_To_TODO(
         },
       },
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 
@@ -116,6 +121,7 @@ async function changeStatusFrom_RUNNING_To_DONE(
         },
       },
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 
@@ -135,6 +141,7 @@ async function changeStatusFrom_DONE_To_TODO(
           },
         },
       },
+      ...buildGetSubtaskQuery(),
     });
   }
 
@@ -143,6 +150,7 @@ async function changeStatusFrom_DONE_To_TODO(
     data: {
       status: TaskStatus.TODO,
     },
+    ...buildGetSubtaskQuery(),
   });
 }
 
