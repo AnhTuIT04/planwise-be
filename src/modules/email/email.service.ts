@@ -110,4 +110,44 @@ export class EmailService {
       html,
     });
   }
+
+  /** Send project invitation email */
+  async sendProjectInvitationEmail(email: string, fullname: string, projectName: string, roleName: string, projectId: string) {
+    const appConfig = this.configService.get<AppConfig>("env")!;
+    const frontendUrl = appConfig.CORS_ORIGIN;
+    const invitationLink = `${frontendUrl}/projects/${projectId}/invitations`;
+
+    const html = `
+    <body style="font-family: Arial, sans-serif; background-color: #f6f9fc; padding: 20px; margin: 0;">
+      <table width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 8px; padding: 24px;">
+        <tr>
+          <td>
+            <h2 style="color: #333333; text-align: center;">Project Invitation</h2>
+            <p style="font-size: 15px; color: #555555;">
+              Hello ${fullname},<br /><br />
+              You have been invited to join the project <strong>${projectName}</strong> on PlanWise with the role <strong>${roleName}</strong>.
+            </p>
+
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${invitationLink}" style="display: inline-block; background-color: #007bff; color: #ffffff; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                View Invitation
+              </a>
+            </div>
+
+            <p style="color: #555555; font-size: 14px;">
+              If you prefer not to accept this invitation, you can decline it directly in your account.
+            </p>
+
+            <p style="margin-top: 32px; color: #444444;">Best regards,<br /><strong>The PlanWise Team</strong></p>
+          </td>
+        </tr>
+      </table>
+    </body>`;
+
+    await this.sendEmail({
+      recipients: [email],
+      subject: `You're invited to join ${projectName}`,
+      html,
+    });
+  }
 }

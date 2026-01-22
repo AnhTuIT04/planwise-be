@@ -19,13 +19,14 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  oauthAccounts   OAuthAccount[]
-  ownedProjects   Project[]           @relation("UserOwnsProjects")
-  invitations     ProjectInvitation[]
-  memberships     ProjectMember[]     @relation("UserProjectMemberships")
-  supervisedTasks Task[]              @relation("TaskSupervisor")
-  assignedTasks   TaskAssignee[]
-  comments        Comment[]
+  oauthAccounts       OAuthAccount[]
+  ownedProjects       Project[]           @relation("UserOwnsProjects")
+  receivedInvitations ProjectInvitation[] @relation("UserInvitee")
+  sentInvitations     ProjectInvitation[] @relation("UserInviter")
+  memberships         ProjectMember[]     @relation("UserProjectMemberships")
+  supervisedTasks     Task[]              @relation("TaskSupervisor")
+  assignedTasks       TaskAssignee[]
+  comments            Comment[]
 }
 
 enum AuthProvider {
@@ -173,13 +174,19 @@ model ProjectInvitation {
   status    InvitationStatus @default(PENDING)
   createdAt DateTime         @default(now())
 
-  inviter   User   @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  inviter   User   @relation("UserInviter", fields: [inviterId], references: [id], onDelete: Cascade)
   inviterId String
+
+  invitee   User   @relation("UserInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  inviteeId String
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String
 
-  @@id([inviterId, projectId])
+  @@id([inviteeId, projectId])
 }
 
 model ProjectMember {
@@ -189,7 +196,7 @@ model ProjectMember {
 
   user    User    @relation("UserProjectMemberships", fields: [userId], references: [id], onDelete: Cascade)
   project Project @relation("ProjectHasMembers", fields: [projectId], references: [id], onDelete: Cascade)
-  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   @@id([userId, projectId])
 }
@@ -201,6 +208,7 @@ model Role {
   default     Boolean @default(false)
 
   members ProjectMember[]
+  invitations ProjectInvitation[]
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String

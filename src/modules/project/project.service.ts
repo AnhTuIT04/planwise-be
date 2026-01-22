@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { DatabaseService } from "@/modules/database/database.service";
+import { EmailService } from "@/modules/email/email.service";
 import { DefaultRole } from "@/common/enum/default-role.enum";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
@@ -9,16 +10,22 @@ import { buildGetSectionQuery } from "@/modules/section/query/get-section.query"
 import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
-import { InviteMemberDto } from "./dto/request/invite-member.dto";
+import { InviteMemberDto, ResponseInvitationDto } from "./dto/request/invite-member.dto";
+import { AssignRoleDto } from "./dto/request/assign-role.dto";
 import { GetProjectTasksQueryDto } from "./dto/request/query/get-project-tasks-query.dto";
 import { buildGetProjectQuery } from "./query/get-project.query";
 import { buildGetProjectTasksQuery, GetProjectTasksQueryResult } from "./query/get-project-tasks.query";
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
+import { InvitationsListResponseDto } from "./dto/response/invitation-response.dto";
+import { permission } from "process";
 
 @Injectable()
 export class ProjectService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
     const project = await this.db.$transaction(
@@ -280,15 +287,122 @@ export class ProjectService {
     const userToInvite = await this.db.user.findUnique({ where: { email: dto.email } });
     if (!userToInvite) throw new NotFoundException("User with the provided email does not exist");
 
-    await this.db.projectMember.create({
+    const roleToAssign = roleToInvite || project.roles.find((role) => role.name === DefaultRole.MEMBER)!;
+
+    await this.db.projectInvitation.create({
       data: {
         projectId: project.id,
-        userId: userToInvite.id,
-        roleId: roleToInvite ? roleToInvite.id : project.roles.find((role) => role.name === DefaultRole.MEMBER)!.id,
+        inviterId: userId,
+        inviteeId: userToInvite.id,
+        roleId: roleToAssign.id,
       },
     });
 
+    // Send invitation email no await
+    this.emailService
+      .sendProjectInvitationEmail(dto.email, userToInvite.fullname, project.name, roleToAssign.name, projectId)
+      .catch((emailError) => {
+        console.error("Failed to send invitation email:", emailError);
+      });
+
     return new MessageResponseDto("Member invited successfully");
+  }
+
+  async responseInvitation(userId: string, projectId: string, dto: ResponseInvitationDto) {
+    const result = await this.db.$transaction(async (tx) => {
+      const invitation = await tx.projectInvitation.findFirst({
+        where: {
+          projectId,
+          inviteeId: userId,
+          status: "PENDING",
+        },
+      });
+
+      if (!invitation) throw new NotFoundException("Invitation not found or already responded to");
+
+      await tx.projectInvitation.update({
+        where: {
+          inviteeId_projectId: {
+            inviteeId: userId,
+            projectId,
+          },
+        },
+        data: {
+          status: dto.response,
+        },
+      });
+
+      if (dto.response === "ACCEPTED") {
+        // Check if the role still exists
+        const role = await tx.role.findUnique({ where: { id: invitation.roleId } });
+        let roleId = invitation.roleId;
+
+        // If role doesn't exist, use the default MEMBER role
+        if (!role) {
+          const defaultRole = await tx.role.findFirst({
+            where: {
+              projectId,
+              name: DefaultRole.MEMBER,
+            },
+          });
+          roleId = defaultRole!.id;
+        }
+
+        await tx.projectMember.create({
+          data: {
+            projectId,
+            userId,
+            roleId,
+          },
+        });
+      }
+
+      return dto.response;
+    });
+
+    return new MessageResponseDto(
+      result === "ACCEPTED" ? "Invitation accepted successfully" : "Invitation declined successfully",
+    );
+  }
+
+  async removeMember(userId: string, projectId: string, memberId: string) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        ownerId: userId,
+      },
+    });
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    const member = await this.db.projectMember.findFirst({
+      where: {
+        projectId,
+        userId: memberId,
+      },
+    });
+
+    if (!member) throw new NotFoundException("Member not found in the project");
+
+    await this.db.$transaction(async (tx) => {
+      // Delete invitation if exists (deleteMany won't error if not found)
+      await tx.projectInvitation.deleteMany({
+        where: {
+          inviteeId: memberId,
+          projectId,
+        },
+      });
+
+      await tx.projectMember.delete({
+        where: {
+          userId_projectId: {
+            userId: memberId,
+            projectId,
+          },
+        },
+      });
+    });
+
+    return new MessageResponseDto("Member removed successfully");
   }
 
   async getProjectMembers(userId: string, projectId: string) {
@@ -337,6 +451,124 @@ export class ProjectService {
       project.roles.length,
       project.roles.length,
       "Roles of the project retrieved successfully",
+    );
+  }
+
+  async assignRoleToMember(userId: string, projectId: string, memberId: string, dto: AssignRoleDto) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        ownerId: userId,
+      },
+      select: {
+        id: true,
+        roles: {
+          select: { id: true },
+        },
+        members: {
+          where: { userId: memberId },
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    if (project.members.length === 0) {
+      throw new NotFoundException("Member not found in the project");
+    }
+
+    const roleExists = project.roles.some((role) => role.id === dto.roleId);
+    if (!roleExists) {
+      throw new NotFoundException("Role not found in the project");
+    }
+
+    await this.db.projectMember.update({
+      where: {
+        userId_projectId: {
+          userId: memberId,
+          projectId,
+        },
+      },
+      data: {
+        roleId: dto.roleId,
+      },
+    });
+
+    return new MessageResponseDto("Member role assigned successfully");
+  }
+
+  async getProjectInvitations(userId: string, projectId: string) {
+    const project = await this.db.project.findFirst({
+      where: {
+        id: projectId,
+        ownerId: userId,
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    const invitations = await this.db.projectInvitation.findMany({
+      where: {
+        projectId,
+      },
+      include: {
+        inviter: true,
+        invitee: true,
+        role: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const mappedInvitations = invitations.map((invitation) => {
+      return {
+        ...invitation,
+        roleId: invitation.roleId,
+        roleName: invitation.role?.name || "",
+      };
+    });
+
+    return new InvitationsListResponseDto(
+      mappedInvitations,
+      0,
+      invitations.length,
+      invitations.length,
+      "Project invitations retrieved successfully",
+    );
+  }
+
+  async getReceivedInvitations(userId: string) {
+    const invitations = await this.db.projectInvitation.findMany({
+      where: {
+        inviteeId: userId,
+      },
+      include: {
+        inviter: true,
+        invitee: true,
+        project: true,
+        role: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const mappedInvitations = invitations.map((invitation) => {
+      return {
+        ...invitation,
+        roleId: invitation.roleId,
+        roleName: invitation.role?.name || "",
+      };
+    });
+
+    return new InvitationsListResponseDto(
+      mappedInvitations,
+      0,
+      invitations.length,
+      invitations.length,
+      "Received invitations retrieved successfully",
     );
   }
 }

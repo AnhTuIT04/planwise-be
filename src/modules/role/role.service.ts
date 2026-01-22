@@ -131,6 +131,11 @@ export class RoleService {
           },
         });
       }
+      // Reassign invitations to default role
+      await tx.projectInvitation.updateMany({
+        where: { roleId: roleId },
+        data: { roleId: defaultMemberRole.id },
+      })
 
       await tx.role.delete({
         where: { id: roleId },
