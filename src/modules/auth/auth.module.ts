@@ -25,6 +25,7 @@ import { GithubStrategy } from "./strategies/github.strategy";
     EmailModule,
     UsersModule,
   ],
+  // exports: [JwtModule],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleAuthGuard, GithubStrategy],
   exports: [AuthService],

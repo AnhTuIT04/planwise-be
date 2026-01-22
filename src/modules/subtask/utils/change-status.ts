@@ -23,7 +23,7 @@ async function changeStatusFrom_TODO_To_RUNNING(
         await tx.task.update({
           where: { id: runningSubtask.id },
           data: {
-            status: TaskStatus.DONE,
+            status: TaskStatus.TODO,
             spent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.spent,
           },
         });

@@ -13,11 +13,11 @@ import { InviteMemberDto } from "./dto/request/invite-member.dto";
 import { GetProjectTasksQueryDto } from "./dto/request/query/get-project-tasks-query.dto";
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
-
+import { InviteMemberEmailDto } from "./dto/request/invite-member-email.dto";
+import { EmailService } from "../email/email.service";
 @Controller("project")
 export class ProjectController {
-  constructor(private readonly projectService: ProjectService) {}
-
+  constructor(private readonly projectService: ProjectService, private readonly emailService: EmailService) {}
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a project" })
@@ -112,6 +112,24 @@ export class ProjectController {
   })
   inviteMember(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: InviteMemberDto) {
     return this.projectService.inviteMember(userId, id, dto);
+  }
+
+  @Post(":id/invite")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Join a project via invite link" })
+  @ApiResponse({
+    status: 200,
+    type: MessageResponseDto,
+    description: "Successfully joined the project",
+  })
+  inviteMemberEmail(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: InviteMemberEmailDto) {
+    return this.emailService.sendInviteMemberEmail(
+      dto.email,
+      dto.projectName,
+      dto.inviterName,
+      id,
+      dto.roleId,
+    );
   }
 
   @Get(":id/members")

@@ -54,6 +54,28 @@ export class AuthService {
     return accessToken;
   }
 
+  async signRefreshToken(user: { id: string; email: string }) {
+    const payload: JwtPayloadDto = { sub: user.id, email: user.email };
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: "7d" });
+    return refreshToken;
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken);
+      const user = await this.usersService.findById(payload.sub);
+      
+      if (!user) {
+        throw new UnauthorizedException("User not found");
+      }
+
+      const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
+      return accessToken;
+    } catch (error) {
+      throw new UnauthorizedException("Invalid or expired refresh token");
+    }
+  }
+
   async signup(signUpDto: SignUpDto) {
     const existingUser = await this.usersService.findByEmail(signUpDto.email);
     if (existingUser && existingUser.verified) {
@@ -108,8 +130,9 @@ export class AuthService {
     ]);
 
     const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
+    const refreshToken = await this.signRefreshToken({ id: user.id, email: user.email });
 
-    return { accessToken, user };
+    return { accessToken, refreshToken, user };
   }
 
   async resendOtp(email: string, isForVerification: boolean) {
@@ -209,8 +232,9 @@ export class AuthService {
     }
 
     const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
+    const refreshToken = await this.signRefreshToken({ id: user.id, email: user.email });
 
-    return { accessToken, user };
+    return { accessToken, refreshToken, user };
   }
 
   async getUserData(userId: string) {
