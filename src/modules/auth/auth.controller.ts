@@ -3,6 +3,7 @@ import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
 import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
+import { JwtRefreshGuard } from "./guards/jwt-refresh.guard";
 
 import { AppConfig } from "@/config/app.config";
 import { Public } from "@/decorators/public.decorator";

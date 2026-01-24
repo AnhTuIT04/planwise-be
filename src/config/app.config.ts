@@ -65,6 +65,9 @@ export class AppConfig {
   @IsString()
   JWT_SECRET: string;
 
+  @IsString()
+  REFRESH_TOKEN_SECRET: string;
+
   /** JWT access token expiration time (e.g., '15m', '1h', 3600) */
   @IsString()
   JWT_ACCESS_TOKEN_EXPIRATION: string | number;

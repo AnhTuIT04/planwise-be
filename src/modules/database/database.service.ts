@@ -8,6 +8,10 @@ export class DatabaseService extends PrismaClient implements OnModuleInit, OnMod
   async onModuleInit() {
     await this.$connect();
     this.logger.log("Connected to the database");
+    
+    // Log connection pool status
+    const status = await this.$queryRaw`SELECT datname, count(*) as connection_count FROM pg_stat_activity GROUP BY datname;`;
+    this.logger.debug("Database connection status:", status);
   }
 
   async onModuleDestroy() {
