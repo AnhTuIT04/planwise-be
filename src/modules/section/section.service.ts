@@ -11,10 +11,15 @@ import { MoveSectionDto } from "./dto/request/move-section.dto";
 import { buildGetSectionQuery } from "./query/get-section.query";
 import { buildGetTaskQuery, GetTaskQueryResult } from "../task/query/get-task.query";
 import { SectionResponseDto } from "./dto/response/section-response.dto";
+import { PermissionChecker } from '@/middleware/permission-checker.service';
+import { Permission } from '@/common/enum/permission.enum';
 
 @Injectable()
 export class SectionService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private readonly permissionChecker: PermissionChecker
+  ) {}
 
   async create(userId: string, dto: CreateSectionDto) {
     const project = await this.db.project.findFirst({
@@ -31,7 +36,10 @@ export class SectionService {
     });
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
-
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: dto.projectId },
+      Permission.SECTION_CREATE,
+    );
     let position: string;
     if (project.sections.length === 0) {
       position = midpoint(null, null);
@@ -66,7 +74,10 @@ export class SectionService {
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
-
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: section.projectId },
+      Permission.SECTION_UPDATE,
+    );
     const updatedProject = await this.db.section.update({
       where: { id: sectionId },
       data: {
@@ -135,6 +146,10 @@ export class SectionService {
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: section.projectId },
+      Permission.SECTION_DELETE,
+    );
 
     await this.db.section.delete({
       where: { id: sectionId },
@@ -157,6 +172,11 @@ export class SectionService {
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
+
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: section.projectId },
+      Permission.TASK_READ,
+    );
 
     const tasks = await this.db.taskSection.findMany({
       where: {

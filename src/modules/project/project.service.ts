@@ -2,6 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 
 import { DatabaseService } from "@/modules/database/database.service";
 import { EmailService } from "@/modules/email/email.service";
+import { PermissionService } from "@/modules/permission/permission.service";
+import { PermissionUtils } from "@/common/utils/permission.utils";
+import { DEFAULT_ROLE_PERMISSIONS, Permission } from "@/common/enum/permission.enum";
 import { DefaultRole } from "@/common/enum/default-role.enum";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
@@ -18,18 +21,19 @@ import { buildGetProjectTasksQuery, GetProjectTasksQueryResult } from "./query/g
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
 import { InvitationsListResponseDto } from "./dto/response/invitation-response.dto";
-import { permission } from "process";
-
+import { PermissionChecker } from '@/middleware/permission-checker.service';
 @Injectable()
 export class ProjectService {
   constructor(
     private readonly db: DatabaseService,
     private readonly emailService: EmailService,
+    private readonly permissionChecker: PermissionChecker,
   ) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
     const project = await this.db.$transaction(
       async (tx) => {
+        // Create project with default roles
         const newProject = await tx.project.create({
           data: {
             ownerId: userId,
@@ -37,14 +41,19 @@ export class ProjectService {
             roles: {
               create: [
                 {
-                  name: DefaultRole.OWNER,
+                  name: "Admin",
                   default: true,
-                  permissions: JSON.stringify(["ALL"]),
+                  permissions: PermissionUtils.stringifyPermissions(DEFAULT_ROLE_PERMISSIONS.ADMIN),
                 },
                 {
-                  name: DefaultRole.MEMBER,
+                  name: "Editor",
                   default: true,
-                  permissions: JSON.stringify(["ALL"]),
+                  permissions: PermissionUtils.stringifyPermissions(DEFAULT_ROLE_PERMISSIONS.EDITOR),
+                },
+                {
+                  name: "Viewer",
+                  default: true,
+                  permissions: PermissionUtils.stringifyPermissions(DEFAULT_ROLE_PERMISSIONS.VIEWER),
                 },
               ],
             },
@@ -56,18 +65,27 @@ export class ProjectService {
           },
         });
 
-        return await tx.project.update({
+        // Get Admin role
+        const adminRole = newProject.roles.find((role) => role.name === "Admin");
+        if (!adminRole) {
+          throw new Error("Failed to create default roles");
+        }
+
+        // Assign project creator as Admin with full permissions
+        const updatedProject = await tx.project.update({
           where: { id: newProject.id },
           data: {
             members: {
               create: {
                 userId,
-                roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+                roleId: adminRole.id,
               },
             },
           },
           ...buildGetProjectQuery(),
         });
+
+        return updatedProject;
       },
       {
         maxWait: 5000,
@@ -172,6 +190,10 @@ export class ProjectService {
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
 
+    await this.permissionChecker.requirePermission(
+      { userId, projectId },
+      Permission.SECTION_READ,
+    );
     const sections = await this.db.section.findMany({
       where: {
         projectId,
@@ -278,6 +300,11 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
+    await this.permissionChecker.requirePermission(
+      { userId, projectId },
+      Permission.PROJECT_MANAGE_MEMBERS,
+    );
+
     const memberExists = project.members.some((member) => member.user.email === dto.email);
     if (memberExists) throw new ForbiddenException("User is already a member of the project");
 
@@ -369,10 +396,15 @@ export class ProjectService {
     const project = await this.db.project.findFirst({
       where: {
         id: projectId,
-        ownerId: userId,
+        // ownerId: userId,
       },
     });
     if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    await this.permissionChecker.requirePermission(
+      { userId, projectId },
+      Permission.PROJECT_MANAGE_MEMBERS,
+    );
 
     const member = await this.db.projectMember.findFirst({
       where: {
@@ -382,6 +414,7 @@ export class ProjectService {
     });
 
     if (!member) throw new NotFoundException("Member not found in the project");
+
 
     await this.db.$transaction(async (tx) => {
       // Delete invitation if exists (deleteMany won't error if not found)
@@ -422,6 +455,11 @@ export class ProjectService {
     });
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
+    
+    await this.permissionChecker.requirePermission(
+      { userId, projectId },
+      Permission.PROJECT_VIEW_MEMBERS,
+    );
 
     return new UsersWithRoleListResponseDto(
       project.members,
@@ -458,7 +496,7 @@ export class ProjectService {
     const project = await this.db.project.findFirst({
       where: {
         id: projectId,
-        ownerId: userId,
+        // ownerId: userId,
       },
       select: {
         id: true,
@@ -474,6 +512,10 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
+      await this.permissionChecker.requirePermission(
+      { userId, projectId },
+      [ Permission.PROJECT_MANAGE_MEMBERS, Permission.PROJECT_MANAGE_ROLES],
+    );
     if (project.members.length === 0) {
       throw new NotFoundException("Member not found in the project");
     }
@@ -558,8 +600,16 @@ export class ProjectService {
     const mappedInvitations = invitations.map((invitation) => {
       return {
         ...invitation,
+        project: {
+          id: invitation.project.id,
+          name: invitation.project.name,
+          description: invitation.project.description,
+          logoUrl: invitation.project.logoUrl,
+        },
         roleId: invitation.roleId,
         roleName: invitation.role?.name || "",
+        projectId: invitation.projectId,
+        projectName: invitation.project.name,
       };
     });
 

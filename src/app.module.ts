@@ -16,6 +16,8 @@ import { ProjectModule } from "./modules/project/project.module";
 import { RoleModule } from "./modules/role/role.module";
 import { CommentModule } from "./modules/comment/comment.module";
 import { SubtaskModule } from "./modules/subtask/subtask.module";
+import { PermissionModule } from "./modules/permission/permission.module";
+import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.module";
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { SubtaskModule } from "./modules/subtask/subtask.module";
     TaskModule,
     SubtaskModule,
     CommentModule,
+    PermissionModule,
+    PermissionMiddlewareModule,
   ],
   controllers: [AppController],
   providers: [
