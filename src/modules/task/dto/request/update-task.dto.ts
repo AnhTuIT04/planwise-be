@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsString, IsOptional, IsUUID, IsDateString, IsNotEmpty, IsEnum, IsArray, IsInt, Min } from "class-validator";
 
-import { PriorityLevel } from "prisma/client";
+import { PriorityLevel } from "prisma/client/pg";
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -23,9 +23,9 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsEnum(PriorityLevel)
   @ApiPropertyOptional({
+    enum: PriorityLevel,
     example: PriorityLevel.HIGH,
     description: "The priority level of the task",
-    enum: PriorityLevel,
   })
   readonly priority?: PriorityLevel;
 

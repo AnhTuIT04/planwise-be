@@ -1,9 +1,9 @@
 import { midpoint } from "@/common/utils";
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 import { PrismaClient } from "@prisma/client";
 
-export async function moveToFirstPosition(db: DatabaseService | PrismaClient, taskId: string, sectionId: string) {
-  const tasksNeedToChangePosition = await db.taskSection.findMany({
+export async function moveToFirstPosition(pg: PgService | PrismaClient, taskId: string, sectionId: string) {
+  const tasksNeedToChangePosition = await pg.taskSection.findMany({
     where: {
       sectionId: sectionId,
     },
@@ -13,7 +13,7 @@ export async function moveToFirstPosition(db: DatabaseService | PrismaClient, ta
   if (tasksNeedToChangePosition.length === 1) return; // Only the task itself exists in the section
 
   const newPosition = midpoint(null, tasksNeedToChangePosition[0].position);
-  return await db.taskSection.update({
+  return await pg.taskSection.update({
     where: {
       taskId_sectionId: {
         taskId: taskId,
@@ -26,8 +26,8 @@ export async function moveToFirstPosition(db: DatabaseService | PrismaClient, ta
   });
 }
 
-export async function moveToLastPosition(db: DatabaseService | PrismaClient, taskId: string, sectionId: string) {
-  const tasksNeedToChangePosition = await db.taskSection.findMany({
+export async function moveToLastPosition(pg: PgService | PrismaClient, taskId: string, sectionId: string) {
+  const tasksNeedToChangePosition = await pg.taskSection.findMany({
     where: {
       sectionId: sectionId,
     },
@@ -37,7 +37,7 @@ export async function moveToLastPosition(db: DatabaseService | PrismaClient, tas
   if (tasksNeedToChangePosition.length === 1) return; // Only the task itself exists in the section
 
   const newPosition = midpoint(tasksNeedToChangePosition[0].position, null);
-  return await db.taskSection.update({
+  return await pg.taskSection.update({
     where: {
       taskId_sectionId: {
         taskId: taskId,

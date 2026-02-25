@@ -1,10 +1,11 @@
 import { Global, Module } from "@nestjs/common";
 
-import { DatabaseService } from "./database.service";
+import { PgService } from "./pg.service";
+import { MongoService } from "./mongo.service";
 
 @Global()
 @Module({
-  providers: [DatabaseService],
-  exports: [DatabaseService],
+  providers: [PgService, MongoService],
+  exports: [PgService, MongoService],
 })
 export class DatabaseModule {}

@@ -1,4 +1,4 @@
-import { Prisma, TaskStatus } from "prisma/client";
+import { Prisma, TaskStatus } from "prisma/client/pg";
 
 interface BuildGetSectionQueryOptions {
   qStatuses?: TaskStatus[];

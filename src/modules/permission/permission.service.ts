@@ -1,14 +1,14 @@
 import { Injectable } from "@nestjs/common";
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 import { PermissionUtils } from "@/common/utils/permission.utils";
 import { DEFAULT_ROLE_PERMISSIONS, Permission } from "@/common/enum/permission.enum";
 
 @Injectable()
 export class PermissionService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly pg: PgService) {}
 
   async getUserPermissions(userId: string, projectId: string): Promise<string[]> {
-    const projectMember = await this.db.projectMember.findUnique({
+    const projectMember = await this.pg.projectMember.findUnique({
       where: {
         userId_projectId: {
           userId,
@@ -62,7 +62,7 @@ export class PermissionService {
     ];
 
     for (const roleData of defaultRoles) {
-      const existingRole = await this.db.role.findFirst({
+      const existingRole = await this.pg.role.findFirst({
         where: {
           name: roleData.name,
           projectId,
@@ -70,7 +70,7 @@ export class PermissionService {
       });
 
       if (existingRole) {
-        await this.db.role.update({
+        await this.pg.role.update({
           where: { id: existingRole.id },
           data: {
             permissions: PermissionUtils.stringifyPermissions(roleData.permissions),
@@ -78,7 +78,7 @@ export class PermissionService {
           },
         });
       } else {
-        await this.db.role.create({
+        await this.pg.role.create({
           data: {
             name: roleData.name,
             permissions: PermissionUtils.stringifyPermissions(roleData.permissions),

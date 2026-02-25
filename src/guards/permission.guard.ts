@@ -2,7 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from "@
 import { Reflector } from "@nestjs/core";
 import { Permission } from "@/common/enum/permission.enum";
 import { PermissionUtils } from "@/common/utils/permission.utils";
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 
 // Decorator key for storing required permissions
 export const PERMISSIONS_KEY = "permissions";
@@ -10,7 +10,7 @@ export const PERMISSIONS_KEY = "permissions";
 /**
  * Decorator to specify required permissions for a controller method
  * @param permissions - Array of Permission enums required to access the method
- * 
+ *
  * Usage:
  * @RequirePermissions(Permission.TASK_CREATE, Permission.TASK_UPDATE)
  * @Post()
@@ -24,7 +24,7 @@ export function RequirePermissions(...permissions: Permission[]) {
 export class PermissionGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private db: DatabaseService
+    private pg: PgService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -46,7 +46,7 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException("Project ID is required");
     }
 
-    const projectMember = await this.db.projectMember.findUnique({
+    const projectMember = await this.pg.projectMember.findUnique({
       where: {
         userId_projectId: {
           userId,
@@ -66,7 +66,7 @@ export class PermissionGuard implements CanActivate {
 
     if (!PermissionUtils.hasAllPermissions(userPermissions, requiredPermissions)) {
       throw new ForbiddenException(
-        `You do not have permission to perform this action. Required: ${requiredPermissions.join(", ")}`
+        `You do not have permission to perform this action. Required: ${requiredPermissions.join(", ")}`,
       );
     }
 

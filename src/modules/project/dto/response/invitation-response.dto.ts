@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { InvitationStatus } from "prisma/client";
+import { InvitationStatus } from "prisma/client/pg";
 
 import { UserDto } from "@/modules/auth/dto/response/user-response.dto";
 import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
@@ -81,6 +81,12 @@ export class InvitationsListResponseDto extends PaginationResponseDto<Invitation
     totalItems: number,
     message: string = "Invitations retrieved successfully",
   ) {
-    super(data.map((invitation) => new InvitationDto(invitation)), page, limit, totalItems, message);
+    super(
+      data.map((invitation) => new InvitationDto(invitation)),
+      page,
+      limit,
+      totalItems,
+      message,
+    );
   }
 }

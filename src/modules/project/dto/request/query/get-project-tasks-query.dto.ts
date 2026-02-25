@@ -2,7 +2,7 @@ import { IsArray, IsDate, IsEnum, IsOptional, IsString } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
 
-import { PriorityLevel, TaskStatus } from "prisma/client";
+import { PriorityLevel, TaskStatus } from "prisma/client/pg";
 
 export class GetProjectTasksQueryDto {
   @IsOptional()
@@ -56,7 +56,8 @@ export class GetProjectTasksQueryDto {
     return [value];
   })
   @ApiPropertyOptional({
-    example: ["TODO", "RUNNING"],
+    enum: TaskStatus,
+    example: [TaskStatus.TODO, TaskStatus.RUNNING],
     description: "Optional filter to get tasks with specific statuses",
   })
   readonly statuses: TaskStatus[] = [TaskStatus.TODO, TaskStatus.RUNNING, TaskStatus.DONE];
@@ -76,7 +77,8 @@ export class GetProjectTasksQueryDto {
     return [value];
   })
   @ApiPropertyOptional({
-    example: ["LOW", "HIGH"],
+    enum: PriorityLevel,
+    example: [PriorityLevel.HIGH, PriorityLevel.NORMAL],
     description: "Optional filter to get tasks with specific priority levels",
   })
   readonly priorities?: PriorityLevel[];

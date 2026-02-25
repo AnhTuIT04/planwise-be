@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 import { EmailService } from "@/modules/email/email.service";
 import { PermissionService } from "@/modules/permission/permission.service";
 import { PermissionUtils } from "@/common/utils/permission.utils";
@@ -21,17 +21,17 @@ import { buildGetProjectTasksQuery, GetProjectTasksQueryResult } from "./query/g
 import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
 import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
 import { InvitationsListResponseDto } from "./dto/response/invitation-response.dto";
-import { PermissionChecker } from '@/middleware/permission-checker.service';
+import { PermissionChecker } from "@/middleware/permission-checker.service";
 @Injectable()
 export class ProjectService {
   constructor(
-    private readonly db: DatabaseService,
+    private readonly pg: PgService,
     private readonly emailService: EmailService,
     private readonly permissionChecker: PermissionChecker,
   ) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
-    const project = await this.db.$transaction(
+    const project = await this.pg.$transaction(
       async (tx) => {
         // Create project with default roles
         const newProject = await tx.project.create({
@@ -97,7 +97,7 @@ export class ProjectService {
   }
 
   async getAllProjects(userId: string) {
-    const projects = await this.db.project.findMany({
+    const projects = await this.pg.project.findMany({
       where: {
         isPersonal: false,
         members: { some: { userId } },
@@ -115,7 +115,7 @@ export class ProjectService {
   }
 
   async getDetailedProject(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -129,7 +129,7 @@ export class ProjectService {
   }
 
   async update(userId: string, projectId: string, updateProjectDto: UpdateProjectDto) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -139,7 +139,7 @@ export class ProjectService {
     if (!project) throw new NotFoundException("Project not found or you don't have access");
     if (project.isPersonal === true) throw new ForbiddenException("Cannot update personal project");
 
-    const updatedProject = await this.db.project.update({
+    const updatedProject = await this.pg.project.update({
       where: { id: projectId },
       data: {
         name: updateProjectDto.name,
@@ -153,7 +153,7 @@ export class ProjectService {
   }
 
   async remove(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         ownerId: userId,
@@ -173,7 +173,7 @@ export class ProjectService {
     if (project._count.sections > 0 || project._count.tasks > 0)
       throw new ForbiddenException("Cannot delete project with existing sections or tasks");
 
-    await this.db.project.delete({
+    await this.pg.project.delete({
       where: { id: projectId },
     });
 
@@ -181,7 +181,7 @@ export class ProjectService {
   }
 
   async getProjectSections(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -190,11 +190,8 @@ export class ProjectService {
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
 
-    await this.permissionChecker.requirePermission(
-      { userId, projectId },
-      Permission.SECTION_READ,
-    );
-    const sections = await this.db.section.findMany({
+    await this.permissionChecker.requirePermission({ userId, projectId }, Permission.SECTION_READ);
+    const sections = await this.pg.section.findMany({
       where: {
         projectId,
       },
@@ -216,7 +213,7 @@ export class ProjectService {
       throw new BadRequestException("Invalid deadline range: 'deadlineFrom' cannot be later than 'deadlineTo'");
     }
 
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -225,7 +222,7 @@ export class ProjectService {
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
 
-    const sections = await this.db.section.findMany({
+    const sections = await this.pg.section.findMany({
       where: {
         projectId,
         project: {
@@ -243,7 +240,7 @@ export class ProjectService {
       }),
     });
 
-    const tasksInWorkspace = await this.db.taskProject.findMany({
+    const tasksInWorkspace = await this.pg.taskProject.findMany({
       where: {
         project: {
           ownerId: userId,
@@ -281,7 +278,7 @@ export class ProjectService {
   }
 
   async inviteMember(userId: string, projectId: string, dto: InviteMemberDto) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -300,10 +297,7 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
-    await this.permissionChecker.requirePermission(
-      { userId, projectId },
-      Permission.PROJECT_MANAGE_MEMBERS,
-    );
+    await this.permissionChecker.requirePermission({ userId, projectId }, Permission.PROJECT_MANAGE_MEMBERS);
 
     const memberExists = project.members.some((member) => member.user.email === dto.email);
     if (memberExists) throw new ForbiddenException("User is already a member of the project");
@@ -311,12 +305,12 @@ export class ProjectService {
     const roleToInvite = dto.roleId && project.roles.find((role) => role.id === dto.roleId);
     if (dto.roleId && !roleToInvite) throw new NotFoundException("Role not found in the project");
 
-    const userToInvite = await this.db.user.findUnique({ where: { email: dto.email } });
+    const userToInvite = await this.pg.user.findUnique({ where: { email: dto.email } });
     if (!userToInvite) throw new NotFoundException("User with the provided email does not exist");
 
     const roleToAssign = roleToInvite || project.roles.find((role) => role.name === DefaultRole.MEMBER)!;
 
-    await this.db.projectInvitation.create({
+    await this.pg.projectInvitation.create({
       data: {
         projectId: project.id,
         inviterId: userId,
@@ -336,7 +330,7 @@ export class ProjectService {
   }
 
   async responseInvitation(userId: string, projectId: string, dto: ResponseInvitationDto) {
-    const result = await this.db.$transaction(async (tx) => {
+    const result = await this.pg.$transaction(async (tx) => {
       const invitation = await tx.projectInvitation.findFirst({
         where: {
           projectId,
@@ -393,7 +387,7 @@ export class ProjectService {
   }
 
   async removeMember(userId: string, projectId: string, memberId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         // ownerId: userId,
@@ -401,12 +395,9 @@ export class ProjectService {
     });
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
-    await this.permissionChecker.requirePermission(
-      { userId, projectId },
-      Permission.PROJECT_MANAGE_MEMBERS,
-    );
+    await this.permissionChecker.requirePermission({ userId, projectId }, Permission.PROJECT_MANAGE_MEMBERS);
 
-    const member = await this.db.projectMember.findFirst({
+    const member = await this.pg.projectMember.findFirst({
       where: {
         projectId,
         userId: memberId,
@@ -415,8 +406,7 @@ export class ProjectService {
 
     if (!member) throw new NotFoundException("Member not found in the project");
 
-
-    await this.db.$transaction(async (tx) => {
+    await this.pg.$transaction(async (tx) => {
       // Delete invitation if exists (deleteMany won't error if not found)
       await tx.projectInvitation.deleteMany({
         where: {
@@ -439,7 +429,7 @@ export class ProjectService {
   }
 
   async getProjectMembers(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -455,11 +445,8 @@ export class ProjectService {
     });
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
-    
-    await this.permissionChecker.requirePermission(
-      { userId, projectId },
-      Permission.PROJECT_VIEW_MEMBERS,
-    );
+
+    await this.permissionChecker.requirePermission({ userId, projectId }, Permission.PROJECT_VIEW_MEMBERS);
 
     return new UsersWithRoleListResponseDto(
       project.members,
@@ -471,7 +458,7 @@ export class ProjectService {
   }
 
   async getProjectRoles(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -493,7 +480,7 @@ export class ProjectService {
   }
 
   async assignRoleToMember(userId: string, projectId: string, memberId: string, dto: AssignRoleDto) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         // ownerId: userId,
@@ -512,10 +499,10 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
-      await this.permissionChecker.requirePermission(
-      { userId, projectId },
-      [ Permission.PROJECT_MANAGE_MEMBERS, Permission.PROJECT_MANAGE_ROLES],
-    );
+    await this.permissionChecker.requirePermission({ userId, projectId }, [
+      Permission.PROJECT_MANAGE_MEMBERS,
+      Permission.PROJECT_MANAGE_ROLES,
+    ]);
     if (project.members.length === 0) {
       throw new NotFoundException("Member not found in the project");
     }
@@ -525,7 +512,7 @@ export class ProjectService {
       throw new NotFoundException("Role not found in the project");
     }
 
-    await this.db.projectMember.update({
+    await this.pg.projectMember.update({
       where: {
         userId_projectId: {
           userId: memberId,
@@ -541,7 +528,7 @@ export class ProjectService {
   }
 
   async getProjectInvitations(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         ownerId: userId,
@@ -550,7 +537,7 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
-    const invitations = await this.db.projectInvitation.findMany({
+    const invitations = await this.pg.projectInvitation.findMany({
       where: {
         projectId,
       },
@@ -582,7 +569,7 @@ export class ProjectService {
   }
 
   async getReceivedInvitations(userId: string) {
-    const invitations = await this.db.projectInvitation.findMany({
+    const invitations = await this.pg.projectInvitation.findMany({
       where: {
         inviteeId: userId,
       },

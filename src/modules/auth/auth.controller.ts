@@ -1,4 +1,16 @@
-import { Controller, Post, Res, Body, UseGuards, Get, Req, HttpCode, HttpStatus, Patch, UnauthorizedException } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Res,
+  Body,
+  UseGuards,
+  Get,
+  Req,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
@@ -261,7 +273,7 @@ export class AuthController {
   })
   async refresh(@Req() req: any, @Res() res: Response) {
     const refreshToken = req.cookies["esiwnalp_hserfr"];
-    
+
     if (!refreshToken) {
       throw new UnauthorizedException("Refresh token not found");
     }

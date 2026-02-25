@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
-import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageResponseDto } from "@/common/dto/message.dto";
@@ -16,6 +16,7 @@ import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/proj
 import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
 import { InvitationsListResponseDto } from "./dto/response/invitation-response.dto";
 
+@ApiTags("Project")
 @Controller("project")
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
@@ -87,7 +88,7 @@ export class ProjectController {
     status: 200,
     type: MessageResponseDto,
     description: "Project deleted successfully",
-  })  
+  })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.remove(userId, id);
   }
@@ -139,7 +140,6 @@ export class ProjectController {
   responseInvitation(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: ResponseInvitationDto) {
     return this.projectService.responseInvitation(userId, id, dto);
   }
-
 
   @Delete(":id/members/:memberId")
   @HttpCode(HttpStatus.OK)

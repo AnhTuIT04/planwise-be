@@ -4,14 +4,14 @@ import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { PermissionService } from "./permission.service";
 import { PermissionDto, UserPermissionsDto } from "./dto/permission.dto";
 import { PermissionUtils } from "@/common/utils/permission.utils";
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 
 @ApiTags("Permissions")
 @Controller("permissions")
 export class PermissionController {
   constructor(
     private readonly permissionService: PermissionService,
-    private readonly db: DatabaseService
+    private readonly pg: PgService,
   ) {}
 
   @Get("available")
@@ -49,7 +49,7 @@ export class PermissionController {
         acc[category] = permissions.map((p) => new PermissionDto(p));
         return acc;
       },
-      {} as Record<string, PermissionDto[]>
+      {} as Record<string, PermissionDto[]>,
     );
   }
 
@@ -63,11 +63,8 @@ export class PermissionController {
       $ref: "#/components/schemas/UserPermissionsDto",
     },
   })
-  async getMyPermissions(
-    @GetCurrentUserId() userId: string,
-    @Param("projectId") projectId: string
-  ) {
-    const projectMember = await this.db.projectMember.findUnique({
+  async getMyPermissions(@GetCurrentUserId() userId: string, @Param("projectId") projectId: string) {
+    const projectMember = await this.pg.projectMember.findUnique({
       where: {
         userId_projectId: {
           userId,
@@ -98,11 +95,8 @@ export class PermissionController {
     status: 200,
     description: "List of all roles with their permissions",
   })
-  async getRolesPermissions(
-    @GetCurrentUserId() userId: string,
-    @Param("projectId") projectId: string
-  ) {
-    const projectMember = await this.db.projectMember.findUnique({
+  async getRolesPermissions(@GetCurrentUserId() userId: string, @Param("projectId") projectId: string) {
+    const projectMember = await this.pg.projectMember.findUnique({
       where: {
         userId_projectId: {
           userId,
@@ -118,7 +112,7 @@ export class PermissionController {
       return [];
     }
 
-    const roles = await this.db.role.findMany({
+    const roles = await this.pg.role.findMany({
       where: { projectId },
       orderBy: { default: "desc" },
     });

@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, UnauthorizedExcepti
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 
-import { User } from "prisma/client";
+import { User } from "prisma/client/pg";
 import { UsersService } from "@/modules/users/users.service";
 import { CacheService } from "@/modules/cache/cache.service";
 import { EmailService } from "@/modules/email/email.service";
@@ -64,7 +64,7 @@ export class AuthService {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken);
       const user = await this.usersService.findById(payload.sub);
-      
+
       if (!user) {
         throw new UnauthorizedException("User not found");
       }

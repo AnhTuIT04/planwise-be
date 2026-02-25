@@ -45,6 +45,12 @@ export class AppConfig {
   @Max(65535)
   PORT: number = 8080;
 
+  /** WebSocket server port (valid port range: 0-65535) */
+  @IsNumber()
+  @Min(0)
+  @Max(65535)
+  WS_PORT: number = 8080;
+
   /** Domain name for CORS and cookie settings */
   @IsString()
   DOMAIN: string;

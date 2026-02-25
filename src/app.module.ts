@@ -18,6 +18,8 @@ import { CommentModule } from "./modules/comment/comment.module";
 import { SubtaskModule } from "./modules/subtask/subtask.module";
 import { PermissionModule } from "./modules/permission/permission.module";
 import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.module";
+import { RealtimeModule } from "./modules/realtime/realtime.module";
+import { ChannelModule } from "./modules/channel/channel.module";
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.m
     CommentModule,
     PermissionModule,
     PermissionMiddlewareModule,
+    RealtimeModule,
+    ChannelModule,
   ],
   controllers: [AppController],
   providers: [

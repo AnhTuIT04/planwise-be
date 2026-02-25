@@ -12,6 +12,14 @@
     "start:dev": "cross-env NODE_ENV=development nest start --watch",
     "start:debug": "cross-env NODE_ENV=development nest start --debug --watch",
     "start:prod": "cross-env NODE_ENV=production node dist/main",
+    "pg:gen": "prisma generate --schema prisma/pg.schema.prisma",
+    "pg:migrate": "prisma migrate dev --schema prisma/pg.schema.prisma",
+    "pg:reset": "prisma migrate reset --schema prisma/pg.schema.prisma",
+    "pg:studio": "prisma studio --schema prisma/pg.schema.prisma",
+    "mongo:gen": "prisma generate --schema prisma/mongo.schema.prisma",
+    "mongo:migrate": "prisma db push --schema prisma/mongo.schema.prisma",
+    "mongo:reset": "prisma db push --force-reset --schema prisma/mongo.schema.prisma",
+    "mongo:studio": "prisma studio --schema prisma/mongo.schema.prisma",
     "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix"
   },
   "dependencies": {
@@ -21,7 +29,9 @@
     "@nestjs/jwt": "^11.0.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/platform-socket.io": "^11.1.12",
     "@nestjs/swagger": "^11.2.0",
+    "@nestjs/websockets": "^11.1.12",
     "@prisma/client": "^6.17.1",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -39,6 +49,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

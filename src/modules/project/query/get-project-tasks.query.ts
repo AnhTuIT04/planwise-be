@@ -1,4 +1,4 @@
-import { PriorityLevel, Prisma, TaskStatus } from "prisma/client";
+import { PriorityLevel, Prisma, TaskStatus } from "prisma/client/pg";
 import { buildGetTaskQuery, GetTaskQueryResult } from "@/modules/task/query/get-task.query";
 
 interface BuildGetProjectTasksQueryOptions {
