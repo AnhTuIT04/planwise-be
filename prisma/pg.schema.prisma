@@ -9,23 +9,24 @@ datasource pg {
 }
 
 model User {
-  id                  String              @id @default(uuid())
-  email               String              @unique
-  password            String?
-  fullname            String
-  avatarUrl           String?
-  verified            Boolean             @default(false)
-  workspaceId         String
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  comments            Comment[]
-  oauthAccounts       OAuthAccount[]
-  ownedProjects       Project[]           @relation("UserOwnsProjects")
-  receivedInvitations ProjectInvitation[] @relation("UserInvitee")
-  sentInvitations     ProjectInvitation[] @relation("UserInviter")
-  memberships         ProjectMember[]     @relation("UserProjectMemberships")
-  supervisedTasks     Task[]              @relation("TaskSupervisor")
-  assignedTasks       TaskAssignee[]
+  id                     String                  @id @default(uuid())
+  email                  String                  @unique
+  password               String?
+  fullname               String
+  avatarUrl              String?
+  verified               Boolean                 @default(false)
+  workspaceId            String
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  comments               Comment[]
+  oauthAccounts          OAuthAccount[]
+  ownedProjects          Project[]               @relation("UserOwnsProjects")
+  receivedInvitations    ProjectInvitation[]     @relation("UserInvitee")
+  sentInvitations        ProjectInvitation[]     @relation("UserInviter")
+  memberships            ProjectMember[]         @relation("UserProjectMemberships")
+  supervisedTasks        Task[]                  @relation("TaskSupervisor")
+  assignedTasks          TaskAssignee[]
+  integrationConnections IntegrationConnection[]
 }
 
 model OAuthAccount {
@@ -207,4 +208,84 @@ enum ChannelType {
   TEXT
   VOICE
   VIDEO
+}
+
+// ==================== INTEGRATIONS ====================
+// Generic integration system for Google Calendar, Notion, Gmail, etc.
+
+model IntegrationConnection {
+  id                String              @id @default(uuid())
+  provider          IntegrationProvider
+  accountIdentifier String              // e.g., email or account ID from provider
+  accessToken       String              @pg.Text
+  refreshToken      String?             @pg.Text
+  tokenExpiresAt    DateTime?
+  scopes            String[]            // Granted OAuth scopes
+  metadata          Json?               // Provider-specific data (e.g., calendar IDs)
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhooks          IntegrationWebhook[]
+  syncStates        IntegrationSyncState[]
+  events            IntegrationEvent[]
+
+  @@unique([userId, provider, accountIdentifier])
+  @@index([userId, provider])
+}
+
+model IntegrationWebhook {
+  id           String              @id @default(uuid())
+  channelId    String              @unique // Provider's channel/webhook ID
+  resourceId   String?             // Provider's resource ID
+  resourceType String              // e.g., "calendar", "database", "mailbox"
+  expiresAt    DateTime
+  createdAt    DateTime            @default(now())
+  connectionId String
+  connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([connectionId])
+}
+
+model IntegrationSyncState {
+  id            String              @id @default(uuid())
+  resourceType  String              // e.g., "calendar_events", "notion_pages", "gmail_messages"
+  resourceId    String              // e.g., specific calendar ID
+  syncToken     String?             @pg.Text // For incremental sync
+  lastSyncedAt  DateTime?
+  connectionId  String
+  connection    IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, resourceType, resourceId])
+}
+
+// Local cache of synced events (prevents hitting API on every request)
+model IntegrationEvent {
+  id                  String              @id @default(uuid())
+  externalId          String              // ID from provider (Google event ID, etc.)
+  provider            IntegrationProvider // local cache events timemin-max
+  title               String
+  description         String?             @pg.Text
+  startTime           DateTime
+  endTime             DateTime
+  isAllDay            Boolean             @default(false)
+  location            String?
+  status              String?             // confirmed, tentative, cancelled
+  rawData             Json?               // Full event data from provider
+  lastModifiedByApp   Boolean             @default(false) // For preventing sync loops
+  lastModifiedAt      DateTime
+  syncedAt            DateTime            @default(now())
+  connectionId        String
+  connection          IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, provider, externalId])
+  @@index([connectionId, startTime, endTime])
+}
+
+enum IntegrationProvider {
+  GOOGLE_CALENDAR
+  GOOGLE_GMAIL
+  NOTION
 }
