@@ -129,6 +129,28 @@ export class AppConfig {
   /** GitHub OAuth callback URL */
   @IsString()
   GITHUB_CALLBACK_URL: string;
+
+  // ==================== Integration Configuration ====================
+
+  /** Frontend URL for OAuth redirects */
+  @IsString()
+  FE_REDIRECT_URL: string;
+
+  /** Base URL for webhook callbacks (must be publicly accessible) */
+  @IsString()
+  WEBHOOK_BASE_URL: string;
+
+  /** Google Calendar OAuth client ID */
+  @IsString()
+  GOOGLE_CALENDAR_CLIENT_ID: string;
+
+  /** Google Calendar OAuth client secret */
+  @IsString()
+  GOOGLE_CALENDAR_CLIENT_SECRET: string;
+
+  /** Google Calendar OAuth callback URL */
+  @IsString()
+  GOOGLE_CALENDAR_REDIRECT_URL: string;
 }
 
 /**
