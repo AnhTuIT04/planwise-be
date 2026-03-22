@@ -38,6 +38,7 @@ export class ChannelHandler {
         channelId: dto.channelId,
         senderId: client.data.user.id,
         content: dto.content,
+        contentType: dto.contentType,
       },
     });
 
@@ -46,6 +47,7 @@ export class ChannelHandler {
       channelId: msg.channelId,
       sender: new UserBasicDto(user),
       content: msg.content,
+      contentType: msg.contentType,
       createdAt: msg.createdAt,
       tempId: dto.tempId,
     });

@@ -1,4 +1,5 @@
-import { IsString } from "class-validator";
+import { IsEnum, IsString } from "class-validator";
+import { ContentType } from "prisma/client/mongo";
 
 export class SendMessageDto {
   @IsString()
@@ -6,6 +7,9 @@ export class SendMessageDto {
 
   @IsString()
   content: string;
+
+  @IsEnum(ContentType)
+  contentType: ContentType;
 
   @IsString()
   tempId: string;

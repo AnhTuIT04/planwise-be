@@ -1,6 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { CursorPaginationResponseDto, PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
+import { ContentType } from "prisma/client/mongo";
 
 class MessageDto {
   @ApiProperty()
@@ -16,6 +17,9 @@ class MessageDto {
   content: string;
 
   @ApiProperty()
+  contentType: ContentType;
+
+  @ApiProperty()
   createdAt: Date;
 
   constructor(data: any) {
@@ -23,6 +27,7 @@ class MessageDto {
     this.channelId = data.channelId;
     this.sender = new UserBasicDto(data.sender);
     this.content = data.content;
+    this.contentType = data.contentType;
     this.createdAt = data.createdAt;
   }
 }

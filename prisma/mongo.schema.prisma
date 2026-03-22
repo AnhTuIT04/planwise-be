@@ -8,14 +8,22 @@ datasource mongo {
   url      = env("MONGODB_DATABASE_URL")
 }
 
+enum ContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  FILE
+}
+
 model Message {
   id String @id @default(auto()) @map("_id") @mongo.ObjectId
 
   channelId String
   senderId  String
 
-  content   String
-  createdAt DateTime @default(now())
+  content     String
+  contentType ContentType
+  createdAt   DateTime    @default(now())
 
   @@index([channelId, createdAt(sort: Desc)])
 }
