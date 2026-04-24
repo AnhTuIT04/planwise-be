@@ -16,7 +16,7 @@ export class ResponseDto<T> {
   }
 }
 
-class PaginationDto {
+class OffsetPaginationDto {
   @ApiProperty({ example: 1, description: "Current page number" })
   readonly page: number;
 
@@ -37,9 +37,9 @@ class PaginationDto {
   }
 }
 
-export class PaginationResponseDto<T> extends ResponseDto<T[]> {
-  @ApiProperty({ description: "Pagination details", type: PaginationDto })
-  readonly pagination: PaginationDto;
+export class OffsetPaginatedResponseDto<T> extends ResponseDto<T[]> {
+  @ApiProperty({ description: "Pagination details", type: OffsetPaginationDto })
+  readonly pagination: OffsetPaginationDto;
 
   constructor(
     data: T[],
@@ -49,16 +49,34 @@ export class PaginationResponseDto<T> extends ResponseDto<T[]> {
     message: string = "Operation completed successfully.",
   ) {
     super(data, message);
-    this.pagination = new PaginationDto(page, limit, totalItems);
+    this.pagination = new OffsetPaginationDto(page, limit, totalItems);
   }
 }
 
-export class CursorPaginationResponseDto<T> extends ResponseDto<T[]> {
-  @ApiProperty({ description: "Cursor for fetching the next set of results", example: "2026-02-01T09:20:00Z" })
+class CursorPaginationDto {
+  @ApiProperty({ example: "2026-02-01T09:20:00Z", description: "Cursor for fetching the next set of results" })
   readonly nextCursor: string | number | null;
 
-  constructor(data: T[], nextCursor: string | number | null, message: string = "Operation completed successfully.") {
-    super(data, message);
+  @ApiProperty({ example: true, description: "Indicates if there are more results to fetch" })
+  readonly hasNextPage: boolean;
+
+  constructor(nextCursor: string | number | null, hasNextPage?: boolean) {
     this.nextCursor = nextCursor;
+    this.hasNextPage = hasNextPage !== undefined ? hasNextPage : nextCursor !== null;
+  }
+}
+
+export class CursorPaginatedResponseDto<T> extends ResponseDto<T[]> {
+  @ApiProperty({ description: "Pagination details", type: CursorPaginationDto })
+  readonly pagination: CursorPaginationDto;
+
+  constructor(
+    data: T[],
+    nextCursor: string | number | null,
+    hasNextPage?: boolean,
+    message: string = "Operation completed successfully.",
+  ) {
+    super(data, message);
+    this.pagination = new CursorPaginationDto(nextCursor, hasNextPage);
   }
 }

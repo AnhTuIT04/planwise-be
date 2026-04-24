@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
+import { OffsetPaginatedResponseDto, ResponseDto } from "@/common/dto/response.dto";
 
 export class UserBasicDto {
   @ApiProperty({
@@ -36,7 +36,7 @@ export class UserBasicDto {
   }
 }
 
-export class UserBasicResponseDto extends ResponseDto<UserBasicDto> {
+export class UserBasicResponse extends ResponseDto<UserBasicDto> {
   @ApiProperty({ type: () => UserBasicDto, description: "User basic information" })
   declare readonly data: UserBasicDto;
 
@@ -48,7 +48,7 @@ export class UserBasicResponseDto extends ResponseDto<UserBasicDto> {
   }
 }
 
-export class UsersBasicListResponseDto extends PaginationResponseDto<UserBasicDto> {
+export class UsersBasicOffsetResponse extends OffsetPaginatedResponseDto<UserBasicDto> {
   @ApiProperty({ type: () => [UserBasicDto], description: "Array of user basic information" })
   declare readonly data: UserBasicDto[];
 

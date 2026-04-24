@@ -1,8 +1,8 @@
 import "reflect-metadata";
 
-import { ValidationPipe } from "@nestjs/common";
-import type { NestExpressApplication } from "@nestjs/platform-express";
+import { type NestExpressApplication } from "@nestjs/platform-express";
 import { ExpressAdapter } from "@nestjs/platform-express";
+import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import cookieParser from "cookie-parser";
@@ -12,16 +12,10 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { AppModule } from "@/app.module";
-import { AppConfig } from "@/config/app.config";
 import { configSwagger } from "@/config/swagger.config";
+import { Environment, type AppConfig } from "@/config/app.config";
 import { GlobalExceptionFilter } from "@/filters/global-exception.filter";
-import { SocketAdapter } from "@/modules/realtime/socket.adapter";
 
-/**
- * Bootstrap function to initialize and configure the NestJS application
- * Sets up middleware, CORS, validation, logging, and global configurations
- * @returns Promise<NestExpressApplication> The configured application instance
- */
 async function bootstrap() {
   // Create NestJS application with Express adapter for enhanced express features
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
@@ -42,7 +36,7 @@ async function bootstrap() {
   app.use(helmet());
   app.setGlobalPrefix(`${API_PREFIX}/${API_VERSION}`, { exclude: [] }); // Set global prefix for API routes
   app.use(compression());
-  if (NODE_ENV === "development") {
+  if (NODE_ENV === Environment.Development) {
     app.use(morgan("dev")); // Can change to 'combined' or 'common' for different logging formats
   }
   app.use(cookieParser());
@@ -70,7 +64,6 @@ async function bootstrap() {
   configSwagger(app, API_PREFIX, API_VERSION);
 
   // Set up WebSocket adapter for real-time communication
-  app.useWebSocketAdapter(new SocketAdapter(WS_PORT, CORS_ORIGIN));
 
   // Start the HTTP server on the configured port
   await app.listen(PORT);

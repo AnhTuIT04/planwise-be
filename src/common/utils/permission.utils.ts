@@ -1,5 +1,4 @@
-import { Permission } from "@/common/enum/permission.enum";
-
+import { type Permission } from "@/common/enum/permission.enum";
 
 export class PermissionUtils {
   static hasPermission(userPermissions: string[], requiredPermission: Permission): boolean {
@@ -16,7 +15,7 @@ export class PermissionUtils {
 
   static parsePermissions(permissionsJson: string): string[] {
     try {
-      return JSON.parse(permissionsJson) || [];
+      return (JSON.parse(permissionsJson) as string[]) || [];
     } catch {
       return [];
     }
@@ -28,7 +27,7 @@ export class PermissionUtils {
 
   static filterActionsByPermissions<T extends { permission?: Permission }>(
     actions: T[],
-    userPermissions: string[]
+    userPermissions: string[],
   ): T[] {
     return actions.filter((action) => !action.permission || this.hasPermission(userPermissions, action.permission));
   }

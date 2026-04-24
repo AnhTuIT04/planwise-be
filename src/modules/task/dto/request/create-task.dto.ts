@@ -1,13 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
-  IsString,
-  IsOptional,
-  IsUUID,
-  IsDateString,
-  IsNotEmpty,
-  IsEnum,
   IsArray,
+  IsDateString,
+  IsDefined,
+  IsEnum,
   IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
   Min,
   ValidateNested,
 } from "class-validator";
@@ -15,22 +15,14 @@ import { Type } from "class-transformer";
 
 import { TaskStatus, PriorityLevel } from "prisma/client/pg";
 
-class SubtaskDto {
-  @IsNotEmpty()
+class TaskCreateSubtaskDto {
+  @IsDefined()
   @IsString()
   @ApiProperty({
     example: "Fix login bug",
     description: "The title of the task",
   })
-  readonly title: string;
-
-  @IsOptional()
-  @IsString()
-  @ApiPropertyOptional({
-    example: "Users can't login with Google OAuth",
-    description: "The description of the task",
-  })
-  readonly description?: string;
+  readonly title!: string;
 
   @IsOptional()
   @IsInt()
@@ -41,7 +33,7 @@ class SubtaskDto {
   })
   readonly estimate?: number;
 
-  @IsNotEmpty()
+  @IsDefined()
   @IsArray()
   @IsUUID(undefined, { each: true })
   @ApiProperty({
@@ -49,17 +41,17 @@ class SubtaskDto {
     example: ["550e8400-e29b-41d4-a716-446655440000"],
     description: "Array of user IDs to assign to this subtask",
   })
-  readonly assigneeIds: string[];
+  readonly assigneeIds!: string[];
 }
 
 export class CreateTaskDto {
-  @IsNotEmpty()
+  @IsDefined()
   @IsString()
   @ApiProperty({
     example: "Fix login bug",
     description: "The title of the task",
   })
-  readonly title: string;
+  readonly title!: string;
 
   @IsOptional()
   @IsString()
@@ -113,13 +105,13 @@ export class CreateTaskDto {
   })
   readonly insertAt?: number;
 
-  @IsNotEmpty()
+  @IsDefined()
   @IsUUID()
   @ApiProperty({
     example: "550e8400-e29b-41d4-a716-446655440000",
     description: "The ID of the section the task belongs to",
   })
-  readonly sectionId: string;
+  readonly sectionId!: string;
 
   @IsOptional()
   @IsUUID()
@@ -129,7 +121,7 @@ export class CreateTaskDto {
   })
   readonly supervisorId?: string;
 
-  @IsNotEmpty()
+  @IsDefined()
   @IsArray()
   @IsUUID(undefined, { each: true })
   @ApiProperty({
@@ -137,15 +129,15 @@ export class CreateTaskDto {
     example: ["550e8400-e29b-41d4-a716-446655440000"],
     description: "Array of user IDs to assign to this task",
   })
-  readonly assigneeIds: string[];
+  readonly assigneeIds!: string[];
 
-  @IsNotEmpty()
+  @IsDefined()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SubtaskDto)
+  @Type(() => TaskCreateSubtaskDto)
   @ApiProperty({
-    type: () => [SubtaskDto],
+    type: () => [TaskCreateSubtaskDto],
     description: "Array of subtasks associated with this task",
   })
-  readonly subtasks: SubtaskDto[];
+  readonly subtasks!: TaskCreateSubtaskDto[];
 }

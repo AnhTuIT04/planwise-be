@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
-import { SubtaskService } from './subtask.service';
-import { SubtaskController } from './subtask.controller';
-import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.module";
+import { Module } from "@nestjs/common";
+
+import { SubtaskService } from "./subtask.service";
+import { SubtaskController } from "./subtask.controller";
+
 @Module({
-  imports: [PermissionMiddlewareModule],
+  imports: [],
   controllers: [SubtaskController],
   providers: [SubtaskService],
 })

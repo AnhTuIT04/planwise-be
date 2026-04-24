@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
-import { RoleDto } from "@/modules/role/dto/response/role-response.dto";
+import { OffsetPaginatedResponseDto, ResponseDto } from "@/common/dto/response.dto";
+import { RoleDto } from "~/role/dto/response/role-response.dto";
 import { UserBasicDto } from "./user-basic-response.dto";
 
 export class UserWithRoleDto extends UserBasicDto {
@@ -18,6 +18,7 @@ export class UserWithRoleDto extends UserBasicDto {
     role: {
       id: string;
       name: string;
+      default: boolean;
       permissions: string;
     };
   }) {
@@ -26,7 +27,7 @@ export class UserWithRoleDto extends UserBasicDto {
   }
 }
 
-export class UserWithRoleResponseDto extends ResponseDto<UserWithRoleDto> {
+export class UserWithRoleResponse extends ResponseDto<UserWithRoleDto> {
   @ApiProperty({ type: () => UserWithRoleDto, description: "User information with role" })
   declare readonly data: UserWithRoleDto;
 
@@ -45,6 +46,7 @@ export class UserWithRoleResponseDto extends ResponseDto<UserWithRoleDto> {
       role: {
         id: string;
         name: string;
+        default: boolean;
         permissions: string;
       };
     },
@@ -54,7 +56,7 @@ export class UserWithRoleResponseDto extends ResponseDto<UserWithRoleDto> {
   }
 }
 
-export class UsersWithRoleListResponseDto extends PaginationResponseDto<UserWithRoleDto> {
+export class UsersWithRoleOffsetResponse extends OffsetPaginatedResponseDto<UserWithRoleDto> {
   @ApiProperty({ type: () => [UserWithRoleDto], description: "Array of user information with roles" })
   declare readonly data: UserWithRoleDto[];
 
@@ -69,6 +71,7 @@ export class UsersWithRoleListResponseDto extends PaginationResponseDto<UserWith
       role: {
         id: string;
         name: string;
+        default: boolean;
         permissions: string;
       };
     }[],

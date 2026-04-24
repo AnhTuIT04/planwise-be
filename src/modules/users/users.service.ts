@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
 
 import { Prisma } from "prisma/client/pg";
-import { midpoint } from "@/common/utils";
+import { midpoint } from "@/common/utils/positioning.utils";
 import { DefaultRole } from "@/common/enum/default-role.enum";
-import { PgService } from "@/modules/database/pg.service";
+import { DEFAULT_ROLE_PERMISSIONS } from "@/common/enum/permission.enum";
+import { PgService } from "~/database/pg.service";
 
 @Injectable()
 export class UsersService {
@@ -33,14 +34,9 @@ export class UsersService {
             roles: {
               create: [
                 {
-                  name: DefaultRole.OWNER,
+                  name: DefaultRole.ADMIN,
                   default: true,
-                  permissions: JSON.stringify(["ALL"]),
-                },
-                {
-                  name: DefaultRole.MEMBER,
-                  default: true,
-                  permissions: JSON.stringify(["ALL"]),
+                  permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.ADMIN),
                 },
               ],
             },
@@ -58,7 +54,7 @@ export class UsersService {
             memberships: {
               create: {
                 projectId: newProject.id,
-                roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+                roleId: newProject.roles.find((role) => role.name === (DefaultRole.ADMIN as string))!.id,
               },
             },
           },

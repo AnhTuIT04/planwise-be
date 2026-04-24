@@ -12,7 +12,9 @@ export class CacheService implements ICacheService, OnModuleInit {
   constructor(
     private readonly redisService: RedisService,
     private readonly memoryService: MemoryService,
-  ) {}
+  ) {
+    this.activeService = this.memoryService; // Default to memory service
+  }
 
   async onModuleInit() {
     const isRedisConnected = await this.redisService.connect();

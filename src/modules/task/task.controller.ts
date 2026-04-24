@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
-import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
-import { MessageResponseDto } from "@/common/dto/message.dto";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { TaskService } from "./task.service";
 import { CreateTaskDto } from "./dto/request/create-task.dto";
 import { UpdateTaskDto } from "./dto/request/update-task.dto";
@@ -11,20 +11,19 @@ import { MoveTaskDto } from "./dto/request/move-task.dto";
 import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
-import { TaskResponseDto } from "./dto/response/task-response.dto";
-import { Permission } from '@/common/enum/permission.enum';
-import { RequirePermission } from "@/decorators/require-permission.decorator";
-@Controller("task")
+import { TaskResponse } from "./dto/response/task-response.dto";
+
+@ApiTags("Task")
+@Controller("tasks")
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
   @Post()
-  @RequirePermission(Permission.TASK_CREATE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new task" })
   @ApiResponse({
     status: 201,
-    type: TaskResponseDto,
+    type: TaskResponse,
     description: "The task has been successfully created.",
   })
   create(@GetCurrentUserId() userId: string, @Body() dto: CreateTaskDto) {
@@ -35,7 +34,7 @@ export class TaskController {
   @ApiOperation({ summary: "Get task by id (not subtask)" })
   @ApiResponse({
     status: 200,
-    type: TaskResponseDto,
+    type: TaskResponse,
     description: "The task has been successfully retrieved.",
   })
   getById(@Param("id") id: string, @GetCurrentUserId() userId: string) {
@@ -43,12 +42,11 @@ export class TaskController {
   }
 
   @Patch(":id")
-  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a task (not subtask)" })
   @ApiResponse({
     status: 200,
-    type: TaskResponseDto,
+    type: TaskResponse,
     description: "The task has been successfully updated.",
   })
   update(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskDto) {
@@ -56,12 +54,11 @@ export class TaskController {
   }
 
   @Patch(":id/status")
-  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update task status (not subtask)" })
   @ApiResponse({
     status: 200,
-    type: TaskResponseDto,
+    type: TaskResponse,
     description: "The task status has been successfully updated.",
   })
   updateStatus(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskStatusDto) {
@@ -69,12 +66,11 @@ export class TaskController {
   }
 
   @Patch(":id/assignees")
-  @RequirePermission(Permission.TASK_ASSIGN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update the assignees of a task (not subtask)" })
   @ApiResponse({
     status: 200,
-    type: TaskResponseDto,
+    type: TaskResponse,
     description: "The task assignees have been successfully updated.",
   })
   updateAssignees(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskAssigneesDto) {
@@ -82,12 +78,11 @@ export class TaskController {
   }
 
   @Patch(":id/move")
-  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Move a task to a different section (not subtask)" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: TaskResponse,
     description: "The task has been successfully moved.",
   })
   moveTask(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: MoveTaskDto) {
@@ -95,12 +90,11 @@ export class TaskController {
   }
 
   @Post(":id/import")
-  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Import a task to a different project (not subtask)" })
   @ApiResponse({
     status: 201,
-    type: MessageResponseDto,
+    type: TaskResponse,
     description: "The task has been successfully imported.",
   })
   importTask(@Param("id") taskId: string, @GetCurrentUserId() userId: string, @Body() dto: ImportTaskDto) {
@@ -108,12 +102,11 @@ export class TaskController {
   }
 
   @Delete(":id")
-  @RequirePermission(Permission.TASK_DELETE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a task (not subtask)" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "The task has been successfully deleted.",
   })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: DeleteTaskDto) {

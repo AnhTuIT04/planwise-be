@@ -1,11 +1,11 @@
 import { registerAs } from "@nestjs/config";
 import { plainToInstance } from "class-transformer";
-import { IsEnum, IsNumber, IsString, validateSync, Min, Max } from "class-validator";
+import { IsEnum, IsNumber, IsString, validateSync, Min, Max, IsOptional } from "class-validator";
 
 /**
  * Supported application environments
  */
-enum Environment {
+export enum Environment {
   Development = "development",
   Production = "production",
   Test = "test",
@@ -49,11 +49,11 @@ export class AppConfig {
   @IsNumber()
   @Min(0)
   @Max(65535)
-  WS_PORT: number = 8080;
+  WS_PORT: number = 8181;
 
   /** Domain name for CORS and cookie settings */
   @IsString()
-  DOMAIN: string;
+  DOMAIN!: string;
 
   /** API route prefix (e.g., 'api' for /api/v1/...) */
   @IsString()
@@ -65,70 +65,72 @@ export class AppConfig {
 
   /** Allowed origin for CORS */
   @IsString()
-  CORS_ORIGIN: string;
+  CORS_ORIGIN!: string;
 
   /** Secret key for JWT token signing and verification */
   @IsString()
-  JWT_SECRET: string;
-
-  @IsString()
-  REFRESH_TOKEN_SECRET: string;
+  JWT_SECRET!: string;
 
   /** JWT access token expiration time (e.g., '15m', '1h', 3600) */
   @IsString()
-  JWT_ACCESS_TOKEN_EXPIRATION: string | number;
-
-  /** JWT refresh token expiration time (e.g., '7d', '30d', 604800) */
-  @IsString()
-  JWT_REFRESH_TOKEN_EXPIRATION: string | number;
+  JWT_ACCESS_TOKEN_EXPIRATION!: string | number;
 
   /** Email service username for sending verification emails */
   @IsString()
-  EMAIL_VERIFIER_USER: string;
+  EMAIL_VERIFIER_USER!: string;
 
   /** Email service password for authentication */
   @IsString()
-  EMAIL_VERIFIER_PASS: string;
+  EMAIL_VERIFIER_PASS!: string;
 
   /** PostgreSQL database connection URL */
   @IsString()
-  POSTGRES_DATABASE_URL: string;
+  POSTGRES_DATABASE_URL!: string;
 
   /** MongoDB database connection URL */
   @IsString()
-  MONGODB_DATABASE_URL: string;
+  MONGODB_DATABASE_URL!: string;
 
   /** Redis cache/session store connection URL */
+  @IsOptional()
   @IsString()
-  REDIS_URL: string = "";
+  REDIS_URL?: string;
 
-  /** OAuth success redirect URL */
+  /** Frontend redirect URL after successful OAuth authentication */
   @IsString()
-  OAUTH_SUCCESS_REDIRECT_URL: string;
+  OAUTH_SUCCESS_REDIRECT_URL!: string;
 
   /** Google OAuth client ID */
   @IsString()
-  GOOGLE_CLIENT_ID: string;
+  GOOGLE_OAUTH_CLIENT_ID!: string;
 
   /** Google OAuth client secret */
   @IsString()
-  GOOGLE_CLIENT_SECRET: string;
+  GOOGLE_OAUTH_CLIENT_SECRET!: string;
 
   /** Google OAuth callback URL */
   @IsString()
-  GOOGLE_CALLBACK_URL: string;
+  GOOGLE_OAUTH_CALLBACK_URL!: string;
 
   /** GitHub OAuth client ID */
   @IsString()
-  GITHUB_CLIENT_ID: string;
+  GITHUB_OAUTH_CLIENT_ID!: string;
 
   /** GitHub OAuth client secret */
   @IsString()
-  GITHUB_CLIENT_SECRET: string;
+  GITHUB_OAUTH_CLIENT_SECRET!: string;
 
   /** GitHub OAuth callback URL */
   @IsString()
-  GITHUB_CALLBACK_URL: string;
+  GITHUB_OAUTH_CALLBACK_URL!: string;
+
+  /** Frontend redirect URL after successful integration with third-party services */
+  @IsString()
+  INTEGRATION_SUCCESS_REDIRECT_URL!: string;
+
+  /** Base URL for webhook endpoints (e.g., for receiving notifications from third-party services) */
+  @IsString()
+  WEBHOOK_BASE_URL!: string;
 }
 
 /**

@@ -41,7 +41,7 @@ export class ProjectBasicDto {
   }
 }
 
-export class ProjectBasicResponseDto extends ResponseDto<ProjectBasicDto> {
+export class ProjectBasicResponse extends ResponseDto<ProjectBasicDto> {
   @ApiProperty({ type: () => ProjectBasicDto, description: "Project data" })
   declare readonly data: ProjectBasicDto;
 

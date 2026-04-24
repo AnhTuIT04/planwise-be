@@ -1,4 +1,10 @@
-import { createParamDecorator, ExecutionContext } from "@nestjs/common";
+import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
+
+import { type JwtPayloadDto } from "~/auth/dto/jwt-payload.dto";
+
+interface AuthRequest extends Request {
+  user?: JwtPayloadDto;
+}
 
 /**
  * Parameter decorator that extracts the current authenticated user from the request object.
@@ -17,7 +23,7 @@ import { createParamDecorator, ExecutionContext } from "@nestjs/common";
  * ```
  */
 export const GetCurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
-  const request = ctx.switchToHttp().getRequest();
+  const request = ctx.switchToHttp().getRequest<AuthRequest>();
   return request.user || null;
 });
 
@@ -38,6 +44,6 @@ export const GetCurrentUser = createParamDecorator((_data: unknown, ctx: Executi
  * ```
  */
 export const GetCurrentUserId = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
-  const request = ctx.switchToHttp().getRequest();
-  return request.user?.id ?? null;
+  const request = ctx.switchToHttp().getRequest<AuthRequest>();
+  return request.user?.sub || null;
 });

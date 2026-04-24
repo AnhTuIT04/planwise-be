@@ -1,7 +1,9 @@
+import { type DefaultRole } from "./default-role.enum";
+
 /**
  * Permission enum - Define all possible permissions in the system
  * Format: resource:action
- * 
+ *
  * This is the single source of truth for all available permissions.
  * New permissions can be easily added here and reused throughout the app.
  */
@@ -46,7 +48,7 @@ export enum Permission {
  * Default role permission mappings
  * Pre-configured roles with their associated permissions
  */
-export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
+export const DEFAULT_ROLE_PERMISSIONS: Record<DefaultRole, Permission[]> = {
   ADMIN: [
     Permission.PROJECT_READ,
     Permission.PROJECT_UPDATE,
@@ -73,7 +75,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.COMMENT_UPDATE,
     Permission.COMMENT_DELETE,
   ],
-  EDITOR: [
+  MEMBER: [
     Permission.PROJECT_READ,
     Permission.PROJECT_VIEW_MEMBERS,
     Permission.TASK_CREATE,
@@ -93,14 +95,5 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.COMMENT_READ,
     Permission.COMMENT_UPDATE,
     Permission.COMMENT_DELETE,
-  ],
-  VIEWER: [
-    Permission.PROJECT_READ,
-    Permission.PROJECT_VIEW_MEMBERS,
-    Permission.TASK_READ,
-    Permission.SUBTASK_READ,
-    Permission.SECTION_READ,
-    Permission.COMMENT_READ,
-    Permission.COMMENT_CREATE,
   ],
 };

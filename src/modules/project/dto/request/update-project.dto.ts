@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from "class-validator";
+import { IsOptional, IsString, IsUrl } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 
 export class UpdateProjectDto {
@@ -19,7 +19,7 @@ export class UpdateProjectDto {
   readonly description?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl()
   @ApiPropertyOptional({
     example: "https://example.com/logo.png",
     description: "URL of the project logo",

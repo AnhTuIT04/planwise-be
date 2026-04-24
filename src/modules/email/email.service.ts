@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as nodemailer from "nodemailer";
+import { createTransport, SendMailOptions } from "nodemailer";
 
 import { AppConfig } from "@/config/app.config";
 import { SendEmailDto } from "./dto/send-email.dto";
@@ -18,7 +18,7 @@ export class EmailService {
 
   /** Create a reusable transporter instance for Gmail SMTP */
   private emailTransport() {
-    return nodemailer.createTransport({
+    return createTransport({
       host: "smtp.gmail.com",
       port: 587,
       secure: false, // Use TLS
@@ -34,7 +34,7 @@ export class EmailService {
     const { recipients, subject, html } = dto;
     const transporter = this.emailTransport();
 
-    const mailOptions: nodemailer.SendMailOptions = {
+    const mailOptions: SendMailOptions = {
       from: `"PlanWise" <${this.emailUser}>`,
       to: recipients,
       subject,
@@ -74,7 +74,7 @@ export class EmailService {
       </table>
     </body>`;
   }
-  private buildLinkMember(){
+  private buildLinkMember() {
     return `<a href="https://planwise.vercel.app/" style="color: #1a73e8; text-decoration: none;">PlanWise</a>`;
   }
 
@@ -180,7 +180,13 @@ export class EmailService {
   }
 
   /** Send project invitation email */
-  async sendProjectInvitationEmail(email: string, fullname: string, projectName: string, roleName: string, projectId: string) {
+  async sendProjectInvitationEmail(
+    email: string,
+    fullname: string,
+    projectName: string,
+    roleName: string,
+    projectId: string,
+  ) {
     const appConfig = this.configService.get<AppConfig>("env")!;
     const frontendUrl = appConfig.CORS_ORIGIN;
     const invitationLink = `${frontendUrl}/invite-member/?projectId=${projectId}`;

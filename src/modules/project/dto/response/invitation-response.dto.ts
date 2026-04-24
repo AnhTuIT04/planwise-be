@@ -1,8 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { InvitationStatus } from "prisma/client/pg";
 
-import { UserDto } from "@/modules/auth/dto/response/user-response.dto";
-import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
+import { UserDto } from "~/auth/dto/response/user-response.dto";
+import { ResponseDto, OffsetPaginatedResponseDto } from "@/common/dto/response.dto";
 
 export class InvitationDto {
   @ApiProperty({
@@ -62,20 +62,26 @@ export class InvitationDto {
     this.inviter = new UserDto(data.inviter);
     this.status = data.status;
     this.roleId = data.roleId;
-    this.roleName = data.role?.name || "";
+    this.roleName = data.role.name;
     this.createdAt = data.createdAt;
   }
 }
 
-export class InvitationResponseDto extends ResponseDto<InvitationDto> {
+export class InvitationResponse extends ResponseDto<InvitationDto> {
+  @ApiProperty({ type: () => InvitationDto, description: "Detailed invitation information" })
+  declare readonly data: InvitationDto;
+
   constructor(data: any, message: string = "Invitation retrieved successfully") {
     super(new InvitationDto(data), message);
   }
 }
 
-export class InvitationsListResponseDto extends PaginationResponseDto<InvitationDto> {
+export class InvitationsOffsetResponse extends OffsetPaginatedResponseDto<InvitationDto> {
+  @ApiProperty({ type: () => [InvitationDto], description: "List of invitations" })
+  declare readonly data: InvitationDto[];
+
   constructor(
-    data: InvitationDto[],
+    data: any[],
     page: number,
     limit: number,
     totalItems: number,

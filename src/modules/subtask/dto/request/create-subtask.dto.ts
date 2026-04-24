@@ -1,44 +1,31 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsOptional, IsNotEmpty, IsArray, IsUUID, IsInt, Min, IsEnum } from "class-validator";
-
-enum TaskStatus {
-  TODO = "TODO",
-  DONE = "DONE",
-}
+import { IsArray, IsDefined, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
 export class CreateSubtaskDto {
-  @IsNotEmpty()
+  @IsDefined()
   @IsUUID()
   @ApiProperty({
     example: "550e8400-e29b-41d4-a716-446655440000",
     description: "The ID of the parent task",
   })
-  readonly parentTaskId: string;
+  readonly parentTaskId!: string;
 
-  @IsNotEmpty()
+  @IsDefined()
   @IsString()
   @ApiProperty({
     example: "Fix login bug",
     description: "The title of the task",
   })
-  readonly title: string;
+  readonly title!: string;
 
   @IsOptional()
-  @IsString()
+  @IsInt()
+  @Min(0)
   @ApiPropertyOptional({
-    example: "Users can't login with Google OAuth",
-    description: "The description of the task",
+    example: 1,
+    description: "Insert this subtask at a specific index (0-based). If omitted, append at the end.",
   })
-  readonly description?: string;
-
-  @IsOptional()
-  @IsEnum(TaskStatus)
-  @ApiPropertyOptional({
-    enum: TaskStatus,
-    example: TaskStatus.TODO,
-    description: "The status of the subtask",
-  })
-  readonly status?: TaskStatus;
+  readonly insertAt?: number;
 
   @IsOptional()
   @IsInt()
@@ -49,7 +36,7 @@ export class CreateSubtaskDto {
   })
   readonly estimate?: number;
 
-  @IsNotEmpty()
+  @IsDefined()
   @IsArray()
   @IsUUID(undefined, { each: true })
   @ApiProperty({
@@ -57,5 +44,5 @@ export class CreateSubtaskDto {
     example: ["550e8400-e29b-41d4-a716-446655440000"],
     description: "Array of user IDs to assign to this subtask",
   })
-  readonly assigneeIds: string[];
+  readonly assigneeIds!: string[];
 }

@@ -44,6 +44,7 @@ export class MemoryService implements ICacheService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async get<T>(key: string): Promise<T | null> {
     const item = this.cache.get(key);
 
@@ -57,9 +58,10 @@ export class MemoryService implements ICacheService {
       return null;
     }
 
-    return item.value;
+    return item.value as T;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async set<T = any>(key: string, value: T, ttl?: number): Promise<void> {
     const item: CacheItem = { value };
 
@@ -70,6 +72,7 @@ export class MemoryService implements ICacheService {
     this.cache.set(key, item);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async del(key: string): Promise<void> {
     this.cache.delete(key);
   }

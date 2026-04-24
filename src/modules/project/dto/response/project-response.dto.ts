@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { UserDto } from "@/modules/auth/dto/response/user-response.dto";
-import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
+import { ResponseDto, OffsetPaginatedResponseDto } from "@/common/dto/response.dto";
+import { UserDto } from "~/auth/dto/response/user-response.dto";
 import { GetProjectQueryResult } from "../../query/get-project.query";
 
 export class ProjectDto {
@@ -65,7 +65,7 @@ export class ProjectDto {
   }
 }
 
-export class ProjectResponseDto extends ResponseDto<ProjectDto> {
+export class ProjectResponse extends ResponseDto<ProjectDto> {
   @ApiProperty({ type: () => ProjectDto, description: "Project data" })
   declare readonly data: ProjectDto;
 
@@ -74,7 +74,7 @@ export class ProjectResponseDto extends ResponseDto<ProjectDto> {
   }
 }
 
-export class ProjectsListResponseDto extends PaginationResponseDto<ProjectDto> {
+export class ProjectsOffsetResponse extends OffsetPaginatedResponseDto<ProjectDto> {
   @ApiProperty({ type: () => [ProjectDto], description: "Array of project data" })
   declare readonly data: ProjectDto[];
 

@@ -7,7 +7,7 @@ import { ICacheService } from "./interfaces/cache.interface";
 @Injectable()
 export class RedisService implements ICacheService, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
-  private redis: Redis;
+  private redis: Redis | null = null;
   private isConnected = false;
 
   constructor(private readonly configService: ConfigService) {}
@@ -32,6 +32,11 @@ export class RedisService implements ICacheService, OnModuleDestroy {
       });
 
       await new Promise<void>((resolve, reject) => {
+        if (!this.redis) {
+          reject(new Error("Redis client is not initialized"));
+          return;
+        }
+
         this.redis.once("connect", () => {
           this.logger.log("Connected to Redis");
           this.isConnected = true;
@@ -66,14 +71,14 @@ export class RedisService implements ICacheService, OnModuleDestroy {
   }
 
   async get<T>(key: string): Promise<T | null> {
-    if (!this.isConnected) {
+    if (!this.isConnected || !this.redis) {
       throw new Error("Redis is not connected");
     }
 
     try {
       const value = await this.redis.get(key);
       if (!value) return null;
-      return JSON.parse(value);
+      return JSON.parse(value) as T;
     } catch (err) {
       this.logger.error(`Failed to GET ${key}: ${(err as Error).message}`);
       return null;
@@ -81,7 +86,7 @@ export class RedisService implements ICacheService, OnModuleDestroy {
   }
 
   async set<T = any>(key: string, value: T, ttl?: number): Promise<void> {
-    if (!this.isConnected) {
+    if (!this.isConnected || !this.redis) {
       throw new Error("Redis is not connected");
     }
 
@@ -98,7 +103,7 @@ export class RedisService implements ICacheService, OnModuleDestroy {
   }
 
   async del(key: string): Promise<void> {
-    if (!this.isConnected) {
+    if (!this.isConnected || !this.redis) {
       throw new Error("Redis is not connected");
     }
 

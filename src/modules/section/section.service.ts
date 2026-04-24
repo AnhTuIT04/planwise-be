@@ -1,25 +1,21 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 
-import { midpoint } from "@/common/utils";
-import { PgService } from "@/modules/database/pg.service";
-import { MessageResponseDto } from "@/common/dto/message.dto";
-import { GetProjectTasksQueryDto } from "@/modules/project/dto/request/query/get-project-tasks-query.dto";
-import { TasksListResponseDto } from "@/modules/task/dto/response/task-response.dto";
+import { midpoint } from "@/common/utils/positioning.utils";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { PgService } from "~/database/pg.service";
 import { CreateSectionDto } from "./dto/request/create-section.dto";
 import { UpdateSectionDto } from "./dto/request/update-section.dto";
 import { MoveSectionDto } from "./dto/request/move-section.dto";
 import { buildGetSectionQuery } from "./query/get-section.query";
+import { buildGetSectionTasksFilter, GetSectionTasksQueryResult } from "./query/get-section-tasks.query";
 import { buildGetTaskQuery, GetTaskQueryResult } from "../task/query/get-task.query";
-import { SectionResponseDto } from "./dto/response/section-response.dto";
-import { PermissionChecker } from "@/middleware/permission-checker.service";
-import { Permission } from "@/common/enum/permission.enum";
+import { GetSectionTasksQueryDto } from "./dto/request/get-section-tasks-query.dto";
+import { SectionResponse } from "./dto/response/section-response.dto";
+import { SectionTasksResponse } from "./dto/response/section-tasks-response.dto";
 
 @Injectable()
 export class SectionService {
-  constructor(
-    private pg: PgService,
-    private readonly permissionChecker: PermissionChecker,
-  ) {}
+  constructor(private pg: PgService) {}
 
   async create(userId: string, dto: CreateSectionDto) {
     const project = await this.pg.project.findFirst({
@@ -36,7 +32,7 @@ export class SectionService {
     });
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
-    await this.permissionChecker.requirePermission({ userId, projectId: dto.projectId }, Permission.SECTION_CREATE);
+
     let position: string;
     if (project.sections.length === 0) {
       position = midpoint(null, null);
@@ -57,7 +53,86 @@ export class SectionService {
       ...buildGetSectionQuery(),
     });
 
-    return new SectionResponseDto(section, "Section created successfully");
+    return new SectionResponse(section, "Section created successfully");
+  }
+
+  async getSectionTasks(userId: string, sectionId: string, dto: GetSectionTasksQueryDto) {
+    const section = await this.pg.section.findFirst({
+      where: {
+        id: sectionId,
+        project: {
+          members: { some: { userId } },
+        },
+      },
+    });
+
+    if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
+
+    const filter = buildGetSectionTasksFilter({
+      qDeadlineFrom: dto.deadlineFrom,
+      qDeadlineTo: dto.deadlineTo,
+      qStatuses: dto.statuses,
+      qPriorities: dto.priorities,
+      searchQuery: dto.q,
+    });
+
+    const [tasks, totalItems] = await this.pg.$transaction([
+      this.pg.taskSection.findMany({
+        where: {
+          sectionId,
+          task: filter,
+        },
+        orderBy: { position: "asc" },
+        include: {
+          task: buildGetTaskQuery(),
+        },
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+      }),
+      this.pg.taskSection.count({
+        where: {
+          sectionId,
+          task: filter,
+        },
+      }),
+    ]);
+
+    const tasksInWorkspace = await this.pg.taskProject.findMany({
+      where: {
+        project: {
+          ownerId: userId,
+          isPersonal: true,
+        },
+      },
+      select: { taskId: true },
+    });
+
+    const taskIdsInWorkspace = tasksInWorkspace.map((tp) => tp.taskId);
+
+    const tasksInSection: GetTaskQueryResult[] = tasks.map((task) => {
+      const originalProject = task.task.originalProject;
+      const canImport =
+        !task.task.originalProject.isPersonal &&
+        (task.task.supervisorId === userId || task.task.assignees.some((a) => a.user.id === userId));
+      const isImported = taskIdsInWorkspace.includes(task.task.id);
+      return { ...task.task, originalProject, canImport, isImported };
+    });
+
+    const sectionWithTasks: GetSectionTasksQueryResult = {
+      ...section,
+      _count: {
+        tasks: totalItems,
+      },
+      tasks: {
+        data: tasksInSection,
+        pagination: {
+          page: 1,
+          limit: tasksInSection.length,
+        },
+      },
+    };
+
+    return new SectionTasksResponse(sectionWithTasks, "Section tasks retrieved successfully");
   }
 
   async update(userId: string, sectionId: string, dto: UpdateSectionDto) {
@@ -71,7 +146,7 @@ export class SectionService {
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
-    await this.permissionChecker.requirePermission({ userId, projectId: section.projectId }, Permission.SECTION_UPDATE);
+
     const updatedProject = await this.pg.section.update({
       where: { id: sectionId },
       data: {
@@ -80,7 +155,7 @@ export class SectionService {
       ...buildGetSectionQuery(),
     });
 
-    return new SectionResponseDto(updatedProject, "Section updated successfully");
+    return new SectionResponse(updatedProject, "Section updated successfully");
   }
 
   async moveSection(userId: string, sectionId: string, dto: MoveSectionDto) {
@@ -126,7 +201,7 @@ export class SectionService {
       ...buildGetSectionQuery(),
     });
 
-    return new SectionResponseDto(movedSection, "Section moved successfully");
+    return new SectionResponse(movedSection, "Section moved successfully");
   }
 
   async remove(userId: string, sectionId: string) {
@@ -140,83 +215,11 @@ export class SectionService {
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
-    await this.permissionChecker.requirePermission({ userId, projectId: section.projectId }, Permission.SECTION_DELETE);
 
     await this.pg.section.delete({
       where: { id: sectionId },
     });
 
-    return new MessageResponseDto("Section deleted successfully");
-  }
-
-  async getSectionTasks(userId: string, sectionId: string, dto: GetProjectTasksQueryDto) {
-    const section = await this.pg.section.findFirst({
-      where: {
-        id: sectionId,
-        project: {
-          members: { some: { userId } },
-        },
-      },
-      select: {
-        projectId: true,
-      },
-    });
-
-    if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
-
-    await this.permissionChecker.requirePermission({ userId, projectId: section.projectId }, Permission.TASK_READ);
-
-    const tasks = await this.pg.taskSection.findMany({
-      where: {
-        sectionId,
-        task: {
-          ...(dto.deadlineFrom && { deadline: { gte: dto.deadlineFrom } }),
-          ...(dto.deadlineTo && { deadline: { lte: dto.deadlineTo } }),
-          ...(dto.sections && dto.sections.length > 0 && { sectionId: { in: dto.sections } }),
-          ...(dto.statuses && dto.statuses.length > 0 && { status: { in: dto.statuses } }),
-          ...(dto.priorities && dto.priorities.length > 0 && { priority: { in: dto.priorities } }),
-          ...(dto.q && {
-            OR: [
-              { title: { contains: dto.q, mode: "insensitive" } },
-              { description: { contains: dto.q, mode: "insensitive" } },
-            ],
-          }),
-        },
-      },
-      orderBy: { position: "asc" },
-      include: {
-        task: buildGetTaskQuery(),
-      },
-    });
-
-    const tasksInWorkspace = await this.pg.taskProject.findMany({
-      where: {
-        project: {
-          ownerId: userId,
-          isPersonal: true,
-        },
-      },
-      select: { taskId: true },
-    });
-
-    const projectId = section.projectId;
-    const taskIdsInWorkspace = tasksInWorkspace.map((tp) => tp.taskId);
-
-    const tasksInSection: GetTaskQueryResult[] = tasks.map((task) => {
-      const originalProject = task.task.originalProjectId === projectId ? null : task.task.originalProject;
-      const canImport =
-        !task.task.originalProject.isPersonal &&
-        (task.task.supervisorId === userId || task.task.assignees.some((a) => a.user.id === userId));
-      const isImported = taskIdsInWorkspace.includes(task.task.id);
-      return { ...task.task, originalProject, canImport, isImported };
-    });
-
-    return new TasksListResponseDto(
-      tasksInSection,
-      0,
-      tasks.length,
-      tasks.length,
-      "Tasks in the section retrieved successfully",
-    );
+    return new MessageOnlyResponse("Section deleted successfully");
   }
 }

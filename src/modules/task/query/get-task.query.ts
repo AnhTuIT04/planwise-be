@@ -1,4 +1,4 @@
-import { Prisma, Project } from "prisma/client/pg";
+import { type Prisma, type Project } from "prisma/client/pg";
 
 export function buildGetTaskQuery() {
   return {
@@ -16,16 +16,18 @@ export function buildGetTaskQuery() {
               user: true,
             },
           },
-          supervisor: true,
         },
+        orderBy: { position: "asc" },
       },
       originalProject: true,
     },
   } as const satisfies Omit<Prisma.TaskFindUniqueArgs, "where">;
 }
 
-export interface GetTaskQueryResult
-  extends Omit<Prisma.TaskGetPayload<ReturnType<typeof buildGetTaskQuery>>, "originalProject"> {
+export interface GetTaskQueryResult extends Omit<
+  Prisma.TaskGetPayload<ReturnType<typeof buildGetTaskQuery>>,
+  "originalProject"
+> {
   originalProject: Project | null;
   canImport: boolean;
   isImported: boolean;

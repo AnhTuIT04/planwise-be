@@ -1,12 +1,11 @@
 import { Module } from "@nestjs/common";
 
+import { EmailModule } from "~/email/email.module";
 import { ProjectService } from "./project.service";
 import { ProjectController } from "./project.controller";
-import { EmailModule } from "@/modules/email/email.module";
-import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.module";
 
 @Module({
-  imports: [EmailModule, PermissionMiddlewareModule],
+  imports: [EmailModule],
   controllers: [ProjectController],
   providers: [ProjectService],
   exports: [ProjectService],

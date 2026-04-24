@@ -1,19 +1,19 @@
 import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
+import { compare, hash } from "bcrypt";
 
 import { User } from "prisma/client/pg";
-import { UsersService } from "@/modules/users/users.service";
-import { CacheService } from "@/modules/cache/cache.service";
-import { EmailService } from "@/modules/email/email.service";
-import { MessageResponseDto } from "@/common/dto/message.dto";
+import { UsersService } from "~/users/users.service";
+import { CacheService } from "~/cache/cache.service";
+import { EmailService } from "~/email/email.service";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { JwtPayloadDto } from "./dto/jwt-payload.dto";
 import { SignInDto } from "./dto/request/signin.dto";
 import { SignUpDto } from "./dto/request/signup.dto";
 import { VerifyOtpDto } from "./dto/request/verify-otp.dto";
 import { ResetPasswordDto } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
-import { UserResponseDto } from "./dto/response/user-response.dto";
+import { UserResponse } from "./dto/response/user-response.dto";
 
 @Injectable()
 export class AuthService {
@@ -31,7 +31,7 @@ export class AuthService {
 
   private async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
-    if (user && user.password && (await bcrypt.compare(password, user.password))) {
+    if (user && user.password && (await compare(password, user.password))) {
       return user;
     }
     return null;
@@ -48,32 +48,10 @@ export class AuthService {
     return code;
   }
 
-  async signAccessTokenToken(user: { id: string; email: string }) {
+  signAccessTokenToken(user: { id: string; email: string }) {
     const payload: JwtPayloadDto = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload);
     return accessToken;
-  }
-
-  async signRefreshToken(user: { id: string; email: string }) {
-    const payload: JwtPayloadDto = { sub: user.id, email: user.email };
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: "7d" });
-    return refreshToken;
-  }
-
-  async refreshAccessToken(refreshToken: string) {
-    try {
-      const payload = await this.jwtService.verifyAsync(refreshToken);
-      const user = await this.usersService.findById(payload.sub);
-
-      if (!user) {
-        throw new UnauthorizedException("User not found");
-      }
-
-      const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
-      return accessToken;
-    } catch (error) {
-      throw new UnauthorizedException("Invalid or expired refresh token");
-    }
   }
 
   async signup(signUpDto: SignUpDto) {
@@ -82,7 +60,7 @@ export class AuthService {
       throw new ConflictException("Email is already registered");
     }
 
-    const hashedPassword = await bcrypt.hash(signUpDto.password, 10);
+    const hashedPassword = await hash(signUpDto.password, 10);
     const otp = this.generateOtp();
 
     await Promise.all([
@@ -104,7 +82,7 @@ export class AuthService {
       console.error("Failed to send verification email:", err);
     });
 
-    return new MessageResponseDto("Signup successful. Please check your email for the OTP to verify your account.");
+    return new MessageOnlyResponse("Signup successful. Please check your email for the OTP to verify your account.");
   }
 
   async verifyEmail(verifyEmailDto: VerifyOtpDto) {
@@ -129,10 +107,8 @@ export class AuthService {
       this.cacheService.del(this.OTP_CACHE_KEY_PREFIX + verifyEmailDto.email),
     ]);
 
-    const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
-    const refreshToken = await this.signRefreshToken({ id: user.id, email: user.email });
-
-    return { accessToken, refreshToken, user };
+    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
+    return { accessToken, user };
   }
 
   async resendOtp(email: string, isForVerification: boolean) {
@@ -153,17 +129,20 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
-
     await this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + email, otp, this.OTP_TTL);
 
     // Send appropriate email based on context but don't await to avoid delaying response
     if (isForVerification) {
-      this.emailService.sendVerificationEmail(email, otp);
+      this.emailService.sendVerificationEmail(email, otp).catch((err) => {
+        console.error("Failed to send verification email:", err);
+      });
     } else {
-      this.emailService.sendPasswordResetEmail(email, otp);
+      this.emailService.sendPasswordResetEmail(email, otp).catch((err) => {
+        console.error("Failed to send password reset email:", err);
+      });
     }
 
-    return new MessageResponseDto(
+    return new MessageOnlyResponse(
       `A new OTP has been sent to your email for ${isForVerification ? "verification" : "password reset"}.`,
     );
   }
@@ -175,13 +154,14 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
+    await this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + email, otp, this.OTP_TTL);
 
-    await Promise.all([
-      this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + email, otp, this.OTP_TTL),
-      this.emailService.sendPasswordResetEmail(email, otp),
-    ]);
+    // Send password reset email but don't await to avoid delaying response
+    this.emailService.sendPasswordResetEmail(email, otp).catch((err) => {
+      console.error("Failed to send password reset email:", err);
+    });
 
-    return new MessageResponseDto("OTP for password reset has been sent to your email.");
+    return new MessageOnlyResponse("OTP for password reset has been sent to your email.");
   }
 
   async verifyResetPassword(verifyPasswordDto: VerifyOtpDto) {
@@ -196,7 +176,7 @@ export class AuthService {
       throw new BadRequestException("Invalid or expired OTP");
     }
 
-    return new MessageResponseDto("OTP verified successfully. You can now reset your password.");
+    return new MessageOnlyResponse("OTP verified successfully. You can now reset your password.");
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
@@ -211,14 +191,14 @@ export class AuthService {
       throw new BadRequestException("Invalid or expired OTP");
     }
 
-    const hashedPassword = await bcrypt.hash(resetPasswordDto.newPassword, 10);
+    const hashedPassword = await hash(resetPasswordDto.newPassword, 10);
 
     await Promise.all([
       this.usersService.update(existingUser.id, { password: hashedPassword }),
       this.cacheService.del(this.OTP_CACHE_KEY_PREFIX + resetPasswordDto.email),
     ]);
 
-    return new MessageResponseDto("Password has been reset successfully.");
+    return new MessageOnlyResponse("Password has been reset successfully.");
   }
 
   async signin(signInDto: SignInDto) {
@@ -231,10 +211,8 @@ export class AuthService {
       throw new UnauthorizedException("Please verify your email before signing in");
     }
 
-    const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
-    const refreshToken = await this.signRefreshToken({ id: user.id, email: user.email });
-
-    return { accessToken, refreshToken, user };
+    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
+    return { accessToken, user };
   }
 
   async getUserData(userId: string) {
@@ -243,7 +221,7 @@ export class AuthService {
       throw new UnauthorizedException("User not found");
     }
 
-    return new UserResponseDto(user, "User data retrieved successfully.");
+    return new UserResponse(user, "User data retrieved successfully.");
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
@@ -263,11 +241,11 @@ export class AuthService {
 
     // If no fields to update, return current user data
     if (Object.keys(updateData).length === 0) {
-      return new UserResponseDto(existingUser, "Profile retrieved successfully.");
+      return new UserResponse(existingUser, "Profile retrieved successfully.");
     }
 
     const updatedUser = await this.usersService.update(userId, updateData);
-    return new UserResponseDto(updatedUser, "Profile updated successfully.");
+    return new UserResponse(updatedUser, "Profile updated successfully.");
   }
 
   async handleOAuthCallback(user: User) {
@@ -288,7 +266,7 @@ export class AuthService {
     // Remove the OTC from cache after use
     await this.cacheService.del(this.OTC_CACHE_KEY_PREFIX + otc);
 
-    const accessToken = await this.signAccessTokenToken({ id: user.id, email: user.email });
+    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
     return { accessToken, user };
   }
 

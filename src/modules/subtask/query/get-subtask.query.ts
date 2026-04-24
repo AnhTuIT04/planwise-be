@@ -1,16 +1,17 @@
-import { Prisma } from "prisma/client/pg";
+import { type Prisma } from "prisma/client/pg";
+import { buildGetTaskQuery } from "~/task/query/get-task.query";
 
 export function buildGetSubtaskQuery() {
   return {
     include: {
+      parentTask: buildGetTaskQuery(),
       assignees: {
-        select: {
+        include: {
           user: true,
         },
       },
-      supervisor: true,
     },
-  } as const satisfies Omit<Prisma.TaskFindUniqueArgs, "where">;
+  } as const satisfies Omit<Prisma.SubtaskFindUniqueArgs, "where">;
 }
 
-export type GetSubtaskQueryResult = Prisma.TaskGetPayload<ReturnType<typeof buildGetSubtaskQuery>>;
+export type GetSubtaskQueryResult = Prisma.SubtaskGetPayload<ReturnType<typeof buildGetSubtaskQuery>>;

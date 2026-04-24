@@ -1,6 +1,6 @@
 generator PgClient {
   provider = "prisma-client-js"
-  output   = "client/pg"
+  output   = "./client/pg"
 }
 
 datasource pg {
@@ -26,6 +26,7 @@ model User {
   memberships         ProjectMember[]     @relation("UserProjectMemberships")
   supervisedTasks     Task[]              @relation("TaskSupervisor")
   assignedTasks       TaskAssignee[]
+  assignedSubtasks    SubtaskAssignee[]
 }
 
 model OAuthAccount {
@@ -44,6 +45,7 @@ model Project {
   description   String?
   isPersonal    Boolean             @default(false)
   createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
   ownerId       String
   owner         User                @relation("UserOwnsProjects", fields: [ownerId], references: [id], onDelete: Cascade)
   invitations   ProjectInvitation[]
@@ -60,6 +62,7 @@ model Section {
   name      String
   position  String
   createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
   projectId String
   project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks     TaskSection[]
@@ -71,23 +74,36 @@ model Task {
   description       String?
   status            TaskStatus     @default(TODO)
   priority          PriorityLevel  @default(NORMAL)
-  estimate          Int            @default(1200)
+  estimate          Int            @default(1200000) // 20 minutes in milliseconds
   spent             Int            @default(0)
   lastStarted       DateTime?
   deadline          DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
-  originalProjectId String
-  parentTaskId      String?
   supervisorId      String?
+  originalProjectId String
   comments          Comment[]
-  originalProject   Project        @relation("OriginalProjectTasks", fields: [originalProjectId], references: [id], onDelete: Cascade)
-  parentTask        Task?          @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subtasks          Task[]         @relation("TaskSubtasks")
   supervisor        User?          @relation("TaskSupervisor", fields: [supervisorId], references: [id])
+  originalProject   Project        @relation("OriginalProjectTasks", fields: [originalProjectId], references: [id], onDelete: Cascade)
+  subtasks          Subtask[]
   assignees         TaskAssignee[]
   projects          TaskProject[]
   sections          TaskSection[]
+}
+
+model Subtask {
+  id           String            @id @default(uuid())
+  title        String
+  position     String
+  status       TaskStatus        @default(TODO)
+  estimate     Int               @default(1200000) // 20 minutes in milliseconds
+  spent        Int               @default(0)
+  lastStarted  DateTime?
+  assignees    SubtaskAssignee[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  parentTaskId String
+  parentTask   Task              @relation(fields: [parentTaskId], references: [id], onDelete: Cascade)
 }
 
 model TaskProject {
@@ -116,6 +132,15 @@ model TaskAssignee {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([taskId, userId])
+}
+
+model SubtaskAssignee {
+  subtaskId String
+  userId    String
+  subtask   Subtask @relation(fields: [subtaskId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([subtaskId, userId])
 }
 
 model Channel {

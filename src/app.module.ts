@@ -4,22 +4,16 @@ import { ConfigModule } from "@nestjs/config";
 
 import { AppController } from "@/app.controller";
 import { configuration } from "@/config/app.config";
-import { DatabaseModule } from "@/modules/database/database.module";
-import { CacheModule } from "@/modules/cache/cache.module";
-import { JwtGuard } from "@/modules/auth/guards/jwt.guard";
-import { EmailModule } from "./modules/email/email.module";
-import { AuthModule } from "./modules/auth/auth.module";
-import { UsersModule } from "./modules/users/users.module";
-import { TaskModule } from "./modules/task/task.module";
-import { SectionModule } from "./modules/section/section.module";
-import { ProjectModule } from "./modules/project/project.module";
-import { RoleModule } from "./modules/role/role.module";
-import { CommentModule } from "./modules/comment/comment.module";
-import { SubtaskModule } from "./modules/subtask/subtask.module";
-import { PermissionModule } from "./modules/permission/permission.module";
-import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.module";
-import { RealtimeModule } from "./modules/realtime/realtime.module";
-import { ChannelModule } from "./modules/channel/channel.module";
+import { JwtGuard } from "~/auth/guards/jwt.guard";
+import { DatabaseModule } from "~/database/database.module";
+import { CacheModule } from "~/cache/cache.module";
+import { EmailModule } from "~/email/email.module";
+import { UsersModule } from "~/users/users.module";
+import { AuthModule } from "~/auth/auth.module";
+import { ProjectModule } from "~/project/project.module";
+import { SectionModule } from "~/section/section.module";
+import { TaskModule } from "~/task/task.module";
+import { SubtaskModule } from "~/subtask/subtask.module";
 
 @Module({
   imports: [
@@ -36,15 +30,9 @@ import { ChannelModule } from "./modules/channel/channel.module";
     UsersModule,
     AuthModule,
     ProjectModule,
-    RoleModule,
     SectionModule,
     TaskModule,
     SubtaskModule,
-    CommentModule,
-    PermissionModule,
-    PermissionMiddlewareModule,
-    RealtimeModule,
-    ChannelModule,
   ],
   controllers: [AppController],
   providers: [

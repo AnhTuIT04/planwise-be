@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 import { PriorityLevel, TaskStatus } from "prisma/client/pg";
-import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
-import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
-import { ProjectBasicDto } from "@/modules/project/dto/response/project-basic-response.dto";
-import { SubtaskDto } from "@/modules/subtask/dto/response/subtask-response.dto";
+import { OffsetPaginatedResponseDto, ResponseDto } from "@/common/dto/response.dto";
+import { UserBasicDto } from "~/auth/dto/response/user-basic-response.dto";
+import { ProjectBasicDto } from "~/project/dto/response/project-basic-response.dto";
+import { SubtaskDto } from "~/subtask/dto/response/subtask-response.dto";
 import { GetTaskQueryResult } from "../../query/get-task.query";
 
 export class TaskDto {
@@ -94,7 +94,7 @@ export class TaskDto {
   }
 }
 
-export class TaskResponseDto extends ResponseDto<TaskDto> {
+export class TaskResponse extends ResponseDto<TaskDto> {
   @ApiProperty({ type: () => TaskDto, description: "Task data" })
   declare readonly data: TaskDto;
 
@@ -103,7 +103,7 @@ export class TaskResponseDto extends ResponseDto<TaskDto> {
   }
 }
 
-export class TasksListResponseDto extends PaginationResponseDto<TaskDto> {
+export class TasksOffsetResponse extends OffsetPaginatedResponseDto<TaskDto> {
   @ApiProperty({ type: () => [TaskDto], description: "Array of task data" })
   declare readonly data: TaskDto[];
 
