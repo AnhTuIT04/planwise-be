@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
+import { ResponseDto, OffsetPaginatedResponseDto } from "@/common/dto/response.dto";
 import { GetSectionQueryResult } from "../../query/get-section.query";
 
 export class SectionDto {
@@ -28,7 +28,7 @@ export class SectionDto {
   }
 }
 
-export class SectionResponseDto extends ResponseDto<SectionDto> {
+export class SectionResponse extends ResponseDto<SectionDto> {
   @ApiProperty({ type: () => SectionDto, description: "Section data" })
   declare readonly data: SectionDto;
 
@@ -37,7 +37,7 @@ export class SectionResponseDto extends ResponseDto<SectionDto> {
   }
 }
 
-export class SectionsListResponseDto extends PaginationResponseDto<SectionDto> {
+export class SectionsOffsetResponse extends OffsetPaginatedResponseDto<SectionDto> {
   @ApiProperty({ type: () => [SectionDto], description: "Array of sections" })
   declare readonly data: SectionDto[];
 

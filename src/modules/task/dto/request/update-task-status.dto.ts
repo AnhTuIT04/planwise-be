@@ -1,23 +1,23 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsEnum, IsString } from "class-validator";
+import { IsDefined, IsEnum, IsUUID } from "class-validator";
 
-import { TaskStatus } from "prisma/client";
+import { TaskStatus } from "prisma/client/pg";
 
 export class UpdateTaskStatusDto {
-  @IsNotEmpty()
+  @IsDefined()
   @IsEnum(TaskStatus)
   @ApiProperty({
+    enum: TaskStatus,
     example: TaskStatus.TODO,
     description: "The status of the task",
-    enum: TaskStatus,
   })
-  readonly status: TaskStatus;
+  readonly status!: TaskStatus;
 
-  @IsNotEmpty()
-  @IsString()
+  @IsDefined()
+  @IsUUID()
   @ApiProperty({
     example: "sectionId_example",
     description: "The ID of the section",
   })
-  readonly sectionId: string;
+  readonly sectionId!: string;
 }

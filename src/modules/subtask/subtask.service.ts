@@ -1,74 +1,100 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 
-import { DatabaseService } from "@/modules/database/database.service";
+import { TaskStatus } from "prisma/client/pg";
+import { midpoint } from "@/common/utils/positioning.utils";
+import { PgService } from "~/database/pg.service";
+import { buildGetTaskQuery, GetTaskQueryResult } from "~/task/query/get-task.query";
+import { UpdateTaskStatusDto } from "~/task/dto/request/update-task-status.dto";
+import { TaskResponse } from "~/task/dto/response/task-response.dto";
+import { buildGetSubtaskQuery } from "./query/get-subtask.query";
+import { changeSubtaskStatus } from "./utils/change-status";
 import { CreateSubtaskDto } from "./dto/request/create-subtask.dto";
 import { UpdateSubtaskDto } from "./dto/request/update-subtask.dto";
-import { TaskStatus } from "prisma/client";
-import { MessageResponseDto } from "@/common/dto/message.dto";
-import { UpdateTaskStatusDto } from "../task/dto/request/update-task-status.dto";
-import { changeStatus } from "./utils/change-status";
-import { buildGetSubtaskStatusQuery } from "./query/get-subtask-status.query";
+import { MoveSubtaskDto } from "./dto/request/move-subtask.dto";
 import { UpdateSubtaskAssigneesDto } from "./dto/request/update-subtask-assignees.dto";
-import { SubtaskResponseDto } from "./dto/response/subtask-response.dto";
-import { buildGetSubtaskQuery, GetSubtaskQueryResult } from "./query/get-subtask.query";
 
 @Injectable()
 export class SubtaskService {
-  constructor(private db: DatabaseService) {}
+  constructor(private pg: PgService) {}
+
+  private async queryTaskHelper(userId: string, task: Omit<GetTaskQueryResult, "canImport" | "isImported">) {
+    const taskInWorkspace = await this.pg.taskProject.findFirst({
+      where: {
+        taskId: task.id,
+        project: {
+          ownerId: userId,
+          isPersonal: true,
+        },
+      },
+    });
+
+    const originalProject = task.originalProject;
+    const canImport =
+      !task.originalProject?.isPersonal &&
+      (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
+    const isImported = !!taskInWorkspace;
+    return { originalProject, canImport, isImported };
+  }
 
   async create(userId: string, createSubtaskDto: CreateSubtaskDto) {
     const { parentTaskId, ...data } = createSubtaskDto;
-    const parentTask = await this.db.task.findFirst({
+    const parentTask = await this.pg.task.findFirst({
       where: {
         id: parentTaskId,
-        sections: {
+        projects: {
           some: {
-            section: {
-              project: {
-                members: { some: { userId } },
-              },
+            project: {
+              members: { some: { userId } },
             },
           },
         },
       },
-      include: { assignees: true },
+      include: {
+        assignees: true,
+        subtasks: { orderBy: { position: "asc" } },
+      },
     });
 
     if (!parentTask) {
       throw new Error("Parent task not found or you do not have permission to access it");
     }
 
-    const newSubtask: GetSubtaskQueryResult = await this.db.$transaction(
-      async (tx) => {
-        await tx.task.update({
-          where: { id: parentTask.id },
-          data: {
-            status:
-              data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE
-                ? TaskStatus.TODO
-                : undefined,
-            estimate: parentTask.estimate + (data.estimate ?? 1200000),
-          },
-        });
+    // Calculate position in section
+    const positions: string[] = parentTask.subtasks.map((t) => t.position);
+    let position: string;
+    if (positions.length === 0) {
+      position = midpoint(null, null);
+    } else if (data.insertAt === undefined || data.insertAt >= positions.length) {
+      position = midpoint(positions[positions.length - 1], null);
+    } else if (data.insertAt === 0) {
+      position = midpoint(null, positions[0]);
+    } else {
+      position = midpoint(positions[data.insertAt - 1], positions[data.insertAt]);
+    }
 
-        return tx.task.create({
+    const task = await this.pg.$transaction(
+      async (tx) => {
+        await tx.subtask.create({
           data: {
             parentTaskId: parentTask.id,
+            position,
             title: data.title,
             estimate: data.estimate,
-            priority: parentTask.priority,
-            deadline: parentTask.deadline,
-            status: data.status,
-            originalProjectId: parentTask.originalProjectId,
             assignees: {
               create: Array.from(
                 new Set([...parentTask.assignees.map((assignee) => assignee.userId), ...data.assigneeIds]),
-              ).map((userId) => ({
-                userId,
-              })),
+              ).map((userId) => ({ userId })),
             },
           },
-          ...buildGetSubtaskQuery(),
+        });
+
+        return tx.task.update({
+          where: { id: parentTask.id },
+          data: {
+            status: parentTask.status === TaskStatus.DONE ? TaskStatus.TODO : parentTask.status,
+            estimate: parentTask.estimate + (data.estimate ?? 1200000),
+          },
+          ...buildGetTaskQuery(),
         });
       },
       {
@@ -77,20 +103,19 @@ export class SubtaskService {
       },
     );
 
-    return new SubtaskResponseDto(newSubtask, "Subtask created successfully");
+    const taskExtras = await this.queryTaskHelper(userId, task);
+    return new TaskResponse({ ...task, ...taskExtras }, "Subtask created successfully");
   }
 
   async update(userId: string, subtaskId: string, updateSubtaskDto: UpdateSubtaskDto) {
-    const subtask = await this.db.task.findFirst({
+    const subtask = await this.pg.subtask.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
-          sections: {
+          projects: {
             some: {
-              section: {
-                project: {
-                  members: { some: { userId } },
-                },
+              project: {
+                members: { some: { userId } },
               },
             },
           },
@@ -107,7 +132,7 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    const updatedSubtask: GetSubtaskQueryResult = await this.db.task.update({
+    const updatedSubtask = await this.pg.subtask.update({
       where: { id: subtaskId },
       data: {
         title: updateSubtaskDto.title,
@@ -115,7 +140,7 @@ export class SubtaskService {
         parentTask: {
           update: updateSubtaskDto.estimate
             ? {
-                estimate: subtask.parentTask!.estimate + updateSubtaskDto.estimate - subtask.estimate,
+                estimate: subtask.parentTask.estimate + updateSubtaskDto.estimate - subtask.estimate,
               }
             : {},
         },
@@ -123,26 +148,25 @@ export class SubtaskService {
       ...buildGetSubtaskQuery(),
     });
 
-    return new SubtaskResponseDto(updatedSubtask, "Subtask updated successfully");
+    const taskExtras = await this.queryTaskHelper(userId, updatedSubtask.parentTask);
+    return new TaskResponse({ ...updatedSubtask.parentTask, ...taskExtras }, "Subtask updated successfully");
   }
 
   async changeStatus(userId: string, subtaskId: string, dto: UpdateTaskStatusDto) {
-    const subtask = await this.db.task.findFirst({
+    const subtask = await this.pg.subtask.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
-          sections: {
+          projects: {
             some: {
-              section: {
-                project: {
-                  members: { some: { userId } },
-                },
+              project: {
+                members: { some: { userId } },
               },
             },
           },
         },
       },
-      ...buildGetSubtaskStatusQuery(),
+      ...buildGetSubtaskQuery(),
     });
 
     if (!subtask) {
@@ -153,27 +177,78 @@ export class SubtaskService {
       throw new BadRequestException("Subtask is already in the requested status");
     }
 
-    const updatedSubtask: GetSubtaskQueryResult = await changeStatus(
+    const task = await changeSubtaskStatus(
       subtask.status,
       dto.status,
-      this.db,
-      subtask,
+      this.pg,
       dto.sectionId,
+      subtask,
+      subtask.parentTask,
     );
-    return new SubtaskResponseDto(updatedSubtask, "Subtask status updated successfully");
+
+    const taskExtras = await this.queryTaskHelper(userId, task);
+    return new TaskResponse({ ...task, ...taskExtras }, "Subtask status updated successfully");
   }
 
-  async updateAssignees(userId: string, subtaskId: string, dto: UpdateSubtaskAssigneesDto) {
-    const subtask = await this.db.task.findFirst({
+  async moveSubtask(userId: string, subtaskId: string, moveSubtaskDto: MoveSubtaskDto) {
+    const subtask = await this.pg.subtask.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
-          sections: {
+          projects: {
             some: {
-              section: {
-                project: {
-                  members: { some: { userId } },
-                },
+              project: {
+                members: { some: { userId } },
+              },
+            },
+          },
+        },
+      },
+      include: {
+        parentTask: {
+          select: { subtasks: { orderBy: { position: "asc" }, select: { id: true, position: true } } },
+        },
+      },
+    });
+
+    if (!subtask) {
+      throw new Error("Subtask not found or you do not have permission to access it");
+    }
+
+    const subtasks = subtask.parentTask.subtasks.filter((st) => st.id !== subtaskId);
+
+    let newPosition: string;
+    if (subtasks.length === 0) {
+      newPosition = midpoint(null, null);
+    } else if (moveSubtaskDto.moveTo === 0) {
+      newPosition = midpoint(null, subtasks[0].position);
+    } else if (moveSubtaskDto.moveTo >= subtasks.length) {
+      newPosition = midpoint(subtasks[subtasks.length - 1].position, null);
+    } else {
+      newPosition = midpoint(subtasks[moveSubtaskDto.moveTo - 1].position, subtasks[moveSubtaskDto.moveTo].position);
+    }
+
+    const updatedSubtask = await this.pg.subtask.update({
+      where: { id: subtaskId },
+      data: {
+        position: newPosition,
+      },
+      ...buildGetSubtaskQuery(),
+    });
+
+    const taskExtras = await this.queryTaskHelper(userId, updatedSubtask.parentTask);
+    return new TaskResponse({ ...updatedSubtask.parentTask, ...taskExtras }, "Subtask moved successfully");
+  }
+
+  async updateAssignees(userId: string, subtaskId: string, dto: UpdateSubtaskAssigneesDto) {
+    const subtask = await this.pg.subtask.findFirst({
+      where: {
+        id: subtaskId,
+        parentTask: {
+          projects: {
+            some: {
+              project: {
+                members: { some: { userId } },
               },
             },
           },
@@ -190,39 +265,39 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    const updatedSubtask: GetSubtaskQueryResult = await this.db.task.update({
+    const updatedSubtask = await this.pg.subtask.update({
       where: { id: subtaskId },
       data: {
         assignees: {
           deleteMany: {},
           create: Array.from(
-            new Set([...subtask.parentTask!.assignees.map((assignee) => assignee.userId), ...dto.assigneeIds]),
-          ).map((userId) => ({
-            userId,
-          })),
+            new Set([...subtask.parentTask.assignees.map((assignee) => assignee.userId), ...dto.assigneeIds]),
+          ).map((userId) => ({ userId })),
         },
       },
       ...buildGetSubtaskQuery(),
     });
 
-    return new SubtaskResponseDto(updatedSubtask, "Subtask assignees updated successfully");
+    const taskExtras = await this.queryTaskHelper(userId, updatedSubtask.parentTask);
+    return new TaskResponse({ ...updatedSubtask.parentTask, ...taskExtras }, "Subtask assignees updated successfully");
   }
 
   async remove(userId: string, subtaskId: string) {
-    const subtask = await this.db.task.findFirst({
+    const subtask = await this.pg.subtask.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
-          sections: {
+          projects: {
             some: {
-              section: {
-                project: {
-                  members: { some: { userId } },
-                },
+              project: {
+                members: { some: { userId } },
               },
             },
           },
         },
+      },
+      include: {
+        parentTask: true,
       },
     });
 
@@ -230,19 +305,27 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    await this.db.$transaction(async (tx) => {
-      await tx.task.update({
-        where: { id: subtask.parentTaskId! },
-        data: {
-          estimate: {
-            decrement: subtask.estimate,
+    const updatedTask = await this.pg.$transaction(
+      async (tx) => {
+        await this.pg.subtask.delete({
+          where: { id: subtaskId },
+        });
+
+        return tx.task.update({
+          where: { id: subtask.parentTask.id },
+          data: {
+            estimate: subtask.parentTask.estimate - subtask.estimate,
           },
-        },
-      });
+          ...buildGetTaskQuery(),
+        });
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
 
-      await tx.task.delete({ where: { id: subtaskId } });
-    });
-
-    return new MessageResponseDto("Subtask deleted successfully");
+    const taskExtras = await this.queryTaskHelper(userId, updatedTask);
+    return new TaskResponse({ ...updatedTask, ...taskExtras }, "Subtask deleted successfully");
   }
 }

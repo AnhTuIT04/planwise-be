@@ -1,13 +1,13 @@
-import { Controller, Post, Res, Body, UseGuards, Get, Req, HttpCode, HttpStatus, Patch } from "@nestjs/common";
+import { Controller, Post, Res, Body, UseGuards, Get, HttpCode, HttpStatus, Patch } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
-import type { Response } from "express";
-import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
+import { type Response } from "express";
 
 import { AppConfig } from "@/config/app.config";
 import { Public } from "@/decorators/public.decorator";
 import { GetCurrentUser, GetCurrentUserId } from "@/decorators/get-current-user.decorator";
-import { MessageResponseDto } from "@/common/dto/message.dto";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
 import { AuthService } from "./auth.service";
 import { SignInDto } from "./dto/request/signin.dto";
 import { SignUpDto } from "./dto/request/signup.dto";
@@ -15,8 +15,8 @@ import { EmailOnlyDto } from "./dto/request/email-only.dto";
 import { VerifyOtpDto } from "./dto/request/verify-otp.dto";
 import { ResetPasswordDto } from "./dto/request/reset-password.dto";
 import { UpdateProfileDto } from "./dto/request/update-profile.dto";
-import { UserResponseDto } from "./dto/response/user-response.dto";
 import { ExchangeTokenDto } from "./dto/request/exchange-token.dto";
+import { UserResponse } from "./dto/response/user-response.dto";
 
 @ApiTags("Auth")
 @Controller("auth")
@@ -28,7 +28,7 @@ export class AuthController {
       httpOnly: true,
       domain: DOMAIN,
       sameSite: "strict" as const,
-      secure: NODE_ENV === "production",
+      secure: (NODE_ENV as string) === "production",
     };
   }
 
@@ -55,10 +55,10 @@ export class AuthController {
   @ApiOperation({ summary: "Register a new user and send OTP for email verification" })
   @ApiResponse({
     status: 201,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "User registered successfully. OTP sent to email.",
   })
-  async signup(@Body() signUpDto: SignUpDto) {
+  signup(@Body() signUpDto: SignUpDto) {
     return this.authService.signup(signUpDto);
   }
 
@@ -68,14 +68,14 @@ export class AuthController {
   @ApiOperation({ summary: "Verify user email using OTP" })
   @ApiResponse({
     status: 200,
-    type: UserResponseDto,
+    type: UserResponse,
     description: "Email verified successfully and user logged in.",
   })
   async verifyEmail(@Body() verifyEmailDto: VerifyOtpDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.verifyEmail(verifyEmailDto);
     this.setAccessTokenToCookie(res, accessToken);
 
-    return res.json(new UserResponseDto(user, "Email verified successfully. You are now logged in."));
+    return res.json(new UserResponse(user, "Email verified successfully. You are now logged in."));
   }
 
   @Post("verify-email/resend-otp")
@@ -84,10 +84,10 @@ export class AuthController {
   @ApiOperation({ summary: "Resend email verification OTP" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "OTP resent successfully.",
   })
-  async resendVerificationOtp(@Body() dto: EmailOnlyDto) {
+  resendVerificationOtp(@Body() dto: EmailOnlyDto) {
     return this.authService.resendOtp(dto.email, true);
   }
 
@@ -101,10 +101,10 @@ export class AuthController {
   @ApiOperation({ summary: "Send OTP to email for password reset" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "OTP sent to email successfully.",
   })
-  async forgotPassword(@Body() dto: EmailOnlyDto) {
+  forgotPassword(@Body() dto: EmailOnlyDto) {
     return this.authService.forgotPassword(dto.email);
   }
 
@@ -114,10 +114,10 @@ export class AuthController {
   @ApiOperation({ summary: "Verify OTP for password reset" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "OTP verified successfully.",
   })
-  async verifyResetPasswordOtp(@Body() verifyEmailDto: VerifyOtpDto) {
+  verifyResetPasswordOtp(@Body() verifyEmailDto: VerifyOtpDto) {
     return this.authService.verifyResetPassword(verifyEmailDto);
   }
 
@@ -127,10 +127,10 @@ export class AuthController {
   @ApiOperation({ summary: "Reset password using OTP" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "Password reset successfully.",
   })
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
@@ -140,10 +140,10 @@ export class AuthController {
   @ApiOperation({ summary: "Resend password reset OTP" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "OTP resent successfully.",
   })
-  async resendPasswordResetOtp(@Body() dto: EmailOnlyDto) {
+  resendPasswordResetOtp(@Body() dto: EmailOnlyDto) {
     return this.authService.resendOtp(dto.email, false);
   }
 
@@ -194,13 +194,13 @@ export class AuthController {
   @ApiOperation({ summary: "Exchange OTC for access token after OAuth login" })
   @ApiResponse({
     status: 200,
-    type: UserResponseDto,
+    type: UserResponse,
     description: "Access token issued successfully.",
   })
   async exchangeOAuthToken(@Body() dto: ExchangeTokenDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.exchangeOAuthToken(dto.otc);
     this.setAccessTokenToCookie(res, accessToken);
-    return res.json(new UserResponseDto(user, "Sign-in successful."));
+    return res.json(new UserResponse(user, "Sign-in successful."));
   }
 
   // -------------------------------
@@ -213,13 +213,13 @@ export class AuthController {
   @ApiOperation({ summary: "Sign in with verified email and password" })
   @ApiResponse({
     status: 200,
-    type: UserResponseDto,
+    type: UserResponse,
     description: "Sign-in successful.",
   })
   async signin(@Body() signInDto: SignInDto, @Res() res: Response) {
     const { accessToken, user } = await this.authService.signin(signInDto);
     this.setAccessTokenToCookie(res, accessToken);
-    return res.json(new UserResponseDto(user, "Sign-in successful."));
+    return res.json(new UserResponse(user, "Sign-in successful."));
   }
 
   @Post("signout")
@@ -228,12 +228,12 @@ export class AuthController {
   @ApiOperation({ summary: "Sign out (clear auth cookie)" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "Signed out successfully.",
   })
   logout(@Res() res: Response) {
     this.clearAccessTokenCookie(res);
-    return res.json(new MessageResponseDto("Signed out successfully."));
+    return res.json(new MessageOnlyResponse("Signed out successfully."));
   }
 
   // -------------------------------
@@ -244,11 +244,11 @@ export class AuthController {
   @ApiOperation({ summary: "Get currently authenticated user" })
   @ApiResponse({
     status: 200,
-    type: UserResponseDto,
+    type: UserResponse,
     description: "User data retrieved successfully.",
   })
-  async getCurrentUser(@GetCurrentUserId() userId: string) {
-    return await this.authService.getUserData(userId);
+  getCurrentUser(@GetCurrentUserId() userId: string) {
+    return this.authService.getUserData(userId);
   }
 
   @Patch("me")
@@ -256,10 +256,10 @@ export class AuthController {
   @ApiOperation({ summary: "Update current user profile" })
   @ApiResponse({
     status: 200,
-    type: UserResponseDto,
+    type: UserResponse,
     description: "Profile updated successfully.",
   })
-  async updateProfile(@GetCurrentUserId() userId: string, @Body() updateProfileDto: UpdateProfileDto) {
-    return await this.authService.updateProfile(userId, updateProfileDto);
+  updateProfile(@GetCurrentUserId() userId: string, @Body() updateProfileDto: UpdateProfileDto) {
+    return this.authService.updateProfile(userId, updateProfileDto);
   }
 }

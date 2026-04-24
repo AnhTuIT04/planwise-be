@@ -30,7 +30,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const obj = res as Record<string, any>;
         name = obj.error || exception.name;
 
-        if (Array.isArray(obj.message)) {
+        if (Array.isArray(obj.message) && typeof obj.message[0] === "string") {
           message = obj.message[0].trim() || "Unexpected error occurred";
         } else if (typeof obj.message === "string") {
           message = obj.message.trim() || "Unexpected error occurred";

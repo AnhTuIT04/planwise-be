@@ -1,28 +1,36 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
-import { DatabaseService } from "@/modules/database/database.service";
 import { DefaultRole } from "@/common/enum/default-role.enum";
-import { MessageResponseDto } from "@/common/dto/message.dto";
-import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
-import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-with-role-response.dto";
-import { buildGetSectionQuery } from "@/modules/section/query/get-section.query";
-import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
+import { DEFAULT_ROLE_PERMISSIONS } from "@/common/enum/permission.enum";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { PgService } from "~/database/pg.service";
+import { EmailService } from "~/email/email.service";
+import { RolesOffsetResponse } from "~/role/dto/response/role-response.dto";
+import { UsersWithRoleOffsetResponse } from "~/auth/dto/response/user-with-role-response.dto";
+import { buildGetSectionQuery } from "~/section/query/get-section.query";
+import { buildGetSectionTasksQuery, GetSectionTasksQueryResult } from "~/section/query/get-section-tasks.query";
+import { SectionsOffsetResponse } from "~/section/dto/response/section-response.dto";
+import { GetSectionTasksQueryDto } from "~/section/dto/request/get-section-tasks-query.dto";
+import { SectionTasksOffsetResponse } from "~/section/dto/response/section-tasks-response.dto";
+import { buildGetProjectQuery } from "./query/get-project.query";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
-import { InviteMemberDto } from "./dto/request/invite-member.dto";
-import { GetProjectTasksQueryDto } from "./dto/request/query/get-project-tasks-query.dto";
-import { buildGetProjectQuery } from "./query/get-project.query";
-import { buildGetProjectTasksQuery, GetProjectTasksQueryResult } from "./query/get-project-tasks.query";
-import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
-import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
+import { InviteMemberDto, ResponseInvitationDto } from "./dto/request/invite-member.dto";
+import { AssignRoleDto } from "./dto/request/assign-role.dto";
+import { ProjectResponse, ProjectsOffsetResponse } from "./dto/response/project-response.dto";
+import { InvitationsOffsetResponse } from "./dto/response/invitation-response.dto";
 
 @Injectable()
 export class ProjectService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly pg: PgService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
-    const project = await this.db.$transaction(
+    const project = await this.pg.$transaction(
       async (tx) => {
+        // Create project with default roles
         const newProject = await tx.project.create({
           data: {
             ownerId: userId,
@@ -30,14 +38,14 @@ export class ProjectService {
             roles: {
               create: [
                 {
-                  name: DefaultRole.OWNER,
+                  name: DefaultRole.ADMIN,
                   default: true,
-                  permissions: JSON.stringify(["ALL"]),
+                  permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.ADMIN),
                 },
                 {
                   name: DefaultRole.MEMBER,
                   default: true,
-                  permissions: JSON.stringify(["ALL"]),
+                  permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.MEMBER),
                 },
               ],
             },
@@ -49,18 +57,24 @@ export class ProjectService {
           },
         });
 
-        return await tx.project.update({
+        // Get admin role to assign to the project creator
+        const adminRole = newProject.roles.find((role) => role.name === (DefaultRole.ADMIN as string));
+
+        // Assign project creator as Admin with full permissions
+        const updatedProject = await tx.project.update({
           where: { id: newProject.id },
           data: {
             members: {
               create: {
                 userId,
-                roleId: newProject.roles.find((role) => role.name === DefaultRole.OWNER)!.id,
+                roleId: adminRole!.id,
               },
             },
           },
           ...buildGetProjectQuery(),
         });
+
+        return updatedProject;
       },
       {
         maxWait: 5000,
@@ -68,11 +82,11 @@ export class ProjectService {
       },
     );
 
-    return new ProjectResponseDto(project, "Project created successfully");
+    return new ProjectResponse(project, "Project created successfully");
   }
 
   async getAllProjects(userId: string) {
-    const projects = await this.db.project.findMany({
+    const projects = await this.pg.project.findMany({
       where: {
         isPersonal: false,
         members: { some: { userId } },
@@ -80,17 +94,11 @@ export class ProjectService {
       ...buildGetProjectQuery(),
     });
 
-    return new ProjectsListResponseDto(
-      projects,
-      0,
-      projects.length,
-      projects.length,
-      "Projects retrieved successfully",
-    );
+    return new ProjectsOffsetResponse(projects, 0, projects.length, projects.length, "Projects retrieved successfully");
   }
 
   async getDetailedProject(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -100,11 +108,11 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
-    return new ProjectResponseDto(project, "Detailed project retrieved successfully");
+    return new ProjectResponse(project, "Detailed project retrieved successfully");
   }
 
   async update(userId: string, projectId: string, updateProjectDto: UpdateProjectDto) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -114,7 +122,7 @@ export class ProjectService {
     if (!project) throw new NotFoundException("Project not found or you don't have access");
     if (project.isPersonal === true) throw new ForbiddenException("Cannot update personal project");
 
-    const updatedProject = await this.db.project.update({
+    const updatedProject = await this.pg.project.update({
       where: { id: projectId },
       data: {
         name: updateProjectDto.name,
@@ -124,11 +132,11 @@ export class ProjectService {
       ...buildGetProjectQuery(),
     });
 
-    return new ProjectResponseDto(updatedProject, "Project updated successfully");
+    return new ProjectResponse(updatedProject, "Project updated successfully");
   }
 
   async remove(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         ownerId: userId,
@@ -148,15 +156,15 @@ export class ProjectService {
     if (project._count.sections > 0 || project._count.tasks > 0)
       throw new ForbiddenException("Cannot delete project with existing sections or tasks");
 
-    await this.db.project.delete({
+    await this.pg.project.delete({
       where: { id: projectId },
     });
 
-    return new MessageResponseDto("Project deleted successfully");
+    return new MessageOnlyResponse("Project deleted successfully");
   }
 
   async getProjectSections(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -165,7 +173,7 @@ export class ProjectService {
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
 
-    const sections = await this.db.section.findMany({
+    const sections = await this.pg.section.findMany({
       where: {
         projectId,
       },
@@ -173,21 +181,15 @@ export class ProjectService {
       ...buildGetSectionQuery(),
     });
 
-    return new SectionsListResponseDto(
-      sections,
-      0,
-      sections.length,
-      sections.length,
-      "Sections retrieved successfully",
-    );
+    return new SectionsOffsetResponse(sections, 0, sections.length, sections.length, "Sections retrieved successfully");
   }
 
-  async getProjectTasks(userId: string, projectId: string, dto: GetProjectTasksQueryDto) {
+  async getProjectTasks(userId: string, projectId: string, dto: GetSectionTasksQueryDto) {
     if (dto.deadlineFrom && dto.deadlineTo && dto.deadlineFrom > dto.deadlineTo) {
       throw new BadRequestException("Invalid deadline range: 'deadlineFrom' cannot be later than 'deadlineTo'");
     }
 
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -196,25 +198,37 @@ export class ProjectService {
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
 
-    const sections = await this.db.section.findMany({
-      where: {
-        projectId,
-        project: {
-          members: { some: { userId } },
+    const [sections, totalSection] = await this.pg.$transaction([
+      this.pg.section.findMany({
+        where: {
+          projectId,
+          project: {
+            members: { some: { userId } },
+          },
         },
-      },
-      orderBy: { position: "asc" },
-      ...buildGetProjectTasksQuery({
-        qDeadlineFrom: dto.deadlineFrom,
-        qDeadlineTo: dto.deadlineTo,
-        qSections: dto.sections,
-        qStatuses: dto.statuses,
-        aPriorities: dto.priorities,
-        searchQuery: dto.q,
+        orderBy: { position: "asc" },
+        ...buildGetSectionTasksQuery({
+          qDeadlineFrom: dto.deadlineFrom,
+          qDeadlineTo: dto.deadlineTo,
+          qSections: dto.sections,
+          qStatuses: dto.statuses,
+          qPriorities: dto.priorities,
+          searchQuery: dto.q,
+        }),
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
       }),
-    });
+      this.pg.section.count({
+        where: {
+          projectId,
+          project: {
+            members: { some: { userId } },
+          },
+        },
+      }),
+    ]);
 
-    const tasksInWorkspace = await this.db.taskProject.findMany({
+    const tasksInWorkspace = await this.pg.taskProject.findMany({
       where: {
         project: {
           ownerId: userId,
@@ -225,34 +239,40 @@ export class ProjectService {
     });
     const taskIdsInWorkspace = tasksInWorkspace.map((tp) => tp.taskId);
 
-    let tasksInSections: GetProjectTasksQueryResult[] = [];
+    const tasksInSections: GetSectionTasksQueryResult[] = [];
     for (const section of sections) {
       const tasks = section.tasks.map((t) => t.task);
-      const tasksWithExtras: GetProjectTasksQueryResult = {
+      const tasksWithExtras: GetSectionTasksQueryResult = {
         ...section,
-        tasks: tasks.map((task) => {
-          const originalProject = task.originalProjectId === projectId ? null : task.originalProject;
-          const canImport =
-            !task.originalProject.isPersonal &&
-            (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
-          const isImported = taskIdsInWorkspace.includes(task.id);
-          return { task: { ...task, originalProject, canImport, isImported } };
-        }),
+        tasks: {
+          data: tasks.map((task) => {
+            const originalProject = task.originalProject;
+            const canImport =
+              !task.originalProject.isPersonal &&
+              (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
+            const isImported = taskIdsInWorkspace.includes(task.id);
+            return { ...task, originalProject, canImport, isImported };
+          }),
+          pagination: {
+            page: 1,
+            limit: tasks.length,
+          },
+        },
       };
       tasksInSections.push(tasksWithExtras);
     }
 
-    return new ProjectTasksListResponseDto(
+    return new SectionTasksOffsetResponse(
       tasksInSections,
-      0,
-      sections.length,
-      sections.length,
+      dto.page,
+      dto.limit,
+      totalSection,
       "Tasks in project retrieved successfully",
     );
   }
 
   async inviteMember(userId: string, projectId: string, dto: InviteMemberDto) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -277,22 +297,129 @@ export class ProjectService {
     const roleToInvite = dto.roleId && project.roles.find((role) => role.id === dto.roleId);
     if (dto.roleId && !roleToInvite) throw new NotFoundException("Role not found in the project");
 
-    const userToInvite = await this.db.user.findUnique({ where: { email: dto.email } });
+    const userToInvite = await this.pg.user.findUnique({ where: { email: dto.email } });
     if (!userToInvite) throw new NotFoundException("User with the provided email does not exist");
 
-    await this.db.projectMember.create({
+    const roleToAssign = roleToInvite || project.roles.find((role) => role.name === (DefaultRole.MEMBER as string))!;
+
+    await this.pg.projectInvitation.create({
       data: {
         projectId: project.id,
-        userId: userToInvite.id,
-        roleId: roleToInvite ? roleToInvite.id : project.roles.find((role) => role.name === DefaultRole.MEMBER)!.id,
+        inviterId: userId,
+        inviteeId: userToInvite.id,
+        roleId: roleToAssign.id,
       },
     });
 
-    return new MessageResponseDto("Member invited successfully");
+    // Send invitation email no await
+    this.emailService
+      .sendProjectInvitationEmail(dto.email, userToInvite.fullname, project.name, roleToAssign.name, projectId)
+      .catch((emailError) => {
+        console.error("Failed to send invitation email:", emailError);
+      });
+
+    return new MessageOnlyResponse("Member invited successfully");
+  }
+
+  async responseInvitation(userId: string, projectId: string, dto: ResponseInvitationDto) {
+    const result = await this.pg.$transaction(async (tx) => {
+      const invitation = await tx.projectInvitation.findFirst({
+        where: {
+          projectId,
+          inviteeId: userId,
+          status: "PENDING",
+        },
+      });
+
+      if (!invitation) throw new NotFoundException("Invitation not found or already responded to");
+
+      await tx.projectInvitation.update({
+        where: {
+          inviteeId_projectId: {
+            inviteeId: userId,
+            projectId,
+          },
+        },
+        data: {
+          status: dto.response,
+        },
+      });
+
+      if (dto.response === "ACCEPTED") {
+        // Check if the role still exists
+        const role = await tx.role.findUnique({ where: { id: invitation.roleId } });
+        let roleId = invitation.roleId;
+
+        // If role doesn't exist, use the default MEMBER role
+        if (!role) {
+          const defaultRole = await tx.role.findFirst({
+            where: {
+              projectId,
+              name: DefaultRole.MEMBER,
+            },
+          });
+          roleId = defaultRole!.id;
+        }
+
+        await tx.projectMember.create({
+          data: {
+            projectId,
+            userId,
+            roleId,
+          },
+        });
+      }
+
+      return dto.response;
+    });
+
+    return new MessageOnlyResponse(
+      result === "ACCEPTED" ? "Invitation accepted successfully" : "Invitation declined successfully",
+    );
+  }
+
+  async removeMember(_userId: string, projectId: string, memberId: string) {
+    const project = await this.pg.project.findFirst({
+      where: {
+        id: projectId,
+        // ownerId: userId,
+      },
+    });
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    const member = await this.pg.projectMember.findFirst({
+      where: {
+        projectId,
+        userId: memberId,
+      },
+    });
+
+    if (!member) throw new NotFoundException("Member not found in the project");
+
+    await this.pg.$transaction(async (tx) => {
+      // Delete invitation if exists (deleteMany won't error if not found)
+      await tx.projectInvitation.deleteMany({
+        where: {
+          inviteeId: memberId,
+          projectId,
+        },
+      });
+
+      await tx.projectMember.delete({
+        where: {
+          userId_projectId: {
+            userId: memberId,
+            projectId,
+          },
+        },
+      });
+    });
+
+    return new MessageOnlyResponse("Member removed successfully");
   }
 
   async getProjectMembers(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -309,7 +436,7 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
-    return new UsersWithRoleListResponseDto(
+    return new UsersWithRoleOffsetResponse(
       project.members,
       0,
       project.members.length,
@@ -319,7 +446,7 @@ export class ProjectService {
   }
 
   async getProjectRoles(userId: string, projectId: string) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: projectId,
         members: { some: { userId } },
@@ -331,12 +458,138 @@ export class ProjectService {
 
     if (!project) throw new NotFoundException("Project not found or you don't have access");
 
-    return new RolesListResponseDto(
+    return new RolesOffsetResponse(
       project.roles,
       0,
       project.roles.length,
       project.roles.length,
       "Roles of the project retrieved successfully",
+    );
+  }
+
+  async assignRoleToMember(_userId: string, projectId: string, memberId: string, dto: AssignRoleDto) {
+    const project = await this.pg.project.findFirst({
+      where: {
+        id: projectId,
+        // ownerId: userId,
+      },
+      select: {
+        id: true,
+        roles: {
+          select: { id: true },
+        },
+        members: {
+          where: { userId: memberId },
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    if (project.members.length === 0) {
+      throw new NotFoundException("Member not found in the project");
+    }
+
+    const roleExists = project.roles.some((role) => role.id === dto.roleId);
+    if (!roleExists) {
+      throw new NotFoundException("Role not found in the project");
+    }
+
+    await this.pg.projectMember.update({
+      where: {
+        userId_projectId: {
+          userId: memberId,
+          projectId,
+        },
+      },
+      data: {
+        roleId: dto.roleId,
+      },
+    });
+
+    return new MessageOnlyResponse("Member role assigned successfully");
+  }
+
+  async getProjectInvitations(userId: string, projectId: string) {
+    const project = await this.pg.project.findFirst({
+      where: {
+        id: projectId,
+        ownerId: userId,
+      },
+    });
+
+    if (!project) throw new NotFoundException("Project not found or you don't have access");
+
+    const invitations = await this.pg.projectInvitation.findMany({
+      where: {
+        projectId,
+      },
+      include: {
+        inviter: true,
+        invitee: true,
+        role: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const mappedInvitations = invitations.map((invitation) => {
+      return {
+        ...invitation,
+        roleId: invitation.roleId,
+        roleName: invitation.role?.name || "",
+      };
+    });
+
+    return new InvitationsOffsetResponse(
+      mappedInvitations,
+      0,
+      invitations.length,
+      invitations.length,
+      "Project invitations retrieved successfully",
+    );
+  }
+
+  async getReceivedInvitations(userId: string) {
+    const invitations = await this.pg.projectInvitation.findMany({
+      where: {
+        inviteeId: userId,
+      },
+      include: {
+        inviter: true,
+        invitee: true,
+        project: true,
+        role: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const mappedInvitations = invitations.map((invitation) => {
+      return {
+        ...invitation,
+        project: {
+          id: invitation.project.id,
+          name: invitation.project.name,
+          description: invitation.project.description,
+          logoUrl: invitation.project.logoUrl,
+        },
+        roleId: invitation.roleId,
+        roleName: invitation.role?.name || "",
+        projectId: invitation.projectId,
+        projectName: invitation.project.name,
+      };
+    });
+
+    return new InvitationsOffsetResponse(
+      mappedInvitations,
+      0,
+      invitations.length,
+      invitations.length,
+      "Received invitations retrieved successfully",
     );
   }
 }

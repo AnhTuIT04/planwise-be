@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
+import { OffsetPaginatedResponseDto, ResponseDto } from "@/common/dto/response.dto";
 
 export class RoleDto {
   @ApiProperty({
@@ -30,12 +30,12 @@ export class RoleDto {
   constructor(role: { id: string; name: string; permissions: string; default: boolean }) {
     this.id = role.id;
     this.name = role.name;
-    this.permissions = JSON.parse(role.permissions);
     this.default = role.default;
+    this.permissions = JSON.parse(role.permissions);
   }
 }
 
-export class RoleResponseDto extends ResponseDto<RoleDto> {
+export class RoleResponse extends ResponseDto<RoleDto> {
   @ApiProperty({ type: () => RoleDto, description: "Role data" })
   declare readonly data: RoleDto;
 
@@ -44,7 +44,7 @@ export class RoleResponseDto extends ResponseDto<RoleDto> {
   }
 }
 
-export class RolesListResponseDto extends PaginationResponseDto<RoleDto> {
+export class RolesOffsetResponse extends OffsetPaginatedResponseDto<RoleDto> {
   @ApiProperty({ type: () => [RoleDto], description: "Array of role data" })
   declare readonly data: RoleDto[];
 

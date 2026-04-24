@@ -1,7 +1,7 @@
-import { Injectable } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
-import { Strategy } from "passport-github2";
 import { ConfigService } from "@nestjs/config";
+import { Injectable } from "@nestjs/common";
+import { Strategy } from "passport-github2";
 
 import { AppConfig } from "@/config/app.config";
 import { AuthService } from "../auth.service";
@@ -12,12 +12,13 @@ export class GithubStrategy extends PassportStrategy(Strategy, "github") {
     readonly configService: ConfigService,
     private readonly authService: AuthService,
   ) {
-    const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_CALLBACK_URL } = configService.get<AppConfig>("env")!;
+    const { GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, GITHUB_OAUTH_CALLBACK_URL } =
+      configService.get<AppConfig>("env")!;
 
     super({
-      clientID: GITHUB_CLIENT_ID,
-      clientSecret: GITHUB_CLIENT_SECRET,
-      callbackURL: GITHUB_CALLBACK_URL,
+      clientID: GITHUB_OAUTH_CLIENT_ID,
+      clientSecret: GITHUB_OAUTH_CLIENT_SECRET,
+      callbackURL: GITHUB_OAUTH_CALLBACK_URL,
       scope: ["user:email"],
     });
   }
@@ -30,7 +31,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, "github") {
       emails: { value: string }[];
       photos: { value: string }[];
     },
-    done: Function,
+    done: (Err: Error | null, user: any) => void,
   ) {
     const { displayName, emails, photos } = profile;
     const user = await this.authService.validateOAuthUser("GITHUB", {

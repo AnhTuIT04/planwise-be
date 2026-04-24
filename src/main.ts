@@ -1,6 +1,8 @@
-import { ValidationPipe } from "@nestjs/common";
-import type { NestExpressApplication } from "@nestjs/platform-express";
+import "reflect-metadata";
+
+import { type NestExpressApplication } from "@nestjs/platform-express";
 import { ExpressAdapter } from "@nestjs/platform-express";
+import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import cookieParser from "cookie-parser";
@@ -10,21 +12,17 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { AppModule } from "@/app.module";
-import { AppConfig } from "@/config/app.config";
 import { configSwagger } from "@/config/swagger.config";
+import { Environment, type AppConfig } from "@/config/app.config";
 import { GlobalExceptionFilter } from "@/filters/global-exception.filter";
 
-/**
- * Bootstrap function to initialize and configure the NestJS application
- * Sets up middleware, CORS, validation, logging, and global configurations
- * @returns Promise<NestExpressApplication> The configured application instance
- */
 async function bootstrap() {
   // Create NestJS application with Express adapter for enhanced express features
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
 
   // Extract application configuration from ConfigService
-  const { NODE_ENV, PORT, API_PREFIX, API_VERSION, CORS_ORIGIN } = app.get(ConfigService).get<AppConfig>("env")!;
+  const configService = app.get<ConfigService>(ConfigService);
+  const { NODE_ENV, PORT, WS_PORT, API_PREFIX, API_VERSION, CORS_ORIGIN } = configService.get<AppConfig>("env")!;
 
   // Configure CORS (Cross-Origin Resource Sharing) with allowed methods and origins
   app.enableCors({
@@ -38,7 +36,7 @@ async function bootstrap() {
   app.use(helmet());
   app.setGlobalPrefix(`${API_PREFIX}/${API_VERSION}`, { exclude: [] }); // Set global prefix for API routes
   app.use(compression());
-  if (NODE_ENV === "development") {
+  if (NODE_ENV === Environment.Development) {
     app.use(morgan("dev")); // Can change to 'combined' or 'common' for different logging formats
   }
   app.use(cookieParser());
@@ -65,10 +63,13 @@ async function bootstrap() {
   // Configure Swagger/OpenAPI documentation
   configSwagger(app, API_PREFIX, API_VERSION);
 
+  // Set up WebSocket adapter for real-time communication
+
   // Start the HTTP server on the configured port
   await app.listen(PORT);
   const DISPLAY_URL = `http://localhost:${PORT}`;
   console.info(`Application is running on: ${DISPLAY_URL}`);
+  console.info(`Socket server is running on: http://localhost:${WS_PORT}`);
   console.info(`API documentation available at: ${DISPLAY_URL}/${API_PREFIX}/${API_VERSION}/docs`);
 
   return app;

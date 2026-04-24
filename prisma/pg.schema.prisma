@@ -1,0 +1,235 @@
+generator PgClient {
+  provider = "prisma-client-js"
+  output   = "./client/pg"
+}
+
+datasource pg {
+  provider = "postgresql"
+  url      = env("POSTGRES_DATABASE_URL")
+}
+
+model User {
+  id                  String              @id @default(uuid())
+  email               String              @unique
+  password            String?
+  fullname            String
+  avatarUrl           String?
+  verified            Boolean             @default(false)
+  workspaceId         String
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  comments            Comment[]
+  oauthAccounts       OAuthAccount[]
+  ownedProjects       Project[]           @relation("UserOwnsProjects")
+  receivedInvitations ProjectInvitation[] @relation("UserInvitee")
+  sentInvitations     ProjectInvitation[] @relation("UserInviter")
+  memberships         ProjectMember[]     @relation("UserProjectMemberships")
+  supervisedTasks     Task[]              @relation("TaskSupervisor")
+  assignedTasks       TaskAssignee[]
+  assignedSubtasks    SubtaskAssignee[]
+}
+
+model OAuthAccount {
+  id       String       @id @default(uuid())
+  provider AuthProvider
+  userId   String
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model Project {
+  id            String              @id @default(uuid())
+  name          String
+  logoUrl       String?
+  description   String?
+  isPersonal    Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  ownerId       String
+  owner         User                @relation("UserOwnsProjects", fields: [ownerId], references: [id], onDelete: Cascade)
+  invitations   ProjectInvitation[]
+  members       ProjectMember[]     @relation("ProjectHasMembers")
+  roles         Role[]
+  channels      Channel[]
+  sections      Section[]
+  originalTasks Task[]              @relation("OriginalProjectTasks")
+  tasks         TaskProject[]
+}
+
+model Section {
+  id        String        @id @default(uuid())
+  name      String
+  position  String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  projectId String
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     TaskSection[]
+}
+
+model Task {
+  id                String         @id @default(uuid())
+  title             String
+  description       String?
+  status            TaskStatus     @default(TODO)
+  priority          PriorityLevel  @default(NORMAL)
+  estimate          Int            @default(1200000) // 20 minutes in milliseconds
+  spent             Int            @default(0)
+  lastStarted       DateTime?
+  deadline          DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  supervisorId      String?
+  originalProjectId String
+  comments          Comment[]
+  supervisor        User?          @relation("TaskSupervisor", fields: [supervisorId], references: [id])
+  originalProject   Project        @relation("OriginalProjectTasks", fields: [originalProjectId], references: [id], onDelete: Cascade)
+  subtasks          Subtask[]
+  assignees         TaskAssignee[]
+  projects          TaskProject[]
+  sections          TaskSection[]
+}
+
+model Subtask {
+  id           String            @id @default(uuid())
+  title        String
+  position     String
+  status       TaskStatus        @default(TODO)
+  estimate     Int               @default(1200000) // 20 minutes in milliseconds
+  spent        Int               @default(0)
+  lastStarted  DateTime?
+  assignees    SubtaskAssignee[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  parentTaskId String
+  parentTask   Task              @relation(fields: [parentTaskId], references: [id], onDelete: Cascade)
+}
+
+model TaskProject {
+  taskId    String
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, projectId])
+}
+
+model TaskSection {
+  taskId    String
+  sectionId String
+  position  String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, sectionId])
+}
+
+model TaskAssignee {
+  taskId String
+  userId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+}
+
+model SubtaskAssignee {
+  subtaskId String
+  userId    String
+  subtask   Subtask @relation(fields: [subtaskId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([subtaskId, userId])
+}
+
+model Channel {
+  id        String      @id @default(uuid())
+  name      String
+  type      ChannelType
+  projectId String
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  authorId  String
+  taskId    String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model ProjectInvitation {
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  inviterId String
+  projectId String
+  inviteeId String
+  roleId    String
+  invitee   User             @relation("UserInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  inviter   User             @relation("UserInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      Role             @relation(fields: [roleId], references: [id])
+
+  @@id([inviteeId, projectId])
+}
+
+model ProjectMember {
+  userId    String
+  projectId String
+  roleId    String
+  project   Project @relation("ProjectHasMembers", fields: [projectId], references: [id], onDelete: Cascade)
+  role      Role    @relation(fields: [roleId], references: [id])
+  user      User    @relation("UserProjectMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+}
+
+model Role {
+  id          String              @id @default(uuid())
+  name        String
+  permissions String              @default("[]")
+  default     Boolean             @default(false)
+  projectId   String
+  invitations ProjectInvitation[]
+  members     ProjectMember[]
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([name, projectId])
+}
+
+enum AuthProvider {
+  GOOGLE
+  GITHUB
+}
+
+enum TaskStatus {
+  TODO
+  RUNNING
+  DONE
+  ARCHIVED
+}
+
+enum PriorityLevel {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+  VIDEO
+}

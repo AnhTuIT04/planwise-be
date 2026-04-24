@@ -1,14 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { IsDefined, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
 export class CreateSectionDto {
-  @IsNotEmpty()
+  @IsDefined()
   @IsString()
   @ApiProperty({
     example: "To Do",
     description: "The name of the section",
   })
-  readonly name: string;
+  readonly name!: string;
 
   @IsOptional()
   @IsInt()
@@ -19,11 +19,11 @@ export class CreateSectionDto {
   })
   readonly insertAt?: number;
 
-  @IsNotEmpty()
+  @IsDefined()
   @IsUUID()
   @ApiProperty({
     example: "550e8400-e29b-41d4-a716-446655440000",
     description: "The ID of the project this section belongs to",
   })
-  readonly projectId: string;
+  readonly projectId!: string;
 }

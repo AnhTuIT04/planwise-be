@@ -3,8 +3,8 @@ import { JwtModule } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { PassportModule } from "@nestjs/passport";
 
-import { UsersModule } from "@/modules/users/users.module";
-import { EmailModule } from "@/modules/email/email.module";
+import { UsersModule } from "~/users/users.module";
+import { EmailModule } from "~/email/email.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
@@ -18,7 +18,7 @@ import { GithubStrategy } from "./strategies/github.strategy";
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>("env.JWT_SECRET"),
-        signOptions: { expiresIn: "1h" },
+        signOptions: { expiresIn: configService.get<string>("env.JWT_ACCESS_TOKEN_EXPIRATION") as any },
       }),
       inject: [ConfigService],
     }),
@@ -27,6 +27,6 @@ import { GithubStrategy } from "./strategies/github.strategy";
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleAuthGuard, GithubStrategy],
-  exports: [AuthService],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

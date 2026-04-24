@@ -1,7 +1,7 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsOptional, IsUUID, IsDateString, IsNotEmpty, IsEnum, IsArray, IsInt, Min } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsInt, IsDateString, IsDefined, IsEnum, IsOptional, IsString, IsUUID, Min, ValidateIf } from "class-validator";
 
-import { PriorityLevel } from "prisma/client";
+import { PriorityLevel } from "prisma/client/pg";
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -23,9 +23,9 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsEnum(PriorityLevel)
   @ApiPropertyOptional({
+    enum: PriorityLevel,
     example: PriorityLevel.HIGH,
     description: "The priority level of the task",
-    enum: PriorityLevel,
   })
   readonly priority?: PriorityLevel;
 
@@ -39,12 +39,22 @@ export class UpdateTaskDto {
   readonly estimate?: number;
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsDateString()
   @ApiPropertyOptional({
     example: "2023-10-25T10:30:00.000Z",
     description: "The deadline of the task in ISO 8601 format",
+    nullable: true,
   })
-  readonly deadline?: string;
+  readonly deadline?: string | null;
+
+  @IsDefined()
+  @IsUUID()
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "The ID of the section the task belongs to",
+  })
+  readonly sectionId!: string;
 
   @IsOptional()
   @IsUUID()

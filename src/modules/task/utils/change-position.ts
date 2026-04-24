@@ -1,23 +1,23 @@
-import { midpoint } from "@/common/utils";
-import { DatabaseService } from "@/modules/database/database.service";
-import { PrismaClient } from "@prisma/client";
+import { midpoint } from "@/common/utils/positioning.utils";
+import { type PgService } from "~/database/pg.service";
 
-export async function moveToFirstPosition(db: DatabaseService | PrismaClient, taskId: string, sectionId: string) {
-  const tasksNeedToChangePosition = await db.taskSection.findMany({
+export async function moveToFirstPosition(pg: PgService, taskId: string, sectionId: string) {
+  const tasksNeedToChangePosition = await pg.taskSection.findMany({
     where: {
-      sectionId: sectionId,
+      sectionId,
     },
     orderBy: { position: "asc" },
   });
 
-  if (tasksNeedToChangePosition.length === 1) return; // Only the task itself exists in the section
+  // Only the task itself exists in the section
+  if (tasksNeedToChangePosition.length === 1) return;
 
   const newPosition = midpoint(null, tasksNeedToChangePosition[0].position);
-  return await db.taskSection.update({
+  return await pg.taskSection.update({
     where: {
       taskId_sectionId: {
-        taskId: taskId,
-        sectionId: sectionId,
+        taskId,
+        sectionId,
       },
     },
     data: {
@@ -26,22 +26,23 @@ export async function moveToFirstPosition(db: DatabaseService | PrismaClient, ta
   });
 }
 
-export async function moveToLastPosition(db: DatabaseService | PrismaClient, taskId: string, sectionId: string) {
-  const tasksNeedToChangePosition = await db.taskSection.findMany({
+export async function moveToLastPosition(pg: PgService, taskId: string, sectionId: string) {
+  const tasksNeedToChangePosition = await pg.taskSection.findMany({
     where: {
-      sectionId: sectionId,
+      sectionId,
     },
     orderBy: { position: "desc" },
   });
 
-  if (tasksNeedToChangePosition.length === 1) return; // Only the task itself exists in the section
+  // Only the task itself exists in the section
+  if (tasksNeedToChangePosition.length === 1) return;
 
   const newPosition = midpoint(tasksNeedToChangePosition[0].position, null);
-  return await db.taskSection.update({
+  return await pg.taskSection.update({
     where: {
       taskId_sectionId: {
-        taskId: taskId,
-        sectionId: sectionId,
+        taskId,
+        sectionId,
       },
     },
     data: {

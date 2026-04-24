@@ -1,20 +1,23 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
-import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
-import { MessageResponseDto } from "@/common/dto/message.dto";
-import { RolesListResponseDto } from "@/modules/role/dto/response/role-response.dto";
-import { UsersWithRoleListResponseDto } from "@/modules/auth/dto/response/user-with-role-response.dto";
-import { SectionsListResponseDto } from "@/modules/section/dto/response/section-response.dto";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { RolesOffsetResponse } from "~/role/dto/response/role-response.dto";
+import { UsersWithRoleOffsetResponse } from "~/auth/dto/response/user-with-role-response.dto";
+import { SectionsOffsetResponse } from "~/section/dto/response/section-response.dto";
+import { GetSectionTasksQueryDto } from "~/section/dto/request/get-section-tasks-query.dto";
+import { SectionTasksOffsetResponse } from "~/section/dto/response/section-tasks-response.dto";
 import { ProjectService } from "./project.service";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
-import { InviteMemberDto } from "./dto/request/invite-member.dto";
-import { GetProjectTasksQueryDto } from "./dto/request/query/get-project-tasks-query.dto";
-import { ProjectResponseDto, ProjectsListResponseDto } from "./dto/response/project-response.dto";
-import { ProjectTasksListResponseDto } from "./dto/response/project-tasks-response.dto";
+import { InviteMemberDto, ResponseInvitationDto } from "./dto/request/invite-member.dto";
+import { AssignRoleDto } from "./dto/request/assign-role.dto";
+import { ProjectResponse, ProjectsOffsetResponse } from "./dto/response/project-response.dto";
+import { InvitationsOffsetResponse } from "./dto/response/invitation-response.dto";
 
-@Controller("project")
+@ApiTags("Project")
+@Controller("projects")
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
@@ -23,7 +26,7 @@ export class ProjectController {
   @ApiOperation({ summary: "Create a project" })
   @ApiResponse({
     status: 201,
-    type: ProjectResponseDto,
+    type: ProjectResponse,
     description: "Project created successfully",
   })
   create(@GetCurrentUserId() userId: string, @Body() createProjectDto: CreateProjectDto) {
@@ -35,7 +38,7 @@ export class ProjectController {
   @ApiOperation({ summary: "Get all projects" })
   @ApiResponse({
     status: 200,
-    type: ProjectsListResponseDto,
+    type: ProjectsOffsetResponse,
     description: "Projects retrieved successfully",
   })
   getAllProjects(@GetCurrentUserId() userId: string) {
@@ -47,7 +50,7 @@ export class ProjectController {
   @ApiOperation({ summary: "Get detailed project by ID" })
   @ApiResponse({
     status: 200,
-    type: ProjectResponseDto,
+    type: ProjectResponse,
     description: "Detailed project retrieved successfully",
   })
   getDetailedProject(@Param("id") id: string, @GetCurrentUserId() userId: string) {
@@ -59,7 +62,7 @@ export class ProjectController {
   @ApiOperation({ summary: "Update a project" })
   @ApiResponse({
     status: 200,
-    type: ProjectResponseDto,
+    type: ProjectResponse,
     description: "Project updated successfully",
   })
   update(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() updateProjectDto: UpdateProjectDto) {
@@ -71,7 +74,7 @@ export class ProjectController {
   @ApiOperation({ summary: "Delete a project" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "Project deleted successfully",
   })
   remove(@Param("id") id: string, @GetCurrentUserId() userId: string) {
@@ -83,7 +86,7 @@ export class ProjectController {
   @ApiOperation({ summary: "Get all sections in a project" })
   @ApiResponse({
     status: 200,
-    type: SectionsListResponseDto,
+    type: SectionsOffsetResponse,
     description: "Sections in the project retrieved successfully",
   })
   getProjectSections(@Param("id") id: string, @GetCurrentUserId() userId: string) {
@@ -95,10 +98,10 @@ export class ProjectController {
   @ApiOperation({ summary: "Get all tasks in a project" })
   @ApiResponse({
     status: 200,
-    type: ProjectTasksListResponseDto,
+    type: SectionTasksOffsetResponse,
     description: "Tasks in the project retrieved successfully",
   })
-  getProjectTasks(@Param("id") id: string, @GetCurrentUserId() userId: string, @Query() dto: GetProjectTasksQueryDto) {
+  getProjectTasks(@Param("id") id: string, @GetCurrentUserId() userId: string, @Query() dto: GetSectionTasksQueryDto) {
     return this.projectService.getProjectTasks(userId, id, dto);
   }
 
@@ -107,11 +110,35 @@ export class ProjectController {
   @ApiOperation({ summary: "Invite a member to the project" })
   @ApiResponse({
     status: 200,
-    type: MessageResponseDto,
+    type: MessageOnlyResponse,
     description: "Member invited successfully",
   })
   inviteMember(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: InviteMemberDto) {
     return this.projectService.inviteMember(userId, id, dto);
+  }
+
+  @Post(":id/members/response-invitation")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Respond to a project invitation" })
+  @ApiResponse({
+    status: 200,
+    type: MessageOnlyResponse,
+    description: "Response to invitation recorded successfully",
+  })
+  responseInvitation(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: ResponseInvitationDto) {
+    return this.projectService.responseInvitation(userId, id, dto);
+  }
+
+  @Delete(":id/members/:memberId")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Remove a member from a project" })
+  @ApiResponse({
+    status: 200,
+    type: MessageOnlyResponse,
+    description: "Member removed successfully",
+  })
+  removeMember(@Param("id") id: string, @GetCurrentUserId() userId: string, @Param("memberId") memberId: string) {
+    return this.projectService.removeMember(userId, id, memberId);
   }
 
   @Get(":id/members")
@@ -119,7 +146,7 @@ export class ProjectController {
   @ApiOperation({ summary: "Get all members of a project" })
   @ApiResponse({
     status: 200,
-    type: UsersWithRoleListResponseDto,
+    type: UsersWithRoleOffsetResponse,
     description: "Members of the project retrieved successfully",
   })
   getProjectMembers(@Param("id") id: string, @GetCurrentUserId() userId: string) {
@@ -131,10 +158,51 @@ export class ProjectController {
   @ApiOperation({ summary: "Get all roles of a project" })
   @ApiResponse({
     status: 200,
-    type: RolesListResponseDto,
+    type: RolesOffsetResponse,
     description: "Roles of the project retrieved successfully",
   })
   getProjectRoles(@Param("id") id: string, @GetCurrentUserId() userId: string) {
     return this.projectService.getProjectRoles(userId, id);
+  }
+
+  @Patch(":id/members/:memberId/role")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Assign a role to a project member" })
+  @ApiResponse({
+    status: 200,
+    type: MessageOnlyResponse,
+    description: "Member role assigned successfully",
+  })
+  assignRoleToMember(
+    @Param("id") id: string,
+    @Param("memberId") memberId: string,
+    @GetCurrentUserId() userId: string,
+    @Body() dto: AssignRoleDto,
+  ) {
+    return this.projectService.assignRoleToMember(userId, id, memberId, dto);
+  }
+
+  @Get("invitations/received")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get all received invitations" })
+  @ApiResponse({
+    status: 200,
+    type: InvitationsOffsetResponse,
+    description: "Received invitations retrieved successfully",
+  })
+  getReceivedInvitations(@GetCurrentUserId() userId: string) {
+    return this.projectService.getReceivedInvitations(userId);
+  }
+
+  @Get(":id/invitations")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get all invitations sent in a project" })
+  @ApiResponse({
+    status: 200,
+    type: InvitationsOffsetResponse,
+    description: "Project invitations retrieved successfully",
+  })
+  getProjectInvitations(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.projectService.getProjectInvitations(userId, id);
   }
 }

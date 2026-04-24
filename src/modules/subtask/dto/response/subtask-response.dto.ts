@@ -1,8 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
-import { TaskStatus } from "prisma/client";
-import { ResponseDto } from "@/common/dto/response.dto";
-import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
+import { TaskStatus } from "prisma/client/pg";
+import { UserBasicDto } from "~/auth/dto/response/user-basic-response.dto";
 import { GetSubtaskQueryResult } from "../../query/get-subtask.query";
 
 export class SubtaskDto {
@@ -38,24 +37,15 @@ export class SubtaskDto {
   @ApiProperty({ example: "2024-06-20T12:00:00Z", description: "Timestamp of last task update", format: "date-time" })
   readonly updatedAt: Date;
 
-  constructor(task: GetSubtaskQueryResult) {
-    this.id = task.id;
-    this.title = task.title;
-    this.status = task.status;
-    this.estimate = task.estimate;
-    this.spent = task.spent;
-    this.lastStarted = task.lastStarted;
-    this.assignees = task.assignees.map((assignee) => new UserBasicDto(assignee.user));
-    this.createdAt = task.createdAt;
-    this.updatedAt = task.updatedAt;
-  }
-}
-
-export class SubtaskResponseDto extends ResponseDto<SubtaskDto> {
-  @ApiProperty({ type: () => SubtaskDto, description: "Subtask data" })
-  declare readonly data: SubtaskDto;
-
-  constructor(data: GetSubtaskQueryResult, message?: string) {
-    super(new SubtaskDto(data), message);
+  constructor(subtask: GetSubtaskQueryResult["parentTask"]["subtasks"][number]) {
+    this.id = subtask.id;
+    this.title = subtask.title;
+    this.status = subtask.status;
+    this.estimate = subtask.estimate;
+    this.spent = subtask.spent;
+    this.lastStarted = subtask.lastStarted;
+    this.assignees = subtask.assignees.map((assignee) => new UserBasicDto(assignee.user));
+    this.createdAt = subtask.createdAt;
+    this.updatedAt = subtask.updatedAt;
   }
 }

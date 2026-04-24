@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
-import { ResponseDto, PaginationResponseDto } from "@/common/dto/response.dto";
+import { ResponseDto, OffsetPaginatedResponseDto } from "@/common/dto/response.dto";
+import { UserDto } from "~/auth/dto/response/user-response.dto";
 import { GetProjectQueryResult } from "../../query/get-project.query";
 
 export class ProjectDto {
@@ -9,10 +9,10 @@ export class ProjectDto {
   readonly id: string;
 
   @ApiProperty({
-    type: () => UserBasicDto,
+    type: () => UserDto,
     description: "Owner information object",
   })
-  readonly owner: UserBasicDto;
+  readonly owner: UserDto;
 
   @ApiProperty({ example: "Website Redesign", description: "Project name" })
   readonly name: string;
@@ -53,7 +53,7 @@ export class ProjectDto {
 
   constructor(project: GetProjectQueryResult) {
     this.id = project.id;
-    this.owner = new UserBasicDto(project.owner);
+    this.owner = new UserDto(project.owner);
     this.name = project.name;
     this.description = project.description;
     this.logoUrl = project.logoUrl;
@@ -65,7 +65,7 @@ export class ProjectDto {
   }
 }
 
-export class ProjectResponseDto extends ResponseDto<ProjectDto> {
+export class ProjectResponse extends ResponseDto<ProjectDto> {
   @ApiProperty({ type: () => ProjectDto, description: "Project data" })
   declare readonly data: ProjectDto;
 
@@ -74,7 +74,7 @@ export class ProjectResponseDto extends ResponseDto<ProjectDto> {
   }
 }
 
-export class ProjectsListResponseDto extends PaginationResponseDto<ProjectDto> {
+export class ProjectsOffsetResponse extends OffsetPaginatedResponseDto<ProjectDto> {
   @ApiProperty({ type: () => [ProjectDto], description: "Array of project data" })
   declare readonly data: ProjectDto[];
 

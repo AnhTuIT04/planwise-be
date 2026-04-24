@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-import { Project } from "prisma/client";
+import { Project } from "prisma/client/pg";
 import { ResponseDto } from "@/common/dto/response.dto";
 
 export class ProjectBasicDto {
@@ -41,7 +41,7 @@ export class ProjectBasicDto {
   }
 }
 
-export class ProjectBasicResponseDto extends ResponseDto<ProjectBasicDto> {
+export class ProjectBasicResponse extends ResponseDto<ProjectBasicDto> {
   @ApiProperty({ type: () => ProjectBasicDto, description: "Project data" })
   declare readonly data: ProjectBasicDto;
 
