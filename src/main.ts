@@ -22,7 +22,7 @@ async function bootstrap() {
 
   // Extract application configuration from ConfigService
   const configService = app.get<ConfigService>(ConfigService);
-  const { NODE_ENV, PORT, WS_PORT, API_PREFIX, API_VERSION, CORS_ORIGIN } = configService.get<AppConfig>("env")!;
+  const { NODE_ENV, PORT, WS_PORT, CORS_ORIGIN } = configService.get<AppConfig>("env")!;
 
   // Configure CORS (Cross-Origin Resource Sharing) with allowed methods and origins
   app.enableCors({
@@ -34,7 +34,6 @@ async function bootstrap() {
   // Set up common middleware for security, compression, logging, and request parsing
   app.enable("trust proxy"); // Only if you're behind a reverse proxy (Heroku, Bluemix, AWS ELB, Nginx, etc)
   app.use(helmet());
-  app.setGlobalPrefix(`${API_PREFIX}/${API_VERSION}`, { exclude: [] }); // Set global prefix for API routes
   app.use(compression());
   if (NODE_ENV === Environment.Development) {
     app.use(morgan("dev")); // Can change to 'combined' or 'common' for different logging formats
@@ -61,7 +60,7 @@ async function bootstrap() {
   );
 
   // Configure Swagger/OpenAPI documentation
-  configSwagger(app, API_PREFIX, API_VERSION);
+  configSwagger(app);
 
   // Set up WebSocket adapter for real-time communication
 
@@ -70,7 +69,7 @@ async function bootstrap() {
   const DISPLAY_URL = `http://localhost:${PORT}`;
   console.info(`Application is running on: ${DISPLAY_URL}`);
   console.info(`Socket server is running on: http://localhost:${WS_PORT}`);
-  console.info(`API documentation available at: ${DISPLAY_URL}/${API_PREFIX}/${API_VERSION}/docs`);
+  console.info(`API documentation available at: ${DISPLAY_URL}/api-docs`);
 
   return app;
 }

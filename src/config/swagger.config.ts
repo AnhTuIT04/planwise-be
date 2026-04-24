@@ -5,11 +5,9 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
  * Configures Swagger/OpenAPI documentation for the application
  * Sets up API docs with authentication, versioning, and REST standards
  */
-export function configSwagger(app: INestApplication, apiPrefix: string, apiVersion: string): void {
+export function configSwagger(app: INestApplication): void {
   const documentBuilder = new DocumentBuilder()
     .setTitle("API documentation for PlanWise")
-    .setVersion(apiVersion)
-    .addServer(`/${apiPrefix}/${apiVersion}`)
     .addBearerAuth(
       {
         type: "http",
@@ -25,7 +23,7 @@ export function configSwagger(app: INestApplication, apiPrefix: string, apiVersi
     ignoreGlobalPrefix: true,
   });
 
-  SwaggerModule.setup(`${apiPrefix}/${apiVersion}/docs`, app, document, {
+  SwaggerModule.setup("api-docs", app, document, {
     swaggerOptions: {
       persistAuthorization: true, // Remember JWT token across page refreshes
     },

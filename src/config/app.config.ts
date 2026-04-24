@@ -55,14 +55,6 @@ export class AppConfig {
   @IsString()
   DOMAIN!: string;
 
-  /** API route prefix (e.g., 'api' for /api/v1/...) */
-  @IsString()
-  API_PREFIX: string = "api";
-
-  /** API version identifier (e.g., 'v1' for /api/v1/...) */
-  @IsString()
-  API_VERSION: string = "v1";
-
   /** Allowed origin for CORS */
   @IsString()
   CORS_ORIGIN!: string;
