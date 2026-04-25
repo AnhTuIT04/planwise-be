@@ -90,4 +90,12 @@ export class GetProjectTasksQueryDto {
     description: "Optional search query to filter tasks by title or description",
   })
   readonly q?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "NOTION",
+    description: "Optional filter to get tasks from specific platform",
+  })
+  readonly platform?: string;
 }

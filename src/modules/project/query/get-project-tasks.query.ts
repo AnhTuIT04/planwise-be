@@ -45,8 +45,10 @@ export function buildGetProjectTasksQuery({
   } as const satisfies Omit<Prisma.SectionFindUniqueArgs, "where">;
 }
 
-export interface GetProjectTasksQueryResult
-  extends Omit<Prisma.SectionGetPayload<ReturnType<typeof buildGetProjectTasksQuery>>, "tasks"> {
+export interface GetProjectTasksQueryResult extends Omit<
+  Prisma.SectionGetPayload<ReturnType<typeof buildGetProjectTasksQuery>>,
+  "tasks"
+> {
   tasks: {
     task: GetTaskQueryResult;
   }[];

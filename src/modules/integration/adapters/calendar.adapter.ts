@@ -193,7 +193,7 @@ export class CalendarAdapter implements IIntegrationAdapter {
     };
   }
 
-  async create(accessToken: string,  payload: CreateEventInput): Promise<IntegrationCalendarData> {
+  async create(accessToken: string, payload: CreateEventInput): Promise<IntegrationCalendarData> {
     const body = this.mapToGoogleEvent(payload);
 
     const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
@@ -215,7 +215,7 @@ export class CalendarAdapter implements IIntegrationAdapter {
     return this.mapGoogleEvent(data);
   }
 
-  async update(accessToken: string, id: string,  payload: UpdateEventInput ): Promise<IntegrationCalendarData> {
+  async update(accessToken: string, id: string, payload: UpdateEventInput): Promise<IntegrationCalendarData> {
     const body = this.mapToGoogleEvent(payload);
 
     const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${id}`, {

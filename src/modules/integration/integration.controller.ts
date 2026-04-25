@@ -20,6 +20,7 @@ import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { Public } from "@/decorators/public.decorator";
 import { IntegrationService } from "./integration.service";
 import { CalendarWebhookService } from "./webhook/calendar.webhook";
+import { NotionWebhookService } from "./webhook/notion.webhook";
 import {
   OAuthCallbackDto,
   CreateEventDto,
@@ -36,7 +37,8 @@ export class IntegrationController {
 
   constructor(
     private readonly integrationService: IntegrationService,
-    private readonly webhookService: CalendarWebhookService,
+    private readonly calendarWebhookService: CalendarWebhookService,
+    private readonly notionWebhookService: NotionWebhookService,
   ) {}
 
   // ==================== Connection Management ====================
@@ -173,6 +175,14 @@ export class IntegrationController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Google Calendar webhook receiver" })
   async googleWebhook(@Headers() headers: Record<string, string>, @Body() body: unknown): Promise<void> {
-    await this.webhookService.handleGoogleWebhook(headers, body);
+    await this.calendarWebhookService.handleGoogleWebhook(headers, body);
+  }
+
+  @Post("webhook/notion")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Notion webhook receiver" })
+  async notionWebhook(@Body() body: any): Promise<void> {
+    await this.notionWebhookService.handleNotionWebhook(body);
   }
 }

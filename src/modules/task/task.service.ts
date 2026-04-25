@@ -16,11 +16,13 @@ import { buildGetTaskStatusQuery } from "./query/get-task-status.query";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
 import { PermissionChecker } from "@/middleware/permission-checker.service";
 import { Permission } from "@/common/enum/permission.enum";
+import { NotionService } from "../notion/notion.service";
 @Injectable()
 export class TaskService {
   constructor(
     private pg: PgService,
     private readonly permissionChecker: PermissionChecker,
+    private readonly notionService: NotionService,
   ) {}
 
   private async queryTaskHelper(
@@ -215,6 +217,12 @@ export class TaskService {
       ...buildGetTaskQuery(),
     });
 
+    if (updated.notionPageId) {
+      this.notionService.syncTaskToNotion(userId, updated.notionPageId, dto).catch((e) => {
+        // Run in background and ignore failures silently
+      });
+    }
+
     const taskExtras = await this.queryTaskHelper(userId, updated.originalProjectId, updated);
     return new TaskResponseDto({ ...updated, ...taskExtras }, "Task updated successfully");
   }
@@ -251,6 +259,15 @@ export class TaskService {
 
     const updatedTask = await changeStatus(task.status, dto.status, this.pg, task, dto.sectionId);
     const taskExtras = await this.queryTaskHelper(userId, updatedTask.originalProjectId, updatedTask);
+
+    // Sync to Notion if applicable
+    const notionPageId = (task as any).notionPageId;
+    if (notionPageId) {
+      this.notionService.updateNotionPageStatus(userId, notionPageId, dto.status).catch((err) => {
+        // Silently consume to not block the response
+      });
+    }
+
     return new TaskResponseDto({ ...updatedTask, ...taskExtras }, "Task status updated successfully");
   }
 
@@ -461,6 +478,14 @@ export class TaskService {
         timeout: 20000,
       },
     );
+
+    // Sync to Notion if applicable
+    const notionPageId = (task as any).notionPageId;
+    if (notionPageId) {
+      this.notionService.updateNotionPageStatus(userId, notionPageId, toSection.name).catch((err) => {
+        // Silently consume to not block the response
+      });
+    }
 
     return new MessageResponseDto("Task moved successfully");
   }

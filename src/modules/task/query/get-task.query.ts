@@ -24,8 +24,10 @@ export function buildGetTaskQuery() {
   } as const satisfies Omit<Prisma.TaskFindUniqueArgs, "where">;
 }
 
-export interface GetTaskQueryResult
-  extends Omit<Prisma.TaskGetPayload<ReturnType<typeof buildGetTaskQuery>>, "originalProject"> {
+export interface GetTaskQueryResult extends Omit<
+  Prisma.TaskGetPayload<ReturnType<typeof buildGetTaskQuery>>,
+  "originalProject"
+> {
   originalProject: Project | null;
   canImport: boolean;
   isImported: boolean;

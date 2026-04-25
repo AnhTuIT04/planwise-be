@@ -1,6 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IntegrationProvider } from 'prisma/client/pg';
-
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IntegrationProvider } from "prisma/client/pg";
 
 export class ConnectionResponseDto {
   @ApiProperty()
@@ -38,7 +37,6 @@ export class ConnectionSuccessDto {
   redirectUrl: string;
 }
 
-
 export class EventResponseDto {
   @ApiProperty()
   id: string;
@@ -73,7 +71,6 @@ export class EventResponseDto {
   @ApiProperty()
   syncedAt: Date;
 }
-
 
 export class ConnectionDetailsResponseDto {
   @ApiProperty()

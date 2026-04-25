@@ -4,7 +4,8 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { IntegrationController } from "./integration.controller";
 import { IntegrationService } from "./integration.service";
 import { CalendarWebhookService } from "./webhook/calendar.webhook";
-import { CalendarAdapter } from "./adapters/calendar.adapter";
+import { NotionWebhookService } from "./webhook/notion.webhook";
+import { CalendarAdapter, NotionAdapter } from "./adapters";
 
 @Module({
   imports: [ScheduleModule.forRoot()],
@@ -12,10 +13,11 @@ import { CalendarAdapter } from "./adapters/calendar.adapter";
   providers: [
     IntegrationService,
     CalendarWebhookService,
+    NotionWebhookService,
     CalendarAdapter,
-    // NotionAdapter,
+    NotionAdapter,
     // GmailAdapter,
   ],
-  exports: [IntegrationService],
+  exports: [IntegrationService, CalendarAdapter, NotionAdapter],
 })
 export class IntegrationModule {}

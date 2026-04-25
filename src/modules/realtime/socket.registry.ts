@@ -61,7 +61,7 @@ export class SocketRegistry implements OnModuleInit {
     const record = this.handlers.get(event);
     if (!record) return;
 
-    let args = [client];
+    const args = [client];
 
     // If has @Payload() decorator, validate and transform the payload
     if (record.hasPayloadDecorator) {

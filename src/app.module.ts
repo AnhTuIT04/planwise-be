@@ -21,6 +21,7 @@ import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.m
 import { RealtimeModule } from "./modules/realtime/realtime.module";
 import { ChannelModule } from "./modules/channel/channel.module";
 import { IntegrationModule } from "./modules/integration/integration.module";
+import { NotionModule } from "./modules/notion/notion.module";
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { IntegrationModule } from "./modules/integration/integration.module";
     RealtimeModule,
     ChannelModule,
     IntegrationModule,
+    NotionModule,
   ],
   controllers: [AppController],
   providers: [

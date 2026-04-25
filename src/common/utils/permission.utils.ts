@@ -1,6 +1,5 @@
 import { Permission } from "@/common/enum/permission.enum";
 
-
 export class PermissionUtils {
   static hasPermission(userPermissions: string[], requiredPermission: Permission): boolean {
     return userPermissions.includes(requiredPermission);
@@ -28,7 +27,7 @@ export class PermissionUtils {
 
   static filterActionsByPermissions<T extends { permission?: Permission }>(
     actions: T[],
-    userPermissions: string[]
+    userPermissions: string[],
   ): T[] {
     return actions.filter((action) => !action.permission || this.hasPermission(userPermissions, action.permission));
   }

@@ -80,6 +80,8 @@ model Task {
   updatedAt         DateTime       @updatedAt
   originalProjectId String
   parentTaskId      String?
+  notionPageId      String?
+  notionDatabaseId  String?
   supervisorId      String?
   comments          Comment[]
   originalProject   Project        @relation("OriginalProjectTasks", fields: [originalProjectId], references: [id], onDelete: Cascade)

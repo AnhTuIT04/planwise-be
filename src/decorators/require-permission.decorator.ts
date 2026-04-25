@@ -1,9 +1,9 @@
-import { SetMetadata, applyDecorators } from '@nestjs/common';
-import { Permission } from '@/common/enum/permission.enum';
+import { SetMetadata, applyDecorators } from "@nestjs/common";
+import { Permission } from "@/common/enum/permission.enum";
 
-export const PERMISSION_KEY = 'required_permissions';
-export const REQUIRE_ALL_PERMISSIONS_KEY = 'require_all_permissions';
-export const ALLOW_PERSONAL_OWNER_KEY = 'allow_personal_owner';
+export const PERMISSION_KEY = "required_permissions";
+export const REQUIRE_ALL_PERMISSIONS_KEY = "require_all_permissions";
+export const ALLOW_PERSONAL_OWNER_KEY = "allow_personal_owner";
 
 export interface PermissionConfig {
   permissions: Permission | Permission[];
@@ -15,10 +15,7 @@ export function RequirePermissions(config: PermissionConfig) {
   return applyDecorators(
     SetMetadata(PERMISSION_KEY, config.permissions),
     SetMetadata(REQUIRE_ALL_PERMISSIONS_KEY, config.requireAll ?? true),
-    SetMetadata(
-      ALLOW_PERSONAL_OWNER_KEY,
-      config.allowPersonalProjectOwner ?? true,
-    ),
+    SetMetadata(ALLOW_PERSONAL_OWNER_KEY, config.allowPersonalProjectOwner ?? true),
   );
 }
 

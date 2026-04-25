@@ -20,6 +20,7 @@ import {
   IntegrationCalendarData,
 } from "./types/integration.types";
 import { CalendarAdapter } from "./adapters/calendar.adapter";
+import { NotionAdapter } from "./adapters/notion.adapter";
 import { CalendarWebhookService } from "./webhook/calendar.webhook";
 import { ConnectionDetailsResponseDto, EventResponseDto } from "./dto";
 
@@ -36,13 +37,13 @@ export class IntegrationService {
     private readonly cacheService: CacheService,
     private readonly calendarAdapter: CalendarAdapter,
     // private readonly GmailAdapter: GmailAdapter,
-    // private readonly notionAdapter: NotionAdapter,
+    private readonly notionAdapter: NotionAdapter,
     @Inject(forwardRef(() => CalendarWebhookService))
     private readonly webhookService: CalendarWebhookService,
   ) {
     // Register adapters
     this.adapters.set(IntegrationProvider.GOOGLE_CALENDAR, this.calendarAdapter);
-    // this.adapters.set(IntegrationProvider.NOTION, this.notionAdapter);
+    this.adapters.set(IntegrationProvider.NOTION, this.notionAdapter);
     // this.adapters.set(IntegrationProvider.GOOGLE_GMAIL, this.gmailAdapter);
   }
 
@@ -64,7 +65,7 @@ export class IntegrationService {
     } else if (provider === IntegrationProvider.GOOGLE_GMAIL) {
       paramRedirectUrl += "?gmail_connected=true";
     } else if (provider === IntegrationProvider.NOTION) {
-      paramRedirectUrl += "?notion_connected=true";
+      paramRedirectUrl += "/my-tasks?notion_connected=true";
     }
 
     // Create state with user info for callback
@@ -124,6 +125,7 @@ export class IntegrationService {
         tokenExpiresAt: tokens.expiresAt,
         scopes: tokens.scopes || [],
         isActive: true,
+        metadata: tokens.extraData as any,
       },
       update: {
         accessToken: tokens.accessToken,
@@ -131,6 +133,7 @@ export class IntegrationService {
         tokenExpiresAt: tokens.expiresAt,
         scopes: tokens.scopes || [],
         isActive: true,
+        metadata: tokens.extraData as any,
       },
     });
 
@@ -153,7 +156,7 @@ export class IntegrationService {
         .catch((err) => {
           this.logger.error(`Webhook registration failed for ${userId}/${provider}: ${err.message}`);
         });
-    // TODO: Add initial sync and webhook registration for other providers if needed
+      // TODO: Add initial sync and webhook registration for other providers if needed
     } else if (provider === IntegrationProvider.GOOGLE_GMAIL) {
     } else if (provider === IntegrationProvider.NOTION) {
     }
@@ -177,15 +180,23 @@ export class IntegrationService {
     }
 
     if (provider === IntegrationProvider.NOTION) {
-      // Notion doesn't expose email easily, use bot_id or workspace info
+      // Notion token payload already contains workspace_id, but the adapter returned OAuthTokens
+      // We should ideally fetch the owner/bot identity.
+
       const response = await fetch("https://api.notion.com/v1/users/me", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Notion-Version": "2022-06-28",
         },
       });
-      const data = await response.json();
-      return data.id;
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.bot && data.bot.workspace_name) {
+          return data.bot.workspace_name + ":" + data.id; // Or just bot_id
+        }
+        return data.id;
+      }
+      return "notion_workspace_connection"; // fallback if users/me fails
     }
 
     throw new BadRequestException(`Cannot get account identifier for ${provider}`);
@@ -266,6 +277,9 @@ export class IntegrationService {
     provider: IntegrationProvider,
   ): Promise<string> {
     // Check if token is still valid (with 5 min buffer)
+    if (IntegrationProvider.NOTION) {
+      return connection.accessToken;
+    }
     if (connection.tokenExpiresAt && connection.tokenExpiresAt > new Date(Date.now() + 5 * 60 * 1000)) {
       return connection.accessToken;
     }

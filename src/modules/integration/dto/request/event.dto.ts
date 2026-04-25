@@ -1,15 +1,23 @@
-import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString, IsArray, ValidateNested, IsNumber } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IntegrationProvider } from 'prisma/client/pg';
-
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import { IntegrationProvider } from "prisma/client/pg";
 
 export class ConnectProviderDto {
   @ApiProperty({ enum: IntegrationProvider })
   @IsEnum(IntegrationProvider)
   provider: IntegrationProvider;
 
-  @ApiPropertyOptional({ description: 'Redirect URL after OAuth completes' })
+  @ApiPropertyOptional({ description: "Redirect URL after OAuth completes" })
   @IsOptional()
   @IsString()
   redirectUrl?: string;
@@ -24,34 +32,34 @@ export class OAuthCallbackDto {
   @IsString()
   state: string;
 
-  @ApiPropertyOptional({ description: 'Issuer (sent by Google)' })
+  @ApiPropertyOptional({ description: "Issuer (sent by Google)" })
   @IsOptional()
   @IsString()
   iss?: string;
 
-  @ApiPropertyOptional({ description: 'Scopes granted' })
+  @ApiPropertyOptional({ description: "Scopes granted" })
   @IsOptional()
   @IsString()
   scope?: string;
 
-  @ApiPropertyOptional({ description: 'Auth user index' })
+  @ApiPropertyOptional({ description: "Auth user index" })
   @IsOptional()
   @IsString()
   authuser?: string;
 
-  @ApiPropertyOptional({ description: 'Prompt type' })
+  @ApiPropertyOptional({ description: "Prompt type" })
   @IsOptional()
   @IsString()
   prompt?: string;
 
-  @ApiPropertyOptional({ description: 'Hosted domain (Google Workspace)' })
+  @ApiPropertyOptional({ description: "Hosted domain (Google Workspace)" })
   @IsOptional()
   @IsString()
   hd?: string;
 }
 
 class ReminderDto {
-  @ApiProperty({ enum: ['email', 'popup'] })
+  @ApiProperty({ enum: ["email", "popup"] })
   @IsString()
   method: string;
 
@@ -141,7 +149,7 @@ export class UpdateEventDto {
   @IsString()
   location?: string;
 
-  @ApiPropertyOptional({ enum: ['confirmed', 'tentative', 'cancelled'] })
+  @ApiPropertyOptional({ enum: ["confirmed", "tentative", "cancelled"] })
   @IsOptional()
   @IsString()
   status?: string;

@@ -73,6 +73,12 @@ export class TaskDto {
   @ApiProperty({ example: "2024-06-20T12:00:00Z", description: "Timestamp of last task update", format: "date-time" })
   readonly updatedAt: Date;
 
+  @ApiPropertyOptional({ example: "33f46b8f-bb90-81c7-8af3-ddfe5ebea8e8", description: "Notion Page ID" })
+  readonly notionPageId: string | null;
+
+  @ApiPropertyOptional({ example: "6af0fa32-5bdc-40fe-b9d0-a3c630b52e37", description: "Notion Database ID" })
+  readonly notionDatabaseId: string | null;
+
   constructor(task: GetTaskQueryResult) {
     this.id = task.id;
     this.title = task.title;
@@ -91,6 +97,8 @@ export class TaskDto {
     this.subtasks = task.subtasks.map((subtask) => new SubtaskDto(subtask));
     this.createdAt = task.createdAt;
     this.updatedAt = task.updatedAt;
+    this.notionPageId = (task as any).notionPageId;
+    this.notionDatabaseId = (task as any).notionDatabaseId;
   }
 }
 

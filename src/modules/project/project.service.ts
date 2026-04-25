@@ -251,7 +251,7 @@ export class ProjectService {
     });
     const taskIdsInWorkspace = tasksInWorkspace.map((tp) => tp.taskId);
 
-    let tasksInSections: GetProjectTasksQueryResult[] = [];
+    const tasksInSections: GetProjectTasksQueryResult[] = [];
     for (const section of sections) {
       const tasks = section.tasks.map((t) => t.task);
       const tasksWithExtras: GetProjectTasksQueryResult = {
@@ -262,7 +262,8 @@ export class ProjectService {
             !task.originalProject.isPersonal &&
             (task.supervisorId === userId || task.assignees.some((a) => a.user.id === userId));
           const isImported = taskIdsInWorkspace.includes(task.id);
-          return { task: { ...task, originalProject, canImport, isImported } };
+          const platform = task.notionPageId && task.notionDatabaseId ? "NOTION" : "";
+          return { task: { ...task, originalProject, canImport, isImported, platform } };
         }),
       };
       tasksInSections.push(tasksWithExtras);

@@ -1,7 +1,7 @@
 /**
  * Permission enum - Define all possible permissions in the system
  * Format: resource:action
- * 
+ *
  * This is the single source of truth for all available permissions.
  * New permissions can be easily added here and reused throughout the app.
  */

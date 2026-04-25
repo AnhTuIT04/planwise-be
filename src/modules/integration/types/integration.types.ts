@@ -20,6 +20,7 @@ export interface OAuthTokens {
   refreshToken?: string;
   expiresAt?: Date;
   scopes?: string[];
+  extraData?: Record<string, any>;
 }
 
 export interface TokenRefreshResult {
@@ -114,14 +115,8 @@ export interface IIntegrationAdapter {
   revokeAccess(accessToken: string): Promise<void>;
 
   // Events (Calendar)/ Messages (Gmail)/ Data (Notion)
-  list(
-    accessToken: string,
-    options: SyncEventOptions | SyncMessageOptions | SyncDataOptions,
-  ): Promise<any>; // Return type depends on provider
-  create(
-    accessToken: string,
-    payload: CreateEventInput | CreateMessageInput | CreateDataInput,
-  ): Promise<any>; // Return type depends on provider
+  list(accessToken: string, options: SyncEventOptions | SyncMessageOptions | SyncDataOptions): Promise<any>; // Return type depends on provider
+  create(accessToken: string, payload: CreateEventInput | CreateMessageInput | CreateDataInput): Promise<any>; // Return type depends on provider
   update(
     accessToken: string,
     id: string,
@@ -135,7 +130,6 @@ export interface IIntegrationAdapter {
 
   // TODO: Define additional methods for Gmail and Notion providers as needed
 }
-
 
 // ==================== Connection Info ====================
 export interface ConnectionInfo {

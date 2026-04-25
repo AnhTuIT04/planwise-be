@@ -10,7 +10,7 @@ import { CreateSectionDto } from "./dto/request/create-section.dto";
 import { UpdateSectionDto } from "./dto/request/update-section.dto";
 import { MoveSectionDto } from "./dto/request/move-section.dto";
 import { SectionResponseDto } from "./dto/response/section-response.dto";
-import { Permission } from '@/common/enum/permission.enum';
+import { Permission } from "@/common/enum/permission.enum";
 import { RequirePermission } from "@/decorators/require-permission.decorator";
 
 @ApiTags("Section")

@@ -1,5 +1,5 @@
-import { AsyncLocalStorage } from 'async_hooks';
-import { Permission } from '@/common/enum/permission.enum';
+import { AsyncLocalStorage } from "async_hooks";
+import { Permission } from "@/common/enum/permission.enum";
 
 export interface PermissionContext {
   userId: string;

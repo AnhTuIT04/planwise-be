@@ -12,7 +12,7 @@ import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
-import { Permission } from '@/common/enum/permission.enum';
+import { Permission } from "@/common/enum/permission.enum";
 import { RequirePermission } from "@/decorators/require-permission.decorator";
 @Controller("task")
 export class TaskController {

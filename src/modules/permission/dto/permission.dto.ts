@@ -115,7 +115,7 @@ export class PermissionDto {
   readonly description: string;
 
   constructor(permission: string | Permission) {
-    this.permission = permission as string;
+    this.permission = permission;
     const details = PERMISSION_DESCRIPTIONS[permission as Permission];
     this.name = details?.name || permission;
     this.description = details?.description || "";
