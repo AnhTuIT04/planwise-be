@@ -16,11 +16,15 @@ export function buildGetSectionTasksFilter(options: Omit<BuildGetSectionTasksQue
   const { qDeadlineFrom, qDeadlineTo, qSections, qStatuses, qPriorities, searchQuery } = options;
 
   return {
-    ...(qDeadlineFrom && { deadline: { gte: qDeadlineFrom } }),
-    ...(qDeadlineTo && { deadline: { lte: qDeadlineTo } }),
-    ...(qSections && qSections.length > 0 && { sectionId: { in: qSections } }),
-    ...(qStatuses && qStatuses.length > 0 && { status: { in: qStatuses } }),
-    ...(qPriorities && qPriorities.length > 0 && { priority: { in: qPriorities } }),
+    ...((qDeadlineFrom || qDeadlineTo) && {
+      deadline: {
+        ...(qDeadlineFrom && { gte: qDeadlineFrom }),
+        ...(qDeadlineTo && { lte: qDeadlineTo }),
+      },
+    }),
+    ...(qSections?.length && { sectionId: { in: qSections } }),
+    ...(qStatuses?.length && { status: { in: qStatuses } }),
+    ...(qPriorities?.length && { priority: { in: qPriorities } }),
     ...(searchQuery && {
       OR: [
         { title: { contains: searchQuery, mode: "insensitive" } },
