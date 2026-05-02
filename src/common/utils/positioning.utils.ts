@@ -33,3 +33,10 @@ export function midpoint(a: string | null, b: string | null): string {
     i++;
   }
 }
+
+
+export function idxToString(idx: number): string {
+  const lastChar: string = String.fromCharCode(65 + (idx % 26));
+  const prefix: string = idx >= 26 ? "Z".repeat(Math.floor(idx / 26)) : "";
+  return prefix + lastChar;
+}

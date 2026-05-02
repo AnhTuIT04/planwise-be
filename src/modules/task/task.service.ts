@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
-import { midpoint } from "@/common/utils/positioning.utils";
+import { idxToString, midpoint } from "@/common/utils/positioning.utils";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { PgService } from "~/database/pg.service";
 import { changeTaskStatus } from "./utils/change-status";
@@ -90,7 +90,7 @@ export class TaskService {
         subtasks: {
           create: dto.subtasks.map((sub, idx) => ({
             title: sub.title,
-            position: midpoint(String.fromCharCode(77 + idx), null), // Generate position for subtasks (M, N, O, etc.)
+            position: idxToString(idx),
             assignees: {
               create: Array.from(new Set([...dto.assigneeIds, ...sub.assigneeIds])).map((userId) => ({
                 userId,
@@ -537,7 +537,7 @@ export class TaskService {
     }
 
     const project = task.projects.find((p) => p.project.id === projectId)!.project;
-    if (project.isPersonal) {
+    if (project.id !== task.originalProjectId) {
       // Delete relations only
       await this.pg.$transaction(
         async (tx) => {
