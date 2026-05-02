@@ -16,6 +16,7 @@ import { RoleModule } from "~/role/role.module";
 import { SectionModule } from "~/section/section.module";
 import { TaskModule } from "~/task/task.module";
 import { SubtaskModule } from "~/subtask/subtask.module";
+import { ReviewModule } from "~/review/review.module";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { SubtaskModule } from "~/subtask/subtask.module";
     SectionModule,
     TaskModule,
     SubtaskModule,
+    ReviewModule,
   ],
   controllers: [AppController],
   providers: [

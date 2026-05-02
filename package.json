@@ -17,6 +17,7 @@
     "pg:push": "prisma db push --schema prisma/pg.schema.prisma",
     "pg:reset": "prisma migrate reset --schema prisma/pg.schema.prisma",
     "pg:studio": "prisma studio --schema prisma/pg.schema.prisma",
+    "pg:seed-review": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register src/scripts/seed-review.ts",
     "mongo:gen": "prisma generate --schema prisma/mongo.schema.prisma",
     "mongo:push": "prisma db push --schema prisma/mongo.schema.prisma",
     "mongo:reset": "prisma db push --force-reset --schema prisma/mongo.schema.prisma",
