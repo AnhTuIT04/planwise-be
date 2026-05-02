@@ -15,6 +15,7 @@ import { AppModule } from "@/app.module";
 import { configSwagger } from "@/config/swagger.config";
 import { Environment, type AppConfig } from "@/config/app.config";
 import { GlobalExceptionFilter } from "@/filters/global-exception.filter";
+import { SocketAdapter } from "~/realtime/socket.adapter";
 
 async function bootstrap() {
   // Create NestJS application with Express adapter for enhanced express features
@@ -63,6 +64,7 @@ async function bootstrap() {
   configSwagger(app);
 
   // Set up WebSocket adapter for real-time communication
+  app.useWebSocketAdapter(new SocketAdapter(WS_PORT, CORS_ORIGIN));
 
   // Start the HTTP server on the configured port
   await app.listen(PORT);
