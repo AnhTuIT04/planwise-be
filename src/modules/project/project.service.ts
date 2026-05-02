@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { type Prisma } from "prisma/client/pg";
 
 import { DefaultRole } from "@/common/enum/default-role.enum";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/common/enum/permission.enum";
@@ -198,14 +199,17 @@ export class ProjectService {
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
 
+    const sectionWhere: Prisma.SectionWhereInput = {
+      projectId,
+      project: {
+        members: { some: { userId } },
+      },
+      ...(dto.sections?.length && { id: { in: dto.sections } }),
+    };
+
     const [sections, totalSection] = await this.pg.$transaction([
       this.pg.section.findMany({
-        where: {
-          projectId,
-          project: {
-            members: { some: { userId } },
-          },
-        },
+        where: sectionWhere,
         orderBy: { position: "asc" },
         ...buildGetSectionTasksQuery({
           qDeadlineFrom: dto.deadlineFrom,
@@ -219,12 +223,7 @@ export class ProjectService {
         take: dto.limit,
       }),
       this.pg.section.count({
-        where: {
-          projectId,
-          project: {
-            members: { some: { userId } },
-          },
-        },
+        where: sectionWhere,
       }),
     ]);
 

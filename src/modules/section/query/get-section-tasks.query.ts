@@ -12,8 +12,10 @@ interface BuildGetSectionTasksQueryOptions {
   searchQuery?: string;
 }
 
-export function buildGetSectionTasksFilter(options: Omit<BuildGetSectionTasksQueryOptions, "page" | "limit">) {
-  const { qDeadlineFrom, qDeadlineTo, qSections, qStatuses, qPriorities, searchQuery } = options;
+export function buildGetSectionTasksFilter(
+  options: Omit<BuildGetSectionTasksQueryOptions, "page" | "limit" | "qSections">,
+) {
+  const { qDeadlineFrom, qDeadlineTo, qStatuses, qPriorities, searchQuery } = options;
 
   return {
     ...((qDeadlineFrom || qDeadlineTo) && {
@@ -22,7 +24,6 @@ export function buildGetSectionTasksFilter(options: Omit<BuildGetSectionTasksQue
         ...(qDeadlineTo && { lte: qDeadlineTo }),
       },
     }),
-    ...(qSections?.length && { sectionId: { in: qSections } }),
     ...(qStatuses?.length && { status: { in: qStatuses } }),
     ...(qPriorities?.length && { priority: { in: qPriorities } }),
     ...(searchQuery && {
@@ -35,29 +36,29 @@ export function buildGetSectionTasksFilter(options: Omit<BuildGetSectionTasksQue
 }
 
 export function buildGetSectionTasksQuery(
-  { page = 1, limit = 20, ...options }: BuildGetSectionTasksQueryOptions = {
+  { page = 1, limit = 20, qSections, ...options }: BuildGetSectionTasksQueryOptions = {
     qStatuses: [TaskStatus.TODO, TaskStatus.RUNNING, TaskStatus.DONE],
   },
 ) {
-  const filter = buildGetSectionTasksFilter(options);
+  const taskFilter = buildGetSectionTasksFilter(options);
+  const taskSectionWhere: Prisma.TaskSectionWhereInput = {
+    ...(qSections?.length && { sectionId: { in: qSections } }),
+    task: taskFilter,
+  };
 
   return {
     include: {
       _count: {
         select: {
           tasks: {
-            where: {
-              task: filter,
-            },
+            where: taskSectionWhere,
           },
         },
       },
       tasks: {
         skip: (page - 1) * limit,
         take: limit,
-        where: {
-          task: filter,
-        },
+        where: taskSectionWhere,
         include: {
           task: buildGetTaskQuery(),
         },
