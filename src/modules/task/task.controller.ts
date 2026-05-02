@@ -1,8 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
+import { Permission } from "@/decorators/permission.decorator";
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { PermissionGuard } from "~/permission/guards/permission.guard";
+import { CanCreateProjectData } from "./handlers/can-create-project-data.handler";
+import { CanUpdateProjectData } from "./handlers/can-update-project-data.handler";
+import { CanDeleteProjectData } from "./handlers/can-delete-project-data.handler";
 import { TaskService } from "./task.service";
 import { CreateTaskDto } from "./dto/request/create-task.dto";
 import { UpdateTaskDto } from "./dto/request/update-task.dto";
@@ -15,10 +20,12 @@ import { TaskResponse } from "./dto/response/task-response.dto";
 
 @ApiTags("Task")
 @Controller("tasks")
+@UseGuards(PermissionGuard)
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
   @Post()
+  @Permission(CanCreateProjectData)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new task" })
   @ApiResponse({
@@ -42,6 +49,7 @@ export class TaskController {
   }
 
   @Patch(":id")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a task (not subtask)" })
   @ApiResponse({
@@ -54,6 +62,7 @@ export class TaskController {
   }
 
   @Patch(":id/status")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update task status (not subtask)" })
   @ApiResponse({
@@ -66,6 +75,7 @@ export class TaskController {
   }
 
   @Patch(":id/assignees")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update the assignees of a task (not subtask)" })
   @ApiResponse({
@@ -78,6 +88,7 @@ export class TaskController {
   }
 
   @Patch(":id/move")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Move a task to a different section (not subtask)" })
   @ApiResponse({
@@ -102,6 +113,7 @@ export class TaskController {
   }
 
   @Delete(":id")
+  @Permission(CanDeleteProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a task (not subtask)" })
   @ApiResponse({

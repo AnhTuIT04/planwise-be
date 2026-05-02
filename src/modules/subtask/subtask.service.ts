@@ -92,7 +92,7 @@ export class SubtaskService {
           where: { id: parentTask.id },
           data: {
             status: parentTask.status === TaskStatus.DONE ? TaskStatus.TODO : parentTask.status,
-            estimate: parentTask.estimate + (data.estimate ?? 1200000),
+            estimate: parentTask.subtasks.reduce((acc, st) => acc + st.estimate, data.estimate || 1200000),
           },
           ...buildGetTaskQuery(),
         });

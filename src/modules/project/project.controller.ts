@@ -1,13 +1,31 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
+import { Permission } from "@/decorators/permission.decorator";
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
-import { RolesOffsetResponse } from "~/role/dto/response/role-response.dto";
+import { PermissionGuard } from "~/permission/guards/permission.guard";
+import { RoleResponse, RolesOffsetResponse } from "~/role/dto/response/role-response.dto";
 import { UsersWithRoleOffsetResponse } from "~/auth/dto/response/user-with-role-response.dto";
 import { SectionsOffsetResponse } from "~/section/dto/response/section-response.dto";
 import { GetSectionTasksQueryDto } from "~/section/dto/request/get-section-tasks-query.dto";
 import { SectionTasksOffsetResponse } from "~/section/dto/response/section-tasks-response.dto";
+import { CanUpdateProject } from "./handlers/can-update-project.handler";
+import { CanDeleteProject } from "./handlers/can-delete-project.handler";
+import { CanManageProjectMembers } from "./handlers/can-manage-project-members.handler";
+import { CanManageProjectRoles } from "./handlers/can-manage-project-roles.handler";
 import { ProjectService } from "./project.service";
 import { CreateProjectDto } from "./dto/request/create-project.dto";
 import { UpdateProjectDto } from "./dto/request/update-project.dto";
@@ -18,6 +36,7 @@ import { InvitationsOffsetResponse } from "./dto/response/invitation-response.dt
 
 @ApiTags("Project")
 @Controller("projects")
+@UseGuards(PermissionGuard)
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
@@ -58,6 +77,7 @@ export class ProjectController {
   }
 
   @Patch(":id")
+  @Permission(CanUpdateProject)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a project" })
   @ApiResponse({
@@ -70,6 +90,7 @@ export class ProjectController {
   }
 
   @Delete(":id")
+  @Permission(CanDeleteProject)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a project" })
   @ApiResponse({
@@ -106,6 +127,7 @@ export class ProjectController {
   }
 
   @Post(":id/members")
+  @Permission(CanManageProjectMembers)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Invite a member to the project" })
   @ApiResponse({
@@ -130,6 +152,7 @@ export class ProjectController {
   }
 
   @Delete(":id/members/:memberId")
+  @Permission(CanManageProjectMembers)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Remove a member from a project" })
   @ApiResponse({
@@ -142,6 +165,7 @@ export class ProjectController {
   }
 
   @Get(":id/members")
+  @Permission(CanManageProjectMembers)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Get all members of a project" })
   @ApiResponse({
@@ -153,7 +177,20 @@ export class ProjectController {
     return this.projectService.getProjectMembers(userId, id);
   }
 
+  @Get(":id/my-role")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get current user's role in a project" })
+  @ApiResponse({
+    status: 200,
+    type: RoleResponse,
+    description: "Current user's role in the project retrieved successfully",
+  })
+  getMyRoleInProject(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.projectService.getMyRoleInProject(userId, id);
+  }
+
   @Get(":id/roles")
+  @Permission(CanManageProjectRoles)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Get all roles of a project" })
   @ApiResponse({
@@ -166,6 +203,7 @@ export class ProjectController {
   }
 
   @Patch(":id/members/:memberId/role")
+  @Permission(CanManageProjectRoles)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Assign a role to a project member" })
   @ApiResponse({

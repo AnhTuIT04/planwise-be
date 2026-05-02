@@ -34,9 +34,9 @@ export class UsersService {
             roles: {
               create: [
                 {
-                  name: DefaultRole.ADMIN,
+                  name: DefaultRole.OWNER,
                   default: true,
-                  permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.ADMIN),
+                  permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.OWNER),
                 },
               ],
             },
@@ -54,7 +54,7 @@ export class UsersService {
             memberships: {
               create: {
                 projectId: newProject.id,
-                roleId: newProject.roles.find((role) => role.name === (DefaultRole.ADMIN as string))!.id,
+                roleId: newProject.roles.find((role) => role.name === (DefaultRole.OWNER as string))!.id,
               },
             },
           },

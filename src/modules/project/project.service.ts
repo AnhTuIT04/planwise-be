@@ -5,7 +5,7 @@ import { DEFAULT_ROLE_PERMISSIONS } from "@/common/enum/permission.enum";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { PgService } from "~/database/pg.service";
 import { EmailService } from "~/email/email.service";
-import { RolesOffsetResponse } from "~/role/dto/response/role-response.dto";
+import { RoleResponse, RolesOffsetResponse } from "~/role/dto/response/role-response.dto";
 import { UsersWithRoleOffsetResponse } from "~/auth/dto/response/user-with-role-response.dto";
 import { buildGetSectionQuery } from "~/section/query/get-section.query";
 import { buildGetSectionTasksQuery, GetSectionTasksQueryResult } from "~/section/query/get-section-tasks.query";
@@ -33,14 +33,14 @@ export class ProjectService {
         // Create project with default roles
         const newProject = await tx.project.create({
           data: {
-            ownerId: userId,
             ...createProjectDto,
+            ownerId: userId,
             roles: {
               create: [
                 {
-                  name: DefaultRole.ADMIN,
+                  name: DefaultRole.OWNER,
                   default: true,
-                  permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.ADMIN),
+                  permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.OWNER),
                 },
                 {
                   name: DefaultRole.MEMBER,
@@ -57,8 +57,8 @@ export class ProjectService {
           },
         });
 
-        // Get admin role to assign to the project creator
-        const adminRole = newProject.roles.find((role) => role.name === (DefaultRole.ADMIN as string));
+        // Get owner role to assign to the project creator
+        const ownerRole = newProject.roles.find((role) => role.name === (DefaultRole.OWNER as string));
 
         // Assign project creator as Admin with full permissions
         const updatedProject = await tx.project.update({
@@ -67,7 +67,7 @@ export class ProjectService {
             members: {
               create: {
                 userId,
-                roleId: adminRole!.id,
+                roleId: ownerRole!.id,
               },
             },
           },
@@ -443,6 +443,22 @@ export class ProjectService {
       project.members.length,
       "Members of the project retrieved successfully",
     );
+  }
+
+  async getMyRoleInProject(userId: string, projectId: string) {
+    const projectMember = await this.pg.projectMember.findFirst({
+      where: {
+        projectId,
+        userId,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    if (!projectMember) throw new NotFoundException("Project not found or you don't have access");
+
+    return new RoleResponse(projectMember.role, "Your role in the project retrieved successfully");
   }
 
   async getProjectRoles(userId: string, projectId: string) {

@@ -1,21 +1,28 @@
-import { Controller, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
+import { Permission } from "@/decorators/permission.decorator";
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
+import { PermissionGuard } from "~/permission/guards/permission.guard";
+import { CanCreateProjectData } from "./handlers/can-create-project-data.handler";
+import { CanUpdateProjectData } from "./handlers/can-update-project-data.handler";
+import { CanDeleteProjectData } from "./handlers/can-delete-project-data.handler";
 import { TaskResponse } from "~/task/dto/response/task-response.dto";
+import { UpdateTaskStatusDto } from "~/task/dto/request/update-task-status.dto";
 import { SubtaskService } from "./subtask.service";
 import { CreateSubtaskDto } from "./dto/request/create-subtask.dto";
 import { UpdateSubtaskDto } from "./dto/request/update-subtask.dto";
 import { MoveSubtaskDto } from "./dto/request/move-subtask.dto";
-import { UpdateTaskStatusDto } from "../task/dto/request/update-task-status.dto";
 import { UpdateSubtaskAssigneesDto } from "./dto/request/update-subtask-assignees.dto";
 
 @ApiTags("Subtask")
 @Controller("subtasks")
+@UseGuards(PermissionGuard)
 export class SubtaskController {
   constructor(private readonly subtaskService: SubtaskService) {}
 
   @Post()
+  @Permission(CanCreateProjectData)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new subtask" })
   @ApiResponse({
@@ -28,6 +35,7 @@ export class SubtaskController {
   }
 
   @Patch(":id")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update an existing subtask" })
   @ApiResponse({
@@ -40,6 +48,7 @@ export class SubtaskController {
   }
 
   @Patch(":id/status")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Change the status of a subtask" })
   @ApiResponse({
@@ -52,6 +61,7 @@ export class SubtaskController {
   }
 
   @Patch(":id/move")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Move a subtask to a different position within the same task" })
   @ApiResponse({
@@ -64,6 +74,7 @@ export class SubtaskController {
   }
 
   @Patch(":id/assignees")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update the assignees of a subtask" })
   @ApiResponse({
@@ -76,6 +87,7 @@ export class SubtaskController {
   }
 
   @Delete(":id")
+  @Permission(CanDeleteProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a subtask" })
   @ApiResponse({

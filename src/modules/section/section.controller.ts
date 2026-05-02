@@ -1,8 +1,25 @@
-import { Controller, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Get, Query } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Get,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
+import { Permission } from "@/decorators/permission.decorator";
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { PermissionGuard } from "~/permission/guards/permission.guard";
+import { CanCreateProjectData } from "./handlers/can-create-project-data.handler";
+import { CanUpdateProjectData } from "./handlers/can-update-project-data.handler";
+import { CanDeleteProjectData } from "./handlers/can-delete-project-data.handler";
 import { SectionService } from "./section.service";
 import { CreateSectionDto } from "./dto/request/create-section.dto";
 import { UpdateSectionDto } from "./dto/request/update-section.dto";
@@ -13,10 +30,12 @@ import { SectionTasksResponse } from "./dto/response/section-tasks-response.dto"
 
 @ApiTags("Section")
 @Controller("sections")
+@UseGuards(PermissionGuard)
 export class SectionController {
   constructor(private readonly sectionService: SectionService) {}
 
   @Post()
+  @Permission(CanCreateProjectData)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new section" })
   @ApiResponse({
@@ -41,6 +60,7 @@ export class SectionController {
   }
 
   @Patch(":id")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a section" })
   @ApiResponse({
@@ -53,6 +73,7 @@ export class SectionController {
   }
 
   @Patch(":id/move")
+  @Permission(CanUpdateProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Move a section" })
   @ApiResponse({
@@ -65,6 +86,7 @@ export class SectionController {
   }
 
   @Delete(":id")
+  @Permission(CanDeleteProjectData)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a section" })
   @ApiResponse({
