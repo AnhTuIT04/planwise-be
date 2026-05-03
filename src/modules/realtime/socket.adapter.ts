@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import type { Server } from "socket.io";
 
@@ -10,12 +9,12 @@ export class SocketAdapter extends IoAdapter {
     super();
   }
 
-  createIOServer(_port: number, _options: any): Server {
+  createIOServer(_port: number, _options: any) {
     return super.createIOServer(this.PORT, {
       cors: {
         origin: this.CORS_ORIGIN,
         credentials: true,
       },
-    });
+    }) as Server;
   }
 }

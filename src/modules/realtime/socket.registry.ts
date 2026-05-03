@@ -64,47 +64,20 @@ export class SocketRegistry implements OnModuleInit {
 
     // If has @Payload() decorator, validate and transform the payload
     if (record.hasPayloadDecorator) {
-      try {
-        payload = await this.validator.transform(payload, {
-          type: "body",
-          metatype: record.payloadType,
-        });
+      payload = await this.validator.transform(payload, {
+        type: "body",
+        metatype: record.payloadType,
+      });
 
-        try {
-          await record.fn(client, payload);
-        } catch (e: any) {
-          client.emit("s2c:error", {
-            event,
-            message: e.message,
-          });
-        }
-      } catch (e: any) {
-        client.emit("s2c:error", {
-          event,
-          message: e.response?.message || e.message,
-        });
-        return;
-      }
-    } else if (record.hasPayload) {
-      // If no @Payload() decorator but has payload parameter, pass it directly
-      try {
-        await record.fn(client, payload);
-      } catch (e: any) {
-        client.emit("s2c:error", {
-          event,
-          message: e.message,
-        });
-      }
-    } else {
-      // No payload parameter
-      try {
-        await record.fn(client);
-      } catch (e: any) {
-        client.emit("s2c:error", {
-          event,
-          message: e.message,
-        });
-      }
+      return record.fn(client, payload);
     }
+
+    // If no @Payload() decorator but has payload parameter, pass it directly
+    if (record.hasPayload) {
+      return record.fn(client, payload);
+    }
+
+    // No payload parameter
+    return record.fn(client);
   }
 }

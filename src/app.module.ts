@@ -5,6 +5,7 @@ import { ConfigModule } from "@nestjs/config";
 import { AppController } from "@/app.controller";
 import { configuration } from "@/config/app.config";
 import { JwtGuard } from "~/auth/guards/jwt.guard";
+import { RealtimeModule } from "~/realtime/realtime.module";
 import { DatabaseModule } from "~/database/database.module";
 import { CacheModule } from "~/cache/cache.module";
 import { EmailModule } from "~/email/email.module";
@@ -27,6 +28,7 @@ import { ReviewModule } from "~/review/review.module";
       load: [configuration],
       expandVariables: true,
     }),
+    RealtimeModule,
     DatabaseModule,
     CacheModule,
     EmailModule,

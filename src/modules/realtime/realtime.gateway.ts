@@ -60,11 +60,16 @@ export class RealtimeGateway implements OnGatewayInit {
         }
       }
 
-      await Promise.all(rooms.map((room) => Promise.resolve(socket.join(room))));
+      await Promise.all(rooms.map((room) => socket.join(room) as Promise<void>));
 
       socket.onAny((event, payload) => {
         this.registry.execute(event, socket, payload).catch((err) => {
-          console.error("Socket handler error:", err);
+          console.error(`Error handling socket event "${event}":`, err);
+
+          socket.emit("s2c:error", {
+            event,
+            message: err.message,
+          });
         });
       });
     });
