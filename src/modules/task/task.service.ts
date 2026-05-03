@@ -139,6 +139,14 @@ export class TaskService {
       position = midpoint(positions[dto.insertAt - 1], positions[dto.insertAt]);
     }
 
+    const parentAssigneeIds =
+      dto.subtasks.length === 0
+        ? dto.assigneeIds
+        : dto.subtasks.reduce((acc, sub) => {
+            sub.assigneeIds.forEach((id) => acc.add(id));
+            return acc;
+          }, new Set<string>());
+
     const task = await this.pg.task.create({
       data: {
         title: dto.title,
@@ -154,14 +162,12 @@ export class TaskService {
             title: sub.title,
             position: idxToString(idx),
             assignees: {
-              create: Array.from(new Set([...dto.assigneeIds, ...sub.assigneeIds])).map((userId) => ({
-                userId,
-              })),
+              create: Array.from(new Set(sub.assigneeIds)).map((userId) => ({ userId })),
             },
           })),
         },
         assignees: {
-          create: dto.assigneeIds.map((userId) => ({ userId })),
+          create: Array.from(parentAssigneeIds).map((userId) => ({ userId })),
         },
         projects: {
           create: {
@@ -254,8 +260,7 @@ export class TaskService {
     if (dto.title !== undefined && dto.title !== task.title) changes.push("title");
     if (dto.description !== undefined && dto.description !== task.description) changes.push("description");
     if (dto.priority !== undefined && dto.priority !== task.priority) changes.push("priority");
-    if (dto.deadline && dto.deadline.toString?.() !== task.deadline?.toString())
-      changes.push("deadline");
+    if (dto.deadline && dto.deadline.toString?.() !== task.deadline?.toString()) changes.push("deadline");
     if (dto.supervisorId !== undefined && dto.supervisorId !== task.supervisorId) changes.push("supervisor");
 
     if (changes.length > 0) {
@@ -312,65 +317,42 @@ export class TaskService {
           },
         },
       },
-      include: {
-        assignees: true,
-        subtasks: {
-          include: {
-            assignees: true,
-          },
-        },
-      },
+      ...buildGetTaskQuery(),
     });
 
     if (!task) {
       throw new ForbiddenException("Task not found or you do not have permission to access it");
     }
 
-    const updatedTask = await this.pg.$transaction(
-      async (tx) => {
-        const updateAssignees = task.subtasks.map((sub) => {
-          const newAssignees = [...new Set([...sub.assignees.map((a) => a.userId), ...dto.assigneeIds])];
+    let updatedTask = task;
 
-          return tx.task.update({
-            where: { id: sub.id },
-            data: {
-              assignees: {
-                deleteMany: {},
-                create: newAssignees.map((uid) => ({ userId: uid })),
-              },
-            },
-          });
-        });
+    if (task.subtasks.length === 0) {
+      const currentAssigneeIds = new Set(task.assignees.map((a) => a.user.id));
 
-        await Promise.all(updateAssignees);
+      const newAssigneeIds = new Set(dto.assigneeIds);
+      const allAssigneeIds = new Set([...currentAssigneeIds, ...newAssigneeIds]);
 
-        return tx.task.update({
-          where: { id: taskId },
-          data: {
-            assignees: {
-              deleteMany: {},
-              create: dto.assigneeIds.map((uid) => ({ userId: uid })),
-            },
+      updatedTask = await this.pg.task.update({
+        where: { id: taskId },
+        data: {
+          assignees: {
+            deleteMany: {},
+            create: Array.from(allAssigneeIds).map((userId) => ({ userId })),
           },
-          ...buildGetTaskQuery(),
-        });
-      },
-      {
-        maxWait: 5000,
-        timeout: 20000,
-      },
-    );
+        },
+        ...buildGetTaskQuery(),
+      });
 
-    const taskExtras = await this.queryTaskHelper(userId, updatedTask);
-
-    const previousAssigneeIds = new Set(task.assignees.map((a) => a.userId));
-    const newlyAssigned = dto.assigneeIds.filter((id) => !previousAssigneeIds.has(id));
-    if (newlyAssigned.length > 0) {
-      this.fireTaskNotification("assigned", userId, taskId, newlyAssigned).catch((err) =>
-        console.error("Failed to send task assignee notification:", err),
-      );
+      // Send notifications to newly assigned users
+      const newlyAssigned = Array.from(newAssigneeIds).filter((id) => !currentAssigneeIds.has(id));
+      if (newlyAssigned.length > 0) {
+        this.fireTaskNotification("assigned", userId, taskId, newlyAssigned).catch((err) =>
+          console.error("Failed to send task assignee notification:", err),
+        );
+      }
     }
 
+    const taskExtras = await this.queryTaskHelper(userId, updatedTask);
     return new TaskResponse({ ...updatedTask, ...taskExtras }, "Task assignees updated successfully");
   }
 
