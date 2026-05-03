@@ -18,6 +18,8 @@ import { SectionModule } from "~/section/section.module";
 import { TaskModule } from "~/task/task.module";
 import { SubtaskModule } from "~/subtask/subtask.module";
 import { ReviewModule } from "~/review/review.module";
+import { IntegrationModule } from "~/integration";
+import { NotionModule } from "~/notion/notion.module";
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { ReviewModule } from "~/review/review.module";
     TaskModule,
     SubtaskModule,
     ReviewModule,
+    IntegrationModule,
+    NotionModule,
   ],
   controllers: [AppController],
   providers: [

@@ -5,7 +5,7 @@
   "editor.formatOnSave": true,
   "editor.tabSize": 2,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "cSpell.words": ["Bluemix", "esiwnalp", "keton", "nodenv", "setex", "unarchived"],
+  "cSpell.words": ["Bluemix", "esiwnalp", "keton", "nodenv", "notionhq", "setex", "unarchived"],
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "always"
   },
