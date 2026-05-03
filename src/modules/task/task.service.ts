@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { idxToString, midpoint } from "@/common/utils/positioning.utils";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { PgService } from "~/database/pg.service";
+import { NotificationService } from "~/notification/notification.service";
 import { changeTaskStatus } from "./utils/change-status";
 import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { CreateTaskDto } from "./dto/request/create-task.dto";
@@ -16,7 +17,68 @@ import { TaskResponse } from "./dto/response/task-response.dto";
 
 @Injectable()
 export class TaskService {
-  constructor(private pg: PgService) {}
+  constructor(
+    private pg: PgService,
+    private notificationService: NotificationService,
+  ) {}
+
+  private async fireTaskNotification(
+    type: "assigned" | "updated",
+    actorId: string,
+    taskId: string,
+    overrideAssigneeIds?: string[],
+    changes?: string[],
+  ) {
+    const task = await this.pg.task.findUnique({
+      where: { id: taskId },
+      include: {
+        originalProject: { select: { id: true, name: true, logoUrl: true } },
+        sections: { take: 1, select: { sectionId: true } },
+        assignees: { select: { userId: true } },
+      },
+    });
+    if (!task) return;
+
+    const sectionId = task.sections[0]?.sectionId;
+    if (!sectionId) return;
+
+    const actor = await this.pg.user.findUnique({
+      where: { id: actorId },
+      select: { id: true, fullname: true, avatarUrl: true },
+    });
+
+    const project = task.originalProject;
+    const taskPayload = {
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      deadline: task.deadline,
+      sectionId,
+    };
+    const assigneeIds = overrideAssigneeIds ?? task.assignees.map((a) => a.userId);
+
+    if (type === "assigned") {
+      await this.notificationService.notifyTaskAssigned({
+        actorId,
+        project,
+        task: taskPayload,
+        actor,
+        assigneeIds,
+        supervisorId: task.supervisorId,
+      });
+    } else {
+      await this.notificationService.notifyTaskUpdated({
+        actorId,
+        project,
+        task: taskPayload,
+        actor,
+        assigneeIds,
+        supervisorId: task.supervisorId,
+        changes,
+      });
+    }
+  }
 
   private async queryTaskHelper(userId: string, task: Omit<GetTaskQueryResult, "canImport" | "isImported">) {
     const taskInWorkspace = await this.pg.taskProject.findFirst({
@@ -117,6 +179,11 @@ export class TaskService {
     });
 
     const taskExtras = await this.queryTaskHelper(userId, task);
+
+    this.fireTaskNotification("assigned", userId, task.id).catch((err) =>
+      console.error("Failed to send task assigned notification:", err),
+    );
+
     return new TaskResponse({ ...task, ...taskExtras }, "Task created successfully");
   }
 
@@ -182,6 +249,21 @@ export class TaskService {
     });
 
     const taskExtras = await this.queryTaskHelper(userId, updated);
+
+    const changes: string[] = [];
+    if (dto.title !== undefined && dto.title !== task.title) changes.push("title");
+    if (dto.description !== undefined && dto.description !== task.description) changes.push("description");
+    if (dto.priority !== undefined && dto.priority !== task.priority) changes.push("priority");
+    if (dto.deadline && dto.deadline.toString?.() !== task.deadline?.toString())
+      changes.push("deadline");
+    if (dto.supervisorId !== undefined && dto.supervisorId !== task.supervisorId) changes.push("supervisor");
+
+    if (changes.length > 0) {
+      this.fireTaskNotification("updated", userId, taskId, undefined, changes).catch((err) =>
+        console.error("Failed to send task updated notification:", err),
+      );
+    }
+
     return new TaskResponse({ ...updated, ...taskExtras }, "Task updated successfully");
   }
 
@@ -210,6 +292,11 @@ export class TaskService {
 
     const updatedTask = await changeTaskStatus(task.status, dto.status, this.pg, dto.sectionId, task);
     const taskExtras = await this.queryTaskHelper(userId, updatedTask);
+
+    this.fireTaskNotification("updated", userId, taskId, undefined, ["status"]).catch((err) =>
+      console.error("Failed to send task status notification:", err),
+    );
+
     return new TaskResponse({ ...updatedTask, ...taskExtras }, "Task status updated successfully");
   }
 
@@ -275,6 +362,15 @@ export class TaskService {
     );
 
     const taskExtras = await this.queryTaskHelper(userId, updatedTask);
+
+    const previousAssigneeIds = new Set(task.assignees.map((a) => a.userId));
+    const newlyAssigned = dto.assigneeIds.filter((id) => !previousAssigneeIds.has(id));
+    if (newlyAssigned.length > 0) {
+      this.fireTaskNotification("assigned", userId, taskId, newlyAssigned).catch((err) =>
+        console.error("Failed to send task assignee notification:", err),
+      );
+    }
+
     return new TaskResponse({ ...updatedTask, ...taskExtras }, "Task assignees updated successfully");
   }
 

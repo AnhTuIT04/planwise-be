@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 
 import { AppController } from "@/app.controller";
 import { configuration } from "@/config/app.config";
@@ -18,6 +19,7 @@ import { SectionModule } from "~/section/section.module";
 import { TaskModule } from "~/task/task.module";
 import { SubtaskModule } from "~/subtask/subtask.module";
 import { ReviewModule } from "~/review/review.module";
+import { NotificationModule } from "~/notification/notification.module";
 import { IntegrationModule } from "~/integration";
 import { NotionModule } from "~/notion/notion.module";
 
@@ -30,6 +32,7 @@ import { NotionModule } from "~/notion/notion.module";
       load: [configuration],
       expandVariables: true,
     }),
+    ScheduleModule.forRoot(),
     RealtimeModule,
     DatabaseModule,
     CacheModule,
@@ -43,6 +46,7 @@ import { NotionModule } from "~/notion/notion.module";
     TaskModule,
     SubtaskModule,
     ReviewModule,
+    NotificationModule,
     IntegrationModule,
     NotionModule,
   ],

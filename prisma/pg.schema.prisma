@@ -27,6 +27,7 @@ model User {
   supervisedTasks     Task[]              @relation("TaskSupervisor")
   assignedTasks       TaskAssignee[]
   assignedSubtasks    SubtaskAssignee[]
+  notifications       Notification[]      @relation("UserNotifications")
 
   integrationConnections IntegrationConnection[]
 }
@@ -57,6 +58,7 @@ model Project {
   sections      Section[]
   originalTasks Task[]              @relation("OriginalProjectTasks")
   tasks         TaskProject[]
+  notifications Notification[]
 }
 
 model Section {
@@ -91,6 +93,7 @@ model Task {
   assignees         TaskAssignee[]
   projects          TaskProject[]
   sections          TaskSection[]
+  notifications     Notification[]
 
   isPinnedToCalendar   Boolean              @default(false)
   importedFromProvider IntegrationProvider?
@@ -239,6 +242,36 @@ enum ChannelType {
   TEXT
   VOICE
   VIDEO
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  recipientId String
+  type        NotificationType
+  isRead      Boolean          @default(false)
+  payload     Json
+  projectId   String?
+  taskId      String?
+  createdAt   DateTime         @default(now())
+
+  recipient User     @relation("UserNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt])
+  @@index([recipientId, isRead])
+  @@index([recipientId, taskId, type])
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  TASK_DEADLINE_REMINDER
+  TASK_DEADLINE_MISSED
+  PROJECT_INVITATION
+  INVITATION_ACCEPTED
+  INVITATION_DECLINED
+  PROJECT_NEW_MEMBER
 }
 
 // ==================== INTEGRATIONS ====================

@@ -6,6 +6,7 @@ import { DEFAULT_ROLE_PERMISSIONS } from "@/common/enum/permission.enum";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { PgService } from "~/database/pg.service";
 import { EmailService } from "~/email/email.service";
+import { NotificationService } from "~/notification/notification.service";
 import { RoleResponse, RolesOffsetResponse } from "~/role/dto/response/role-response.dto";
 import { UsersWithRoleOffsetResponse } from "~/auth/dto/response/user-with-role-response.dto";
 import { buildGetSectionQuery } from "~/section/query/get-section.query";
@@ -26,6 +27,7 @@ export class ProjectService {
   constructor(
     private readonly pg: PgService,
     private readonly emailService: EmailService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(userId: string, createProjectDto: CreateProjectDto) {
@@ -317,11 +319,27 @@ export class ProjectService {
         console.error("Failed to send invitation email:", emailError);
       });
 
+    // Notify invitee in-app no await
+    const inviter = await this.pg.user.findUnique({
+      where: { id: userId },
+      select: { id: true, fullname: true, avatarUrl: true },
+    });
+    if (inviter) {
+      this.notificationService
+        .notifyProjectInvitation({
+          inviteeId: userToInvite.id,
+          inviter,
+          project: { id: project.id, name: project.name, description: project.description, logoUrl: project.logoUrl },
+          role: { id: roleToAssign.id, name: roleToAssign.name },
+        })
+        .catch((err) => console.error("Failed to send invitation notification:", err));
+    }
+
     return new MessageOnlyResponse("Member invited successfully");
   }
 
   async responseInvitation(userId: string, projectId: string, dto: ResponseInvitationDto) {
-    const result = await this.pg.$transaction(async (tx) => {
+    const { response, inviterId, finalRoleId } = await this.pg.$transaction(async (tx) => {
       const invitation = await tx.projectInvitation.findFirst({
         where: {
           projectId,
@@ -344,10 +362,11 @@ export class ProjectService {
         },
       });
 
+      let roleId = invitation.roleId;
+
       if (dto.response === "ACCEPTED") {
         // Check if the role still exists
         const role = await tx.role.findUnique({ where: { id: invitation.roleId } });
-        let roleId = invitation.roleId;
 
         // If role doesn't exist, use the default MEMBER role
         if (!role) {
@@ -369,11 +388,53 @@ export class ProjectService {
         });
       }
 
-      return dto.response;
+      return { response: dto.response, inviterId: invitation.inviterId, finalRoleId: roleId };
     });
 
+    // Fan out notifications no await
+    void (async () => {
+      try {
+        const [project, invitee, role, members] = await Promise.all([
+          this.pg.project.findUnique({
+            where: { id: projectId },
+            select: { id: true, name: true, logoUrl: true, description: true },
+          }),
+          this.pg.user.findUnique({
+            where: { id: userId },
+            select: { id: true, fullname: true, avatarUrl: true },
+          }),
+          this.pg.role.findUnique({ where: { id: finalRoleId }, select: { id: true, name: true } }),
+          this.pg.projectMember.findMany({
+            where: { projectId, NOT: { userId } },
+            select: { userId: true },
+          }),
+        ]);
+        if (!project || !invitee || !role) return;
+
+        await this.notificationService.notifyInvitationResponse({
+          inviterId,
+          invitee,
+          project,
+          role,
+          accepted: response === "ACCEPTED",
+        });
+
+        if (response === "ACCEPTED") {
+          await this.notificationService.notifyProjectNewMember({
+            actorId: userId,
+            project,
+            newMember: invitee,
+            role,
+            existingMemberIds: members.map((m) => m.userId),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send invitation response notifications:", err);
+      }
+    })();
+
     return new MessageOnlyResponse(
-      result === "ACCEPTED" ? "Invitation accepted successfully" : "Invitation declined successfully",
+      response === "ACCEPTED" ? "Invitation accepted successfully" : "Invitation declined successfully",
     );
   }
 
