@@ -12,7 +12,7 @@ export abstract class BasePermissionHandler implements IPermissionHandler {
 
   async handle({ user, request }: Parameters<IPermissionHandler["handle"]>[0]) {
     const userId = user.sub as string;
-    const projectId = request.body.projectId as string;
+    const projectId = request.body?.projectId as string;
 
     if (projectId) {
       const userRole = await this.pgService.role.findFirst({

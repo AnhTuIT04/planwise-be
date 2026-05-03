@@ -12,7 +12,7 @@ export abstract class BasePermissionHandler implements IPermissionHandler {
 
   async handle({ user, request }: Parameters<IPermissionHandler["handle"]>[0]) {
     const userId = user.sub as string;
-    const taskId: string = request.body.parentTaskId;
+    const taskId: string = request.body?.parentTaskId;
 
     if (taskId) {
       const task = await this.pgService.task.findUnique({

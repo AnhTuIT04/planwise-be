@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { hash } from "bcrypt";
 
 import { DefaultRole } from "@/common/enum/default-role.enum";
@@ -140,9 +141,7 @@ async function ensureProjects(user: SeededUser): Promise<SeededProject[]> {
   });
   if (!personal) throw new Error("Personal workspace section missing — bad state");
 
-  const projects: SeededProject[] = [
-    { id: user.workspaceId, name: "My Workspace", sectionId: personal.id },
-  ];
+  const projects: SeededProject[] = [{ id: user.workspaceId, name: "My Workspace", sectionId: personal.id }];
 
   for (const name of PROJECT_NAMES) {
     const existing = await prisma.project.findFirst({
@@ -327,11 +326,12 @@ async function resetSeedTasks(user: SeededUser) {
 
 async function main() {
   const args = process.argv.slice(2);
-  const reset = args.includes("--reset");
-  const emailArg = args.find((a) => !a.startsWith("--"));
 
-  const email = emailArg ?? "seed@planwise.test";
-  const password = "Password1!";
+  const reset = args.includes("--reset");
+  const userArg = args.find((a) => a.startsWith("--user="));
+
+  const email = userArg ? userArg.split("=")[1] : "seed@planwise.test";
+  const password = args.find((a) => a.startsWith("--password=")) ? userArg!.split("=")[1] : "Password123!";
   const taskCount = 60;
 
   console.log(`\n=== Seeding review data for ${email} ===\n`);
@@ -345,7 +345,6 @@ async function main() {
 
   console.log(`\n=== Done ===`);
   console.log(`User:     ${email}`);
-  if (!emailArg) console.log(`Password: ${password}`);
   console.log(`Projects: ${projects.map((p) => p.name).join(", ")}`);
   console.log(`Tasks:    ${taskCount} (titles prefixed with "${SEED_TAG}")`);
   console.log(`\nRe-run with --reset to wipe previously seeded tasks before generating.\n`);

@@ -12,7 +12,7 @@ export abstract class BasePermissionHandler implements IPermissionHandler {
 
   async handle({ user, request }: Parameters<IPermissionHandler["handle"]>[0]) {
     const userId = user.sub as string;
-    const projectId = request.body.projectId as string;
+    const projectId = request.body?.projectId as string;
 
     if (projectId) {
       const userRole = await this.pgService.role.findFirst({
@@ -36,7 +36,7 @@ export abstract class BasePermissionHandler implements IPermissionHandler {
       return this.permissions.some((permission) => userRole.permissions.includes(permission));
     }
 
-    const sectionId: string = request.body.sectionId || request.body.fromSectionId || request.body.toSectionId;
+    const sectionId: string = request.body?.sectionId || request.body?.fromSectionId || request.body?.toSectionId;
 
     if (sectionId) {
       const section = await this.pgService.section.findUnique({
@@ -70,7 +70,7 @@ export abstract class BasePermissionHandler implements IPermissionHandler {
       return this.permissions.some((permission) => userRole.permissions.includes(permission));
     }
 
-    const taskId: string = request.params.id || request.body.taskId;
+    const taskId: string = request.params.id || request.body?.taskId;
 
     if (taskId) {
       const task = await this.pgService.task.findUnique({
