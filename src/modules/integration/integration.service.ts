@@ -24,6 +24,7 @@ import {
 } from "./types/integration.types";
 import { CalendarAdapter } from "./adapters/calendar.adapter";
 import { GmailAdapter } from "./adapters/gmail.adapter";
+import { NotionAdapter } from "./adapters/notion.adapter";
 import { CalendarWebhookService } from "./webhook/calendar.webhook";
 import {
   ConnectionDetailsResponseDto,
@@ -45,17 +46,18 @@ export class IntegrationService {
     private readonly cacheService: CacheService,
     private readonly calendarAdapter: CalendarAdapter,
     private readonly gmailAdapter: GmailAdapter,
-    // private readonly notionAdapter: NotionAdapter,
+    private readonly notionAdapter: NotionAdapter,
     @Inject(forwardRef(() => CalendarWebhookService))
     private readonly webhookService: CalendarWebhookService,
   ) {
     // Register adapters
     this.adapters.set(IntegrationProvider.GOOGLE_CALENDAR, this.calendarAdapter);
     this.adapters.set(IntegrationProvider.GOOGLE_GMAIL, this.gmailAdapter);
-    // this.adapters.set(IntegrationProvider.NOTION, this.notionAdapter);
+    this.adapters.set(IntegrationProvider.NOTION, this.notionAdapter);
   }
 
   private getAdapter(provider: IntegrationProvider): IIntegrationAdapter {
+    console.log('provider',provider);
     const adapter = this.adapters.get(provider);
     if (!adapter) {
       throw new BadRequestException(`Provider ${provider} is not supported`);
@@ -73,7 +75,7 @@ export class IntegrationService {
     } else if (provider === IntegrationProvider.GOOGLE_GMAIL) {
       paramRedirectUrl += "?gmail_connected=true";
     } else if (provider === IntegrationProvider.NOTION) {
-      paramRedirectUrl += "?notion_connected=true";
+      paramRedirectUrl += "/my-tasks?notion_connected=true";
     }
 
     // Create state with user info for callback
@@ -111,9 +113,11 @@ export class IntegrationService {
 
     // Exchange code for tokens
     const tokens = await adapter.exchangeCodeForTokens(code);
+    console.log("IntegrationService - token: ", tokens);
 
     // Get account identifier (e.g., email from Google)
     const accountIdentifier = await this.getAccountIdentifier(provider, tokens.accessToken);
+    console.log("IntegrationService - accountIdentifier: ", accountIdentifier);
 
     // Store connection
     const connection = await this.prisma.integrationConnection.upsert({

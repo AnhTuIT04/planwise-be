@@ -76,6 +76,7 @@ export class IntegrationController {
   @ApiOperation({ summary: "OAuth callback handler (redirects to frontend)" })
   async callback(@Query() query: OAuthCallbackDto, @Res() res: Response): Promise<void> {
     try {
+      this.logger.log(`Received OAuth callback query: ${JSON.stringify(query)}`);
       const result = await this.integrationService.handleOAuthCallback(query.code, query.state);
       res.redirect(result.redirectUrl);
     } catch (error: any) {

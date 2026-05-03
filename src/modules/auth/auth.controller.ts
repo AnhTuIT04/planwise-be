@@ -27,7 +27,7 @@ export class AuthController {
     return {
       httpOnly: true,
       domain: DOMAIN,
-      sameSite: "strict" as const,
+      sameSite: "lax" as const,
       secure: (NODE_ENV as string) === "production",
     };
   }
