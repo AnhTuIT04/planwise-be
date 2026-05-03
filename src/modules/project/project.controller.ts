@@ -33,6 +33,7 @@ import { InviteMemberDto, ResponseInvitationDto } from "./dto/request/invite-mem
 import { AssignRoleDto } from "./dto/request/assign-role.dto";
 import { ProjectResponse, ProjectsOffsetResponse } from "./dto/response/project-response.dto";
 import { InvitationsOffsetResponse } from "./dto/response/invitation-response.dto";
+import { PermissionsListResponse } from "./dto/response/permission-response.dto";
 
 @ApiTags("Project")
 @Controller("projects")
@@ -62,6 +63,18 @@ export class ProjectController {
   })
   getAllProjects(@GetCurrentUserId() userId: string) {
     return this.projectService.getAllProjects(userId);
+  }
+
+  @Get("permissions")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Get all available project permissions" })
+  @ApiResponse({
+    status: 200,
+    type: PermissionsListResponse,
+    description: "Available permissions retrieved successfully",
+  })
+  getAvailablePermissions() {
+    return this.projectService.getAvailablePermissions();
   }
 
   @Get(":id")

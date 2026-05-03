@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { type Prisma } from "prisma/client/pg";
 
 import { DefaultRole } from "@/common/enum/default-role.enum";
-import { DEFAULT_ROLE_PERMISSIONS } from "@/common/enum/permission.enum";
+import { DEFAULT_ROLE_PERMISSIONS, EPermission, PERMISSION_METADATA } from "@/common/enum/permission.enum";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { PgService } from "~/database/pg.service";
 import { EmailService } from "~/email/email.service";
@@ -21,6 +21,7 @@ import { InviteMemberDto, ResponseInvitationDto } from "./dto/request/invite-mem
 import { AssignRoleDto } from "./dto/request/assign-role.dto";
 import { ProjectResponse, ProjectsOffsetResponse } from "./dto/response/project-response.dto";
 import { InvitationsOffsetResponse } from "./dto/response/invitation-response.dto";
+import { PermissionItemDto, PermissionsListResponse } from "./dto/response/permission-response.dto";
 
 @Injectable()
 export class ProjectService {
@@ -86,6 +87,14 @@ export class ProjectService {
     );
 
     return new ProjectResponse(project, "Project created successfully");
+  }
+
+  getAvailablePermissions() {
+    const items = (Object.values(EPermission) as EPermission[]).map((permission) => {
+      const meta = PERMISSION_METADATA[permission];
+      return new PermissionItemDto(permission, meta.name, meta.description);
+    });
+    return new PermissionsListResponse(items, "Available permissions retrieved successfully");
   }
 
   async getAllProjects(userId: string) {

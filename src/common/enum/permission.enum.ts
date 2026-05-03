@@ -21,6 +21,41 @@ export enum EPermission {
 }
 
 /**
+ * Display metadata for each permission, used by GET /projects/permissions
+ * so the FE can render labels and descriptions without hard-coding them.
+ */
+export const PERMISSION_METADATA: Record<EPermission, { name: string; description: string }> = {
+  [EPermission.PROJECT_UPDATE]: {
+    name: "Update project",
+    description: "Edit the project's name, description, and logo.",
+  },
+  [EPermission.PROJECT_DELETE]: {
+    name: "Delete project",
+    description: "Permanently delete the project and all of its data.",
+  },
+  [EPermission.PROJECT_MANAGE_MEMBERS]: {
+    name: "Manage members",
+    description: "Invite, remove, and view project members.",
+  },
+  [EPermission.PROJECT_MANAGE_ROLES]: {
+    name: "Manage roles",
+    description: "Create, edit, delete, and assign project roles.",
+  },
+  [EPermission.PROJECT_CREATE_DATA]: {
+    name: "Create project data",
+    description: "Create sections, tasks, and subtasks within the project.",
+  },
+  [EPermission.PROJECT_UPDATE_DATA]: {
+    name: "Update project data",
+    description: "Edit sections, tasks, and subtasks within the project.",
+  },
+  [EPermission.PROJECT_DELETE_DATA]: {
+    name: "Delete project data",
+    description: "Delete sections, tasks, and subtasks within the project.",
+  },
+};
+
+/**
  * Default role permission mappings
  * Pre-configured roles with their associated permissions
  */
