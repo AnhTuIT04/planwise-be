@@ -14,7 +14,7 @@ export class CreateRoleDto {
   @IsArray()
   @ArrayNotEmpty()
   @IsString({ each: true })
-  @Matches(/^[a-z]+:[a-z]+$/, {
+  @Matches(/^[a-z-]+:[a-z-]+$/, {
     each: true,
     message: "Permission must be in format resource:action",
   })
