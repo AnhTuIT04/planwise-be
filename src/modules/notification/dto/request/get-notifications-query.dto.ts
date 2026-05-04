@@ -32,7 +32,7 @@ export class GetNotificationsQueryDto {
   @Transform(({ value }) => {
     if (value === "true" || value === true) return true;
     if (value === "false" || value === false) return false;
-    return value;
+    return value as boolean;
   })
   @IsBoolean()
   isRead?: boolean;
