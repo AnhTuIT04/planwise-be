@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 
 import { PgService } from "@/modules/database/pg.service";
 import { MongoService } from "@/modules/database/mongo.service";
 import { SocketEmitter } from "@/modules/realtime/socket.emitter";
 import { CreateChannelDto } from "./dto/request/create-channel.dto";
-import { ChannelResponseDto, ChannelsListResponseDto } from "./dto/response/channel-response.dto";
+import { ChannelResponse, ChannelsOffsetResponse } from "./dto/response/channel-response.dto";
 import { UpdateChannelDto } from "./dto/request/update-channel.dto";
 import { MessagesListResponseDto } from "./dto/response/message-response.dto";
 
@@ -27,7 +27,7 @@ export class ChannelService {
       },
     });
 
-    const response = new ChannelResponseDto(channel, "Channel created successfully");
+    const response = new ChannelResponse(channel, "Channel created successfully");
 
     this.emitter.to(`project:${dto.projectId}`).emit("s2c:project:new-channel", response.data);
     const sockets = await this.emitter.in(`project:${dto.projectId}`).fetchSockets();
@@ -45,13 +45,7 @@ export class ChannelService {
       where: { projectId },
     });
 
-    return new ChannelsListResponseDto(
-      channels,
-      1,
-      channels.length,
-      channels.length,
-      "Channels retrieved successfully",
-    );
+    return new ChannelsOffsetResponse(channels, 1, channels.length, channels.length, "Channels retrieved successfully");
   }
 
   async update(userId: string, id: string, dto: UpdateChannelDto) {
@@ -69,7 +63,7 @@ export class ChannelService {
       },
     });
 
-    const response = new ChannelResponseDto(updatedChannel, "Channel updated successfully");
+    const response = new ChannelResponse(updatedChannel, "Channel updated successfully");
     this.emitter.to(`project:${channel.projectId}`).emit("s2c:project:update-channel", response.data);
     return response;
   }

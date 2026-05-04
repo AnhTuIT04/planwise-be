@@ -1,5 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { CursorPaginationResponseDto, PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
+
+import { ContentType } from "prisma/client/mongo";
+import { CursorPaginatedResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
 
 class MessageDto {
@@ -16,6 +18,9 @@ class MessageDto {
   content: string;
 
   @ApiProperty()
+  contentType: ContentType;
+
+  @ApiProperty()
   createdAt: Date;
 
   constructor(data: any) {
@@ -23,11 +28,12 @@ class MessageDto {
     this.channelId = data.channelId;
     this.sender = new UserBasicDto(data.sender);
     this.content = data.content;
+    this.contentType = data.contentType;
     this.createdAt = data.createdAt;
   }
 }
 
-export class MessagesListResponseDto extends CursorPaginationResponseDto<MessageDto> {
+export class MessagesListResponseDto extends CursorPaginatedResponseDto<MessageDto> {
   @ApiProperty({ type: () => [MessageDto], description: "Array of messages" })
   declare readonly data: MessageDto[];
 
@@ -35,6 +41,7 @@ export class MessagesListResponseDto extends CursorPaginationResponseDto<Message
     super(
       data.map((task) => new MessageDto(task)),
       nextCursor,
+      nextCursor !== null,
       message,
     );
   }

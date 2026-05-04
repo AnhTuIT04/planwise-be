@@ -15,6 +15,7 @@ import { PermissionModule } from "~/permission/permission.module";
 import { AuthModule } from "~/auth/auth.module";
 import { ProjectModule } from "~/project/project.module";
 import { RoleModule } from "~/role/role.module";
+import { ChannelModule } from "./modules/channel/channel.module";
 import { SectionModule } from "~/section/section.module";
 import { TaskModule } from "~/task/task.module";
 import { SubtaskModule } from "~/subtask/subtask.module";
@@ -42,6 +43,7 @@ import { NotionModule } from "~/notion/notion.module";
     PermissionModule,
     ProjectModule,
     RoleModule,
+    ChannelModule,
     SectionModule,
     TaskModule,
     SubtaskModule,

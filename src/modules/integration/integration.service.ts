@@ -57,7 +57,7 @@ export class IntegrationService {
   }
 
   private getAdapter(provider: IntegrationProvider): IIntegrationAdapter {
-    console.log('provider',provider);
+    console.log("provider", provider);
     const adapter = this.adapters.get(provider);
     if (!adapter) {
       throw new BadRequestException(`Provider ${provider} is not supported`);
@@ -69,7 +69,7 @@ export class IntegrationService {
 
   async getAuthUrl(userId: string, provider: IntegrationProvider, redirectUrl?: string): Promise<string> {
     const adapter = this.getAdapter(provider);
-    let paramRedirectUrl = redirectUrl || this.configService.get<string>("env.FE_REDIRECT_URL");
+    let paramRedirectUrl = redirectUrl || this.configService.get<string>("env.INTEGRATION_SUCCESS_REDIRECT_URL");
     if (provider === IntegrationProvider.GOOGLE_CALENDAR) {
       paramRedirectUrl += "?calendar_connected=true";
     } else if (provider === IntegrationProvider.GOOGLE_GMAIL) {
