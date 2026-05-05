@@ -27,9 +27,14 @@ model User {
   supervisedTasks     Task[]              @relation("TaskSupervisor")
   assignedTasks       TaskAssignee[]
   assignedSubtasks    SubtaskAssignee[]
+  <<<<<<< Updated upstream
   notifications       Notification[]      @relation("UserNotifications")
 
   integrationConnections IntegrationConnection[]
+  =======
+
+  googleCalendarIntegrations GoogleCalendarIntegration[]
+  >>>>>>> Stashed changes
 }
 
 model OAuthAccount {
@@ -352,4 +357,48 @@ enum IntegrationProvider {
   GOOGLE_CALENDAR
   GOOGLE_GMAIL
   NOTION
+}
+
+// ==================== INTEGRATIONS ====================
+model GoogleCalendarIntegration {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  accessToken    String   @pg.Text
+  refreshToken   String   @pg.Text
+  tokenExpiry    DateTime
+  scope          String?
+  providerUserId String? // Google account id (sub)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events GoogleCalendarEvent[]
+}
+
+model GoogleCalendarEvent {
+  id            String  @id @default(uuid())
+  integrationId String
+  calendarId    String?
+
+  externalId  String // Google event id
+  summary     String?
+  description String?
+
+  startTime DateTime
+  endTime   DateTime
+  isAllDay  Boolean  @default(false)
+
+  location String?
+  status   String? // confirmed, cancelled
+
+  raw Json? // Store full event data from Google for future reference
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  integration GoogleCalendarIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, externalId])
+  @@index([integrationId, startTime])
 }
