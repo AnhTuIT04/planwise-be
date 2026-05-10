@@ -92,7 +92,9 @@ export class TaskDto {
     this.spent = task.spent;
     this.lastStarted = task.lastStarted;
     this.deadline = task.deadline;
-    this.originalProject = task.originalProject ? new ProjectBasicDto(task.originalProject) : null;
+    this.originalProject = task.importedFromProvider === IntegrationProvider.NOTION 
+      ? null 
+      : (task.originalProject ? new ProjectBasicDto(task.originalProject) : null);
     this.canImport = task.canImport;
     this.isImported = task.isImported;
     this.supervisor = task.supervisor ? new UserBasicDto(task.supervisor) : null;
