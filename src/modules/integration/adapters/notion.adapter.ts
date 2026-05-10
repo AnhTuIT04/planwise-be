@@ -26,7 +26,7 @@ export class NotionAdapter implements IIntegrationAdapter {
     const isLocal = domain === "localhost" || domain === "127.0.0.1";
 
     // fallback or generated callback url
-    this.redirectUri = `http${!isLocal ? "s" : ""}://${domain}${isLocal ? ":" + port : ""}/integrations/callback`;
+    this.redirectUri = this.configService.get<string>("NOTION_CALLBACK_URL") || "http://localhost:8080/integrations/callback";
   }
 
   getAuthUrl(state: string): string {
