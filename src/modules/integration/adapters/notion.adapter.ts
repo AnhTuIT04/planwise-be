@@ -63,12 +63,15 @@ export class NotionAdapter implements IIntegrationAdapter {
     }
 
     const data = await response.json();
+    console.log("data: ", data);
+
+    const expiresAt = data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined;
 
     return {
       accessToken: data.access_token,
       // Notion tokens don't expire for typical public integrations
       expiresAt: undefined,
-      refreshToken: undefined, // Notion typical doesn't issue refresh token
+      refreshToken: data.refresh_token, // Notion typical doesn't issue refresh token
       scopes: [],
       extraData: {
         workspaceId: data.workspace_id,
@@ -79,14 +82,76 @@ export class NotionAdapter implements IIntegrationAdapter {
   }
 
   async refreshAccessToken(refreshToken: string): Promise<TokenRefreshResult> {
-    // Notion tokens typically don't expire, so we shouldn't hit this.
-    // If they change their API to require refresh tokens, we'd implement it here.
-    return { accessToken: refreshToken };
+    const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
+
+    const response = await fetch("https://api.notion.com/v1/oauth/token", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(`Notion token refresh failed: ${errorText}`);
+      throw new Error("Failed to refresh Notion token");
+    }
+
+    const data = await response.json();
+    return {
+      accessToken: data.access_token,
+      expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined,
+    };
   }
 
   async revokeAccess(accessToken: string): Promise<void> {
-    // Notion has no revoke API, users must remove the integration from Notion settings directly.
-    return Promise.resolve();
+    const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
+
+    const response = await fetch("https://api.notion.com/v1/oauth/revoke", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({
+        token: accessToken,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(`Notion token revocation failed: ${errorText}`);
+    }
+  }
+
+  async introspectToken(accessToken: string): Promise<any> {
+    const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
+
+    const response = await fetch("https://api.notion.com/v1/oauth/introspect", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({
+        token: accessToken,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(`Notion token introspection failed: ${errorText}`);
+      throw new Error("Failed to introspect Notion token");
+    }
+
+    return response.json();
   }
 
   // Not strictly applicable (calendar-specific implementations), but stubbed to fulfill interface.
@@ -132,6 +197,7 @@ export class NotionAdapter implements IIntegrationAdapter {
       status: taskStatus,
       deadline: dueDate ? new Date(dueDate).toISOString() : undefined,
       notionPageId: page.id,
+      importedFromProvider: IntegrationProvider.NOTION,
     };
   }
 }

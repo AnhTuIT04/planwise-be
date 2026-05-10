@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
-import { PriorityLevel, TaskStatus } from "prisma/client/pg";
+import { PriorityLevel, TaskStatus, IntegrationProvider } from "prisma/client/pg";
 import { OffsetPaginatedResponseDto, ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "~/auth/dto/response/user-basic-response.dto";
 import { ProjectBasicDto } from "~/project/dto/response/project-basic-response.dto";
@@ -67,6 +67,15 @@ export class TaskDto {
   @ApiPropertyOptional({ type: () => [SubtaskDto], description: "Array of sub-task objects" })
   readonly subtasks: SubtaskDto[];
 
+  @ApiPropertyOptional({ example: "NOTION", description: "Provider the task was imported from", enum: IntegrationProvider, nullable: true })
+  readonly importedFromProvider: IntegrationProvider | null;
+
+  @ApiPropertyOptional({ example: "notion-page-id", description: "Notion page id if imported from Notion", nullable: true })
+  readonly notionPageId: string | null;
+
+  @ApiPropertyOptional({ example: "notion-database-id", description: "Notion database id if imported from Notion", nullable: true })
+  readonly notionDatabaseId: string | null;
+
   @ApiProperty({ example: "2024-06-15T12:00:00Z", description: "Timestamp of task creation", format: "date-time" })
   readonly createdAt: Date;
 
@@ -83,12 +92,17 @@ export class TaskDto {
     this.spent = task.spent;
     this.lastStarted = task.lastStarted;
     this.deadline = task.deadline;
-    this.originalProject = task.originalProject ? new ProjectBasicDto(task.originalProject) : null;
+    this.originalProject = task.importedFromProvider === IntegrationProvider.NOTION 
+      ? null 
+      : (task.originalProject ? new ProjectBasicDto(task.originalProject) : null);
     this.canImport = task.canImport;
     this.isImported = task.isImported;
     this.supervisor = task.supervisor ? new UserBasicDto(task.supervisor) : null;
     this.assignees = task.assignees.map((assignee) => new UserBasicDto(assignee.user));
     this.subtasks = task.subtasks.map((subtask) => new SubtaskDto(subtask));
+    this.importedFromProvider = task.importedFromProvider;
+    this.notionPageId = task.notionPageId;
+    this.notionDatabaseId = task.notionDatabaseId;
     this.createdAt = task.createdAt;
     this.updatedAt = task.updatedAt;
   }
