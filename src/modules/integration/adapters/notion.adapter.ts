@@ -197,6 +197,7 @@ export class NotionAdapter implements IIntegrationAdapter {
       status: taskStatus,
       deadline: dueDate ? new Date(dueDate).toISOString() : undefined,
       notionPageId: page.id,
+      importedFromProvider: IntegrationProvider.NOTION,
     };
   }
 }
