@@ -71,9 +71,9 @@ export class IntegrationService {
     const adapter = this.getAdapter(provider);
     let paramRedirectUrl = redirectUrl || this.configService.get<string>("env.FE_REDIRECT_URL");
     if (provider === IntegrationProvider.GOOGLE_CALENDAR) {
-      paramRedirectUrl += "?calendar_connected=true";
+      paramRedirectUrl += "/my-tasks?calendar_connected=true";
     } else if (provider === IntegrationProvider.GOOGLE_GMAIL) {
-      paramRedirectUrl += "?gmail_connected=true";
+      paramRedirectUrl += "/my-tasks?gmail_connected=true";
     } else if (provider === IntegrationProvider.NOTION) {
       paramRedirectUrl += "/my-tasks?notion_connected=true";
     }
@@ -287,6 +287,9 @@ export class IntegrationService {
     provider: IntegrationProvider,
   ): Promise<string> {
     // Check if token is still valid (with 5 min buffer)
+    if (provider === IntegrationProvider.NOTION) {
+      return connection.accessToken;
+    }
     if (connection.tokenExpiresAt && connection.tokenExpiresAt > new Date(Date.now() + 5 * 60 * 1000)) {
       return connection.accessToken;
     }

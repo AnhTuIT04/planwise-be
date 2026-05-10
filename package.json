@@ -24,7 +24,10 @@
     "mongo:reset": "prisma db push --force-reset --schema prisma/mongo.schema.prisma",
     "mongo:studio": "prisma studio --schema prisma/mongo.schema.prisma",
     "lint": "eslint \"src/**/*.ts\"",
-    "lint:fix": "eslint \"src/**/*.ts\" --fix"
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.18",
@@ -59,11 +62,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@nestjs/testing": "^11.1.19",
     "@types/bcrypt": "^6.0.0",
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/helmet": "^0.0.48",
+    "@types/jest": "^30.0.0",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.5.2",
     "@types/nodemailer": "^8.0.0",
@@ -77,9 +82,11 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-unused-imports": "^4.4.1",
     "globals": "^17.4.0",
+    "jest": "^30.4.1",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.1",
     "prisma": "6.19",
+    "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
