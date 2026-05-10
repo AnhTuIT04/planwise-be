@@ -28,6 +28,7 @@ export class ChannelHandler {
     const channel = await this.pg.channel.findUnique({
       where: { id: dto.channelId },
     });
+
     if (!channel) throw new Error("Channel not found");
     if (channel.type === "VIDEO" || channel.type === "VOICE") {
       throw new Error("Cannot send message to text channel");

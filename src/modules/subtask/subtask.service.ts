@@ -51,7 +51,10 @@ export class SubtaskService {
       },
       include: {
         assignees: true,
-        subtasks: { orderBy: { position: "asc" } },
+        subtasks: {
+          include: { assignees: true },
+          orderBy: { position: "asc" },
+        },
       },
     });
 
@@ -72,6 +75,15 @@ export class SubtaskService {
       position = midpoint(positions[data.insertAt - 1], positions[data.insertAt]);
     }
 
+    const subtaskAssigneeIds = new Set(data.assigneeIds);
+    const currentParentAssigneeIds =
+      parentTask.subtasks.length === 0
+        ? subtaskAssigneeIds
+        : parentTask.subtasks.reduce((acc, sub) => {
+            sub.assignees.forEach((assignee) => acc.add(assignee.userId));
+            return acc;
+          }, new Set<string>());
+
     const task = await this.pg.$transaction(
       async (tx) => {
         await tx.subtask.create({
@@ -81,9 +93,7 @@ export class SubtaskService {
             title: data.title,
             estimate: data.estimate,
             assignees: {
-              create: Array.from(
-                new Set([...parentTask.assignees.map((assignee) => assignee.userId), ...data.assigneeIds]),
-              ).map((userId) => ({ userId })),
+              create: Array.from(subtaskAssigneeIds).map((userId) => ({ userId })),
             },
           },
         });
@@ -93,6 +103,12 @@ export class SubtaskService {
           data: {
             status: parentTask.status === TaskStatus.DONE ? TaskStatus.TODO : parentTask.status,
             estimate: parentTask.subtasks.reduce((acc, st) => acc + st.estimate, data.estimate || 1200000),
+            assignees: {
+              deleteMany: {},
+              create: Array.from(new Set([...currentParentAssigneeIds, ...subtaskAssigneeIds])).map((userId) => ({
+                userId,
+              })),
+            },
           },
           ...buildGetTaskQuery(),
         });
@@ -255,8 +271,14 @@ export class SubtaskService {
         },
       },
       include: {
+        assignees: true,
         parentTask: {
-          select: { assignees: true },
+          select: {
+            assignees: true,
+            subtasks: {
+              include: { assignees: true },
+            },
+          },
         },
       },
     });
@@ -265,21 +287,52 @@ export class SubtaskService {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
 
-    const updatedSubtask = await this.pg.subtask.update({
-      where: { id: subtaskId },
-      data: {
-        assignees: {
-          deleteMany: {},
-          create: Array.from(
-            new Set([...subtask.parentTask.assignees.map((assignee) => assignee.userId), ...dto.assigneeIds]),
-          ).map((userId) => ({ userId })),
-        },
-      },
-      ...buildGetSubtaskQuery(),
-    });
+    const subtaskAssigneeIds = new Set(dto.assigneeIds);
+    const parentAssigneeIds =
+      subtask.parentTask.subtasks.length === 0
+        ? subtaskAssigneeIds
+        : subtask.parentTask.subtasks.reduce((acc, sub) => {
+            if (sub.id === subtaskId) {
+              subtaskAssigneeIds.forEach((userId) => acc.add(userId));
+              return acc;
+            }
 
-    const taskExtras = await this.queryTaskHelper(userId, updatedSubtask.parentTask);
-    return new TaskResponse({ ...updatedSubtask.parentTask, ...taskExtras }, "Subtask assignees updated successfully");
+            sub.assignees.forEach((assignee) => acc.add(assignee.userId));
+            return acc;
+          }, new Set<string>());
+
+    const task = await this.pg.$transaction(
+      async (tx) => {
+        await tx.subtask.update({
+          where: { id: subtaskId },
+          data: {
+            assignees: {
+              create: Array.from(subtaskAssigneeIds).map((userId) => ({ userId })),
+            },
+          },
+        });
+
+        return tx.task.update({
+          where: { id: subtask.parentTaskId },
+          data: {
+            assignees: {
+              deleteMany: {},
+              create: Array.from(parentAssigneeIds).map((userId) => ({
+                userId,
+              })),
+            },
+          },
+          ...buildGetTaskQuery(),
+        });
+      },
+      {
+        maxWait: 5000,
+        timeout: 20000,
+      },
+    );
+
+    const taskExtras = await this.queryTaskHelper(userId, task);
+    return new TaskResponse({ ...task, ...taskExtras }, "Subtask assignees updated successfully");
   }
 
   async remove(userId: string, subtaskId: string) {
