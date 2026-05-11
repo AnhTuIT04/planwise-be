@@ -99,6 +99,9 @@ model Task {
   importedFromProvider IntegrationProvider?
   notionPageId         String?
   notionDatabaseId     String?
+  gmailMessageId       String?
+  calendarEventId      String?
+  gmailBodyHtml        String?
 }
 
 model Subtask {

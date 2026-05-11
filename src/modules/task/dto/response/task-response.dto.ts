@@ -76,6 +76,15 @@ export class TaskDto {
   @ApiPropertyOptional({ example: "notion-database-id", description: "Notion database id if imported from Notion", nullable: true })
   readonly notionDatabaseId: string | null;
 
+  @ApiPropertyOptional({ example: "gmail-message-id", description: "Gmail message id if imported from Gmail", nullable: true })
+  readonly gmailMessageId: string | null;
+
+  @ApiPropertyOptional({ example: "calendar-event-id", description: "Calendar event id if imported from Calendar", nullable: true })
+  readonly calendarEventId: string | null;
+
+  @ApiPropertyOptional({ example: "<html>...</html>", description: "Gmail body HTML if imported from Gmail", nullable: true })
+  readonly gmailBodyHtml: string | null;
+
   @ApiProperty({ example: "2024-06-15T12:00:00Z", description: "Timestamp of task creation", format: "date-time" })
   readonly createdAt: Date;
 
@@ -98,11 +107,16 @@ export class TaskDto {
     this.canImport = task.canImport;
     this.isImported = task.isImported;
     this.supervisor = task.supervisor ? new UserBasicDto(task.supervisor) : null;
-    this.assignees = task.assignees.map((assignee) => new UserBasicDto(assignee.user));
-    this.subtasks = task.subtasks.map((subtask) => new SubtaskDto(subtask));
+    this.assignees = task.assignees
+      ? task.assignees.filter((a) => !!a.user).map((assignee) => new UserBasicDto(assignee.user))
+      : [];
+    this.subtasks = task.subtasks ? task.subtasks.map((subtask) => new SubtaskDto(subtask)) : [];
     this.importedFromProvider = task.importedFromProvider;
     this.notionPageId = task.notionPageId;
     this.notionDatabaseId = task.notionDatabaseId;
+    this.gmailMessageId = task.gmailMessageId;
+    this.calendarEventId = task.calendarEventId;
+    this.gmailBodyHtml = task.gmailBodyHtml;
     this.createdAt = task.createdAt;
     this.updatedAt = task.updatedAt;
   }

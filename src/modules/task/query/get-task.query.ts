@@ -31,4 +31,7 @@ export interface GetTaskQueryResult extends Omit<
   originalProject: Project | null;
   canImport: boolean;
   isImported: boolean;
+  gmailBodyHtml: string | null;
+  gmailMessageId: string | null;
+  calendarEventId: string | null;
 }

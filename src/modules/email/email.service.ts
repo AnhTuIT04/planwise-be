@@ -80,7 +80,10 @@ export class EmailService {
 
   /** Build invite member link HTML with projectId and roleId */
   private buildInviteMemberLink(projectId: string, roleId: string): string {
-    const inviteUrl = `http://localhost:3000/invite-member?projectId=${projectId}&roleId=${roleId}`;
+    const domain = this.configService.get<string>("DOMAIN");
+    const isLocal = domain === "localhost";
+    const baseUrl = isLocal ? "http://localhost:3000" : "https://planwise.id.vn";
+    const inviteUrl = `${baseUrl}/invite-member?projectId=${projectId}&roleId=${roleId}`;
     return `<a href="${inviteUrl}" style="color: #ffffff; text-decoration: none; background-color: #1a73e8; padding: 12px 24px; border-radius: 6px; display: inline-block; font-weight: bold;">Accept Invitation</a>`;
   }
 
@@ -93,7 +96,10 @@ export class EmailService {
     roleId: string,
   ) {
     const inviteLinkButton = this.buildInviteMemberLink(projectId, roleId);
-    const inviteUrl = `http://localhost:3000/invite-member?projectId=${projectId}&roleId=${roleId}`;
+    const domain = this.configService.get<string>("DOMAIN");
+    const isLocal = domain === "localhost";
+    const baseUrl = isLocal ? "http://localhost:3000" : "https://planwise.id.vn";
+    const inviteUrl = `${baseUrl}/invite-member?projectId=${projectId}&roleId=${roleId}`;
 
     const html = `
     <body style="font-family: Arial, sans-serif; background-color: #f6f9fc; padding: 20px; margin: 0;">

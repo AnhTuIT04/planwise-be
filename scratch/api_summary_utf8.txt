@@ -1,0 +1,114 @@
+Total APIs: 89
+
+Group: Auth (16 APIs)
+  [POST] /auth/signup - No summary
+  [POST] /auth/verify-email - No summary
+  [POST] /auth/verify-email/resend-otp - No summary
+  [POST] /auth/forgot-password - No summary
+  [POST] /auth/verify-forgot-password - No summary
+  [POST] /auth/reset-password - No summary
+  [POST] /auth/forgot-password/resend-otp - No summary
+  [GET] /auth/google - No summary
+  [GET] /auth/google/callback - No summary
+  [GET] /auth/github - No summary
+  [GET] /auth/github/callback - No summary
+  [POST] /auth/oauth/exchange-token - No summary
+  [POST] /auth/signin - No summary
+  [POST] /auth/signout - No summary
+  [GET] /auth/me - Get currently authenticated user
+  [PATCH] /auth/me - Update current user profile
+
+Group: Channel (5 APIs)
+  [POST] /channel - Create a new channel in a project
+  [GET] /channel - Get all channels in a project
+  [PATCH] /channel/{id} - Update a channel in a project
+  [DELETE] /channel/{id} - Delete a channel in a project
+  [GET] /channel/{id}/messages - Get all messages from a TEXT channel
+
+Group: Health (1 APIs)
+  [GET] / - No summary
+
+Group: Integrations (14 APIs)
+  [GET] /integrations/connections/{provider} - Get all connected integrations for a specific provider for current user
+  [GET] /integrations/connect/{provider} - Redirect to provider OAuth consent page
+  [GET] /integrations/callback - No summary
+  [DELETE] /integrations/connections/{provider}/{connectionId} - Disconnect a specific integration account
+  [GET] /integrations/events - Get cached events for a specific provider from local database
+  [POST] /integrations/events - Create a new event
+  [PATCH] /integrations/events/{provider}/{externalId} - Update an event
+  [DELETE] /integrations/events/{provider}/{externalId} - Delete an event
+  [GET] /integrations/messages - Get messages from Gmail provider
+  [POST] /integrations/messages - Send a Gmail message
+  [PATCH] /integrations/messages/{provider}/{connectionId}/{externalId} - Update a Gmail message labels
+  [DELETE] /integrations/messages/{provider}/{connectionId}/{externalId} - Delete a Gmail message
+  [PATCH] /integrations/messages/{provider}/{connectionId}/{externalId}/read - Mark a Gmail message as read
+  [POST] /integrations/webhook/google - No summary
+
+Group: Notification (4 APIs)
+  [GET] /notifications - List notifications for the current user
+  [GET] /notifications/unread-count - Get unread notifications count
+  [PATCH] /notifications/read-all - Mark all notifications as read
+  [PATCH] /notifications/{id}/read - Mark a notification as read
+
+Group: Notion Integration (8 APIs)
+  [GET] /notion/databases - Search for Notion databases
+  [POST] /notion/databases - Create a new Notion database
+  [GET] /notion/databases/{id}/tasks - Get tasks (pages) from a specific Notion database
+  [POST] /notion/import - Import a Notion page as a task
+  [GET] /notion/pages - Get available Notion pages (to be used as database parents)
+  [POST] /notion/pages - Create a new page (task) in a Notion database
+  [GET] /notion/pages/{id} - Get details of a specific Notion page
+  [PATCH] /notion/pages/{id}/properties - Update a Notion page property
+
+Group: Project (17 APIs)
+  [POST] /projects - Create a project
+  [GET] /projects - Get all projects
+  [GET] /projects/permissions - Get all available project permissions
+  [GET] /projects/{id} - Get detailed project by ID
+  [PATCH] /projects/{id} - Update a project
+  [DELETE] /projects/{id} - Delete a project
+  [GET] /projects/{id}/sections - Get all sections in a project
+  [GET] /projects/{id}/tasks - Get all tasks in a project
+  [POST] /projects/{id}/members - Invite a member to the project
+  [GET] /projects/{id}/members - Get all members of a project
+  [POST] /projects/{id}/members/response-invitation - Respond to a project invitation
+  [DELETE] /projects/{id}/members/{memberId} - Remove a member from a project
+  [GET] /projects/{id}/my-role - Get current user's role in a project
+  [GET] /projects/{id}/roles - Get all roles of a project
+  [PATCH] /projects/{id}/members/{memberId}/role - Assign a role to a project member
+  [GET] /projects/invitations/received - Get all received invitations
+  [GET] /projects/{id}/invitations - Get all invitations sent in a project
+
+Group: Review (1 APIs)
+  [GET] /reviews/me - Get a summary of the current user's activity in a chosen period
+
+Group: Role (4 APIs)
+  [POST] /roles - Create a new role in a project
+  [PATCH] /roles/{id} - Update a role in a project
+  [DELETE] /roles/{id} - Delete a role in a project
+  [PATCH] /roles/{id}/assign - Change a user's role in a project
+
+Group: Section (5 APIs)
+  [POST] /sections - Create a new section
+  [GET] /sections/{id} - Get a section by ID, including its tasks
+  [PATCH] /sections/{id} - Update a section
+  [DELETE] /sections/{id} - Delete a section
+  [PATCH] /sections/{id}/move - Move a section
+
+Group: Subtask (6 APIs)
+  [POST] /subtasks - Create a new subtask
+  [PATCH] /subtasks/{id} - Update an existing subtask
+  [DELETE] /subtasks/{id} - Delete a subtask
+  [PATCH] /subtasks/{id}/status - Change the status of a subtask
+  [PATCH] /subtasks/{id}/move - Move a subtask to a different position within the same task
+  [PATCH] /subtasks/{id}/assignees - Update the assignees of a subtask
+
+Group: Task (8 APIs)
+  [POST] /tasks - Create a new task
+  [GET] /tasks/{id} - Get task by id (not subtask)
+  [PATCH] /tasks/{id} - Update a task (not subtask)
+  [DELETE] /tasks/{id} - Delete a task (not subtask)
+  [PATCH] /tasks/{id}/status - Update task status (not subtask)
+  [PATCH] /tasks/{id}/assignees - Update the assignees of a task (not subtask)
+  [PATCH] /tasks/{id}/move - Move a task to a different section (not subtask)
+  [POST] /tasks/{id}/import - Import a task to a different project (not subtask)

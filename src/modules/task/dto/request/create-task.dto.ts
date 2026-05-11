@@ -140,4 +140,28 @@ export class CreateTaskDto {
     description: "Array of subtasks associated with this task",
   })
   readonly subtasks!: TaskCreateSubtaskDto[];
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "message-id",
+    description: "The Gmail message ID if imported from Gmail",
+  })
+  readonly gmailMessageId?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "event-id",
+    description: "The Calendar event ID if imported from Calendar",
+  })
+  readonly calendarEventId?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "<html>...</html>",
+    description: "The HTML body of the Gmail message",
+  })
+  readonly gmailBodyHtml?: string;
 }
