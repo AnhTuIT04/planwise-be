@@ -1,20 +1,26 @@
 import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
+import { compare, hash } from "bcrypt";
 
-import { UsersService } from "@/modules/users/users.service";
-import { CacheService } from "@/modules/cache/cache.service";
-import { EmailService } from "@/modules/email/email.service";
-import { JwtPayloadDTO } from "./dto/jwt-payload.dto";
-import { SignInDto } from "./dto/signin.dto";
-import { SignUpDto } from "./dto/signup.dto";
-import { VerifyEmailDTO } from "./dto/verify-email.dto";
-import { ResetPasswordDTO } from "./dto/reset-password.dto";
+import { User } from "prisma/client/pg";
+import { UsersService } from "~/users/users.service";
+import { CacheService } from "~/cache/cache.service";
+import { EmailService } from "~/email/email.service";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { JwtPayloadDto } from "./dto/jwt-payload.dto";
+import { SignInDto } from "./dto/request/signin.dto";
+import { SignUpDto } from "./dto/request/signup.dto";
+import { VerifyOtpDto } from "./dto/request/verify-otp.dto";
+import { ResetPasswordDto } from "./dto/request/reset-password.dto";
+import { UpdateProfileDto } from "./dto/request/update-profile.dto";
+import { UserResponse } from "./dto/response/user-response.dto";
 
 @Injectable()
 export class AuthService {
   private readonly OTP_TTL = 5 * 60; // 5 minutes
   private readonly OTP_CACHE_KEY_PREFIX = "auth-service:otp_";
+  private readonly OTC_TTL = 1 * 60; // 1 minutes
+  private readonly OTC_CACHE_KEY_PREFIX = "auth-service:otc_";
 
   constructor(
     private usersService: UsersService,
@@ -25,15 +31,27 @@ export class AuthService {
 
   private async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
-    if (user && (await bcrypt.compare(password, user.password!))) {
-      const { password, ...result } = user;
-      return result;
+    if (user && user.password && (await compare(password, user.password))) {
+      return user;
     }
     return null;
   }
 
   private generateOtp() {
-    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit numeric OTP
+    // 6-digit numeric OTP
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private generateOtc() {
+    // 32-character alphanumeric one-time code
+    const code = [...Array(32)].map(() => Math.random().toString(36)[2]).join("");
+    return code;
+  }
+
+  signAccessTokenToken(user: { id: string; email: string }) {
+    const payload: JwtPayloadDto = { sub: user.id, email: user.email };
+    const accessToken = this.jwtService.sign(payload);
+    return accessToken;
   }
 
   async signup(signUpDto: SignUpDto) {
@@ -42,24 +60,32 @@ export class AuthService {
       throw new ConflictException("Email is already registered");
     }
 
-    const hashedPassword = await bcrypt.hash(signUpDto.password, 10);
+    const hashedPassword = await hash(signUpDto.password, 10);
     const otp = this.generateOtp();
 
     await Promise.all([
       this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + signUpDto.email, otp, this.OTP_TTL),
-      this.usersService.createOrUpdate(signUpDto.email, {
-        email: signUpDto.email,
-        password: hashedPassword,
-      }),
-      this.emailService.sendVerificationEmail(signUpDto.email, otp),
+      !existingUser
+        ? this.usersService.create({
+            email: signUpDto.email,
+            fullname: signUpDto.fullname,
+            password: hashedPassword,
+          })
+        : this.usersService.update(existingUser.id, {
+            fullname: signUpDto.fullname,
+            password: hashedPassword,
+          }),
     ]);
 
-    return {
-      message: "Signup successful. Please check your email for the OTP to verify your account.",
-    };
+    // Send verification email but don't await to avoid delaying response
+    this.emailService.sendVerificationEmail(signUpDto.email, otp).catch((err) => {
+      console.error("Failed to send verification email:", err);
+    });
+
+    return new MessageOnlyResponse("Signup successful. Please check your email for the OTP to verify your account.");
   }
 
-  async verifyEmail(verifyEmailDto: VerifyEmailDTO) {
+  async verifyEmail(verifyEmailDto: VerifyOtpDto) {
     const existingUser = await this.usersService.findByEmail(verifyEmailDto.email);
     if (!existingUser) {
       throw new BadRequestException("User not found");
@@ -81,14 +107,8 @@ export class AuthService {
       this.cacheService.del(this.OTP_CACHE_KEY_PREFIX + verifyEmailDto.email),
     ]);
 
-    const payload: JwtPayloadDTO = { email: user.email, sub: user.id };
-    const accessToken = this.jwtService.sign(payload);
-
-    return {
-      message: "Email verified successfully.",
-      accessToken,
-      user,
-    };
+    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
+    return { accessToken, user };
   }
 
   async resendOtp(email: string, isForVerification: boolean) {
@@ -109,17 +129,22 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
+    await this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + email, otp, this.OTP_TTL);
 
-    await Promise.all([
-      this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + email, otp, this.OTP_TTL),
-      isForVerification
-        ? this.emailService.sendVerificationEmail(email, otp)
-        : this.emailService.sendPasswordResetEmail(email, otp),
-    ]);
+    // Send appropriate email based on context but don't await to avoid delaying response
+    if (isForVerification) {
+      this.emailService.sendVerificationEmail(email, otp).catch((err) => {
+        console.error("Failed to send verification email:", err);
+      });
+    } else {
+      this.emailService.sendPasswordResetEmail(email, otp).catch((err) => {
+        console.error("Failed to send password reset email:", err);
+      });
+    }
 
-    return {
-      message: `A new OTP has been sent to your email for ${isForVerification ? "verification" : "password reset"}.`,
-    };
+    return new MessageOnlyResponse(
+      `A new OTP has been sent to your email for ${isForVerification ? "verification" : "password reset"}.`,
+    );
   }
 
   async forgotPassword(email: string) {
@@ -129,18 +154,32 @@ export class AuthService {
     }
 
     const otp = this.generateOtp();
+    await this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + email, otp, this.OTP_TTL);
 
-    await Promise.all([
-      this.cacheService.set(this.OTP_CACHE_KEY_PREFIX + email, otp, this.OTP_TTL),
-      this.emailService.sendPasswordResetEmail(email, otp),
-    ]);
+    // Send password reset email but don't await to avoid delaying response
+    this.emailService.sendPasswordResetEmail(email, otp).catch((err) => {
+      console.error("Failed to send password reset email:", err);
+    });
 
-    return {
-      message: "OTP for password reset has been sent to your email.",
-    };
+    return new MessageOnlyResponse("OTP for password reset has been sent to your email.");
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDTO) {
+  async verifyResetPassword(verifyPasswordDto: VerifyOtpDto) {
+    const existingUser = await this.usersService.findByEmail(verifyPasswordDto.email);
+    if (!existingUser) {
+      throw new BadRequestException("User not found");
+    }
+
+    const cachedOtp = await this.cacheService.get<string>(this.OTP_CACHE_KEY_PREFIX + verifyPasswordDto.email);
+
+    if (!cachedOtp || cachedOtp !== verifyPasswordDto.otp) {
+      throw new BadRequestException("Invalid or expired OTP");
+    }
+
+    return new MessageOnlyResponse("OTP verified successfully. You can now reset your password.");
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const existingUser = await this.usersService.findByEmail(resetPasswordDto.email);
     if (!existingUser) {
       throw new BadRequestException("User not found");
@@ -152,14 +191,14 @@ export class AuthService {
       throw new BadRequestException("Invalid or expired OTP");
     }
 
-    const hashedPassword = await bcrypt.hash(resetPasswordDto.newPassword, 10);
+    const hashedPassword = await hash(resetPasswordDto.newPassword, 10);
 
     await Promise.all([
       this.usersService.update(existingUser.id, { password: hashedPassword }),
       this.cacheService.del(this.OTP_CACHE_KEY_PREFIX + resetPasswordDto.email),
     ]);
 
-    return { message: "Password has been reset successfully." };
+    return new MessageOnlyResponse("Password has been reset successfully.");
   }
 
   async signin(signInDto: SignInDto) {
@@ -172,14 +211,8 @@ export class AuthService {
       throw new UnauthorizedException("Please verify your email before signing in");
     }
 
-    const payload: JwtPayloadDTO = { email: user.email, sub: user.id };
-    const accessToken = this.jwtService.sign(payload);
-
-    return {
-      message: "Sign-in successful.",
-      accessToken,
-      user,
-    };
+    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
+    return { accessToken, user };
   }
 
   async getUserData(userId: string) {
@@ -188,10 +221,94 @@ export class AuthService {
       throw new UnauthorizedException("User not found");
     }
 
-    const { password, ...result } = user;
-    return {
-      user: result,
-      message: "User data retrieved successfully.",
-    };
+    return new UserResponse(user, "User data retrieved successfully.");
+  }
+
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    const existingUser = await this.usersService.findById(userId);
+    if (!existingUser) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    // Only update fields that are provided
+    const updateData: Record<string, any> = {};
+    if (updateProfileDto.fullname !== undefined) {
+      updateData.fullname = updateProfileDto.fullname;
+    }
+    if (updateProfileDto.avatarUrl !== undefined) {
+      updateData.avatarUrl = updateProfileDto.avatarUrl;
+    }
+
+    // If no fields to update, return current user data
+    if (Object.keys(updateData).length === 0) {
+      return new UserResponse(existingUser, "Profile retrieved successfully.");
+    }
+
+    const updatedUser = await this.usersService.update(userId, updateData);
+    return new UserResponse(updatedUser, "Profile updated successfully.");
+  }
+
+  async handleOAuthCallback(user: User) {
+    const otc = this.generateOtc();
+
+    // Store the OTC with associated user data in cache
+    await this.cacheService.set(this.OTC_CACHE_KEY_PREFIX + otc, user, this.OTC_TTL);
+    return otc;
+  }
+
+  async exchangeOAuthToken(otc: string) {
+    const user = await this.cacheService.get<User>(this.OTC_CACHE_KEY_PREFIX + otc);
+
+    if (!user) {
+      throw new BadRequestException("Invalid or expired one-time code (OTC)");
+    }
+
+    // Remove the OTC from cache after use
+    await this.cacheService.del(this.OTC_CACHE_KEY_PREFIX + otc);
+
+    const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
+    return { accessToken, user };
+  }
+
+  async validateOAuthUser(
+    provider: "GOOGLE" | "GITHUB",
+    profile: {
+      email: string;
+      fullname: string;
+      avatarUrl: string;
+    },
+  ) {
+    const { email, fullname: name, avatarUrl: avatar } = profile;
+    const existingUser = await this.usersService.findByEmail(email);
+
+    if (existingUser) {
+      return this.usersService.update(existingUser.id, {
+        oauthAccounts: {
+          connectOrCreate: {
+            where: {
+              userId_provider: {
+                userId: existingUser.id,
+                provider,
+              },
+            },
+            create: {
+              provider,
+            },
+          },
+        },
+      });
+    }
+
+    return this.usersService.create({
+      email,
+      fullname: name,
+      avatarUrl: avatar,
+      verified: true,
+      oauthAccounts: {
+        create: {
+          provider,
+        },
+      },
+    });
   }
 }

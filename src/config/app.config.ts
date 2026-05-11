@@ -1,11 +1,11 @@
 import { registerAs } from "@nestjs/config";
 import { plainToInstance } from "class-transformer";
-import { IsEnum, IsNumber, IsString, validateSync, Min, Max } from "class-validator";
+import { IsEnum, IsNumber, IsString, validateSync, Min, Max, IsOptional } from "class-validator";
 
 /**
  * Supported application environments
  */
-enum Environment {
+export enum Environment {
   Development = "development",
   Production = "production",
   Test = "test",
@@ -45,49 +45,84 @@ export class AppConfig {
   @Max(65535)
   PORT: number = 8080;
 
-  /** API route prefix (e.g., 'api' for /api/v1/...) */
-  @IsString()
-  API_PREFIX: string = "api";
+  /** WebSocket server port (valid port range: 0-65535) */
+  @IsNumber()
+  @Min(0)
+  @Max(65535)
+  WS_PORT: number = 8181;
 
-  /** API version identifier (e.g., 'v1' for /api/v1/...) */
+  /** Domain name for CORS and cookie settings */
   @IsString()
-  API_VERSION: string = "v1";
+  DOMAIN!: string;
 
-  /** Comma-separated list of allowed CORS origins */
+  /** Allowed origin for CORS */
   @IsString()
-  CORS_ORIGINS: string;
+  CORS_ORIGIN!: string;
 
   /** Secret key for JWT token signing and verification */
   @IsString()
-  JWT_SECRET: string;
+  JWT_SECRET!: string;
 
   /** JWT access token expiration time (e.g., '15m', '1h', 3600) */
   @IsString()
-  JWT_ACCESS_TOKEN_EXPIRATION: string | number;
-
-  /** JWT refresh token expiration time (e.g., '7d', '30d', 604800) */
-  @IsString()
-  JWT_REFRESH_TOKEN_EXPIRATION: string | number;
+  JWT_ACCESS_TOKEN_EXPIRATION!: string | number;
 
   /** Email service username for sending verification emails */
   @IsString()
-  EMAIL_VERIFIER_USER: string;
+  EMAIL_VERIFIER_USER!: string;
 
   /** Email service password for authentication */
   @IsString()
-  EMAIL_VERIFIER_PASS: string;
+  EMAIL_VERIFIER_PASS!: string;
 
   /** PostgreSQL database connection URL */
   @IsString()
-  POSTGRES_DATABASE_URL: string;
+  POSTGRES_DATABASE_URL!: string;
 
   /** MongoDB database connection URL */
   @IsString()
-  MONGODB_DATABASE_URL: string;
+  MONGODB_DATABASE_URL!: string;
 
   /** Redis cache/session store connection URL */
+  @IsOptional()
   @IsString()
-  REDIS_URL: string;
+  REDIS_URL?: string;
+
+  /** Frontend redirect URL after successful OAuth authentication */
+  @IsString()
+  OAUTH_SUCCESS_REDIRECT_URL!: string;
+
+  /** Google OAuth client ID */
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_ID!: string;
+
+  /** Google OAuth client secret */
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_SECRET!: string;
+
+  /** Google OAuth callback URL */
+  @IsString()
+  GOOGLE_OAUTH_CALLBACK_URL!: string;
+
+  /** GitHub OAuth client ID */
+  @IsString()
+  GITHUB_OAUTH_CLIENT_ID!: string;
+
+  /** GitHub OAuth client secret */
+  @IsString()
+  GITHUB_OAUTH_CLIENT_SECRET!: string;
+
+  /** GitHub OAuth callback URL */
+  @IsString()
+  GITHUB_OAUTH_CALLBACK_URL!: string;
+
+  /** Frontend redirect URL after successful integration with third-party services */
+  @IsString()
+  INTEGRATION_SUCCESS_REDIRECT_URL!: string;
+
+  /** Base URL for webhook endpoints (e.g., for receiving notifications from third-party services) */
+  @IsString()
+  WEBHOOK_BASE_URL!: string;
 }
 
 /**

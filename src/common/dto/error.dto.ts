@@ -8,11 +8,11 @@ export class ErrorDto {
   name: string;
 
   @ApiProperty({
-    type: [String],
-    description: "Detailed error messages",
-    example: ["Email is required", "Password too short"],
+    type: String,
+    description: "Detailed error message",
+    example: "Email is required",
   })
-  messages: string[];
+  message: string;
 
   @ApiProperty({
     description: "HTTP method and path of the request that caused the error",
@@ -25,4 +25,11 @@ export class ErrorDto {
     example: "2025-10-11T10:30:45.123Z",
   })
   timestamp: string;
+
+  constructor(name: string, message: string, request: string) {
+    this.name = name;
+    this.message = message;
+    this.request = request;
+    this.timestamp = new Date().toISOString();
+  }
 }

@@ -1,0 +1,127 @@
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+
+import { Permission } from "@/decorators/permission.decorator";
+import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
+import { MessageOnlyResponse } from "@/common/dto/message.dto";
+import { PermissionGuard } from "~/permission/guards/permission.guard";
+import { CanCreateProjectData } from "./handlers/can-create-project-data.handler";
+import { CanUpdateProjectData } from "./handlers/can-update-project-data.handler";
+import { CanDeleteProjectData } from "./handlers/can-delete-project-data.handler";
+import { TaskService } from "./task.service";
+import { CreateTaskDto } from "./dto/request/create-task.dto";
+import { UpdateTaskDto } from "./dto/request/update-task.dto";
+import { UpdateTaskStatusDto } from "./dto/request/update-task-status.dto";
+import { MoveTaskDto } from "./dto/request/move-task.dto";
+import { ImportTaskDto } from "./dto/request/import-task.dto";
+import { DeleteTaskDto } from "./dto/request/delete-task.dto";
+import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
+import { TaskResponse } from "./dto/response/task-response.dto";
+
+@ApiTags("Task")
+@Controller("tasks")
+@UseGuards(PermissionGuard)
+export class TaskController {
+  constructor(private readonly taskService: TaskService) {}
+
+  @Post()
+  @Permission(CanCreateProjectData)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Create a new task" })
+  @ApiResponse({
+    status: 201,
+    type: TaskResponse,
+    description: "The task has been successfully created.",
+  })
+  create(@GetCurrentUserId() userId: string, @Body() dto: CreateTaskDto) {
+    return this.taskService.create(userId, dto);
+  }
+
+  @Get(":id")
+  @ApiOperation({ summary: "Get task by id (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponse,
+    description: "The task has been successfully retrieved.",
+  })
+  getById(@Param("id") id: string, @GetCurrentUserId() userId: string) {
+    return this.taskService.getById(userId, id);
+  }
+
+  @Patch(":id")
+  @Permission(CanUpdateProjectData)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update a task (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponse,
+    description: "The task has been successfully updated.",
+  })
+  update(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskDto) {
+    return this.taskService.update(userId, id, dto);
+  }
+
+  @Patch(":id/status")
+  @Permission(CanUpdateProjectData)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update task status (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponse,
+    description: "The task status has been successfully updated.",
+  })
+  updateStatus(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskStatusDto) {
+    return this.taskService.updateStatus(userId, id, dto);
+  }
+
+  @Patch(":id/assignees")
+  @Permission(CanUpdateProjectData)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update the assignees of a task (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponse,
+    description: "The task assignees have been successfully updated.",
+  })
+  updateAssignees(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: UpdateTaskAssigneesDto) {
+    return this.taskService.updateAssignees(userId, id, dto);
+  }
+
+  @Patch(":id/move")
+  @Permission(CanUpdateProjectData)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Move a task to a different section (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: TaskResponse,
+    description: "The task has been successfully moved.",
+  })
+  moveTask(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: MoveTaskDto) {
+    return this.taskService.moveTask(userId, id, dto);
+  }
+
+  @Post(":id/import")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Import a task to a different project (not subtask)" })
+  @ApiResponse({
+    status: 201,
+    type: TaskResponse,
+    description: "The task has been successfully imported.",
+  })
+  importTask(@Param("id") taskId: string, @GetCurrentUserId() userId: string, @Body() dto: ImportTaskDto) {
+    return this.taskService.importTask(userId, taskId, dto);
+  }
+
+  @Delete(":id")
+  @Permission(CanDeleteProjectData)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Delete a task (not subtask)" })
+  @ApiResponse({
+    status: 200,
+    type: MessageOnlyResponse,
+    description: "The task has been successfully deleted.",
+  })
+  remove(@Param("id") id: string, @GetCurrentUserId() userId: string, @Body() dto: DeleteTaskDto) {
+    return this.taskService.remove(userId, id, dto);
+  }
+}

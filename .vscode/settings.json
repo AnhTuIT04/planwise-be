@@ -5,5 +5,9 @@
   "editor.formatOnSave": true,
   "editor.tabSize": 2,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "cSpell.words": ["nodenv"]
+  "cSpell.words": ["Bluemix", "esiwnalp", "keton", "nodenv", "notionhq", "setex", "unarchived"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
+  "prisma.pinToPrisma6": true
 }

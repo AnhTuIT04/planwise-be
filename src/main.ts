@@ -1,6 +1,8 @@
-import { HttpStatus, UnprocessableEntityException, ValidationPipe } from "@nestjs/common";
-import type { NestExpressApplication } from "@nestjs/platform-express";
+import "reflect-metadata";
+
+import { type NestExpressApplication } from "@nestjs/platform-express";
 import { ExpressAdapter } from "@nestjs/platform-express";
+import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import cookieParser from "cookie-parser";
@@ -10,25 +12,22 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { AppModule } from "@/app.module";
-import { AppConfig } from "@/config/app.config";
 import { configSwagger } from "@/config/swagger.config";
+import { Environment, type AppConfig } from "@/config/app.config";
 import { GlobalExceptionFilter } from "@/filters/global-exception.filter";
+import { SocketAdapter } from "~/realtime/socket.adapter";
 
-/**
- * Bootstrap function to initialize and configure the NestJS application
- * Sets up middleware, CORS, validation, logging, and global configurations
- * @returns Promise<NestExpressApplication> The configured application instance
- */
 async function bootstrap() {
   // Create NestJS application with Express adapter for enhanced express features
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
 
   // Extract application configuration from ConfigService
-  const { NODE_ENV, PORT, API_PREFIX, API_VERSION, CORS_ORIGINS } = app.get(ConfigService).get<AppConfig>("env")!;
+  const configService = app.get<ConfigService>(ConfigService);
+  const { NODE_ENV, PORT, WS_PORT, CORS_ORIGIN } = configService.get<AppConfig>("env")!;
 
   // Configure CORS (Cross-Origin Resource Sharing) with allowed methods and origins
   app.enableCors({
-    origin: CORS_ORIGINS ? CORS_ORIGINS.split(",").filter(Boolean) : "*",
+    origin: CORS_ORIGIN,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true, // Allow cookies and authorization headers
   });
@@ -36,9 +35,8 @@ async function bootstrap() {
   // Set up common middleware for security, compression, logging, and request parsing
   app.enable("trust proxy"); // Only if you're behind a reverse proxy (Heroku, Bluemix, AWS ELB, Nginx, etc)
   app.use(helmet());
-  app.setGlobalPrefix(`${API_PREFIX}/${API_VERSION}`, { exclude: [] }); // Set global prefix for API routes
   app.use(compression());
-  if (NODE_ENV === "development") {
+  if (NODE_ENV === Environment.Development) {
     app.use(morgan("dev")); // Can change to 'combined' or 'common' for different logging formats
   }
   app.use(cookieParser());
@@ -56,26 +54,24 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Strip properties that don't have decorators
-      errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY, // Return 422 for validation errors
-      transform: true, // Automatically transform payloads to DTO instances
-      dismissDefaultMessages: true, // Use custom error messages
+      transform: true, // Automatically transform payloads to Dto instances
       forbidNonWhitelisted: true, // Throw error if non-whitelisted properties are present
-      exceptionFactory: (errors) => {
-        // Extract all constraint messages from validation errors
-        const messages = errors.map((e) => Object.values(e.constraints || {})).flat();
-        return new UnprocessableEntityException(messages);
-      },
+      transformOptions: { enableImplicitConversion: true }, // Allow primitive type conversions
     }),
   );
 
   // Configure Swagger/OpenAPI documentation
-  configSwagger(app, API_PREFIX, API_VERSION);
+  configSwagger(app);
+
+  // Set up WebSocket adapter for real-time communication
+  app.useWebSocketAdapter(new SocketAdapter(WS_PORT, CORS_ORIGIN));
 
   // Start the HTTP server on the configured port
   await app.listen(PORT);
   const DISPLAY_URL = `http://localhost:${PORT}`;
   console.info(`Application is running on: ${DISPLAY_URL}`);
-  console.info(`API documentation available at: ${DISPLAY_URL}/${API_PREFIX}/${API_VERSION}/docs`);
+  console.info(`Socket server is running on: http://localhost:${WS_PORT}`);
+  console.info(`API documentation available at: ${DISPLAY_URL}/api-docs`);
 
   return app;
 }
