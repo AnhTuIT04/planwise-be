@@ -63,4 +63,28 @@ export class UpdateTaskDto {
     description: "The ID of the supervisor user",
   })
   readonly supervisorId?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "message-id",
+    description: "The Gmail message ID if imported from Gmail",
+  })
+  readonly gmailMessageId?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "event-id",
+    description: "The Calendar event ID if imported from Calendar",
+  })
+  readonly calendarEventId?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({
+    example: "<html>...</html>",
+    description: "The HTML body of the Gmail message",
+  })
+  readonly gmailBodyHtml?: string;
 }

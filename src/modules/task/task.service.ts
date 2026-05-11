@@ -117,6 +117,25 @@ export class TaskService {
     if (!section) {
       throw new ForbiddenException("Section not found or does not belong to the project");
     }
+    if (dto.gmailMessageId) {
+      const exitEmailTask = await this.pg.task.findFirst({
+        where: {
+          gmailMessageId: dto.gmailMessageId,
+          projects: { some: { projectId: section.projectId } },
+        },
+      });
+      if (exitEmailTask) throw new BadRequestException("Task from this email already exists in this project");
+    }
+
+    if (dto.calendarEventId) {
+      const exitCalendarTask = await this.pg.task.findFirst({
+        where: {
+          calendarEventId: dto.calendarEventId,
+          projects: { some: { projectId: section.projectId } },
+        },
+      });
+      if (exitCalendarTask) throw new BadRequestException("Task from this calendar event already exists in this project");
+    }
 
     // Calculate timeEstimate of parent task
     // If subtasks are provided, timeEstimate will be the sum of subtasks' time estimates
@@ -180,17 +199,20 @@ export class TaskService {
             sectionId: section.id,
           },
         },
+        gmailMessageId: dto.gmailMessageId,
+        calendarEventId: dto.calendarEventId,
+        gmailBodyHtml: dto.gmailBodyHtml,
       },
       ...buildGetTaskQuery(),
     });
 
-    const taskExtras = await this.queryTaskHelper(userId, task);
+    const taskExtras = await this.queryTaskHelper(userId, task as any);
 
     this.fireTaskNotification("assigned", userId, task.id).catch((err) =>
       console.error("Failed to send task assigned notification:", err),
     );
 
-    return new TaskResponse({ ...task, ...taskExtras }, "Task created successfully");
+    return new TaskResponse({ ...task, ...taskExtras } as any, "Task created successfully");
   }
 
   async getById(userId: string, taskId: string) {
@@ -212,8 +234,8 @@ export class TaskService {
       throw new ForbiddenException("Task not found or you do not have permission.");
     }
 
-    const taskExtras = await this.queryTaskHelper(userId, task);
-    return new TaskResponse({ ...task, ...taskExtras }, "Task retrieved successfully");
+    const taskExtras = await this.queryTaskHelper(userId, task as any);
+    return new TaskResponse({ ...task, ...taskExtras } as any, "Task retrieved successfully");
   }
 
   async update(userId: string, taskId: string, dto: UpdateTaskDto) {
@@ -250,11 +272,14 @@ export class TaskService {
         estimate: task.subtasks.length > 0 ? task.estimate : dto.estimate,
         deadline: dto.deadline,
         supervisorId: dto.supervisorId,
+        gmailMessageId: dto.gmailMessageId,
+        calendarEventId: dto.calendarEventId,
+        gmailBodyHtml: dto.gmailBodyHtml,
       },
       ...buildGetTaskQuery(),
     });
 
-    const taskExtras = await this.queryTaskHelper(userId, updated);
+    const taskExtras = await this.queryTaskHelper(userId, updated as any);
 
     const changes: string[] = [];
     if (dto.title !== undefined && dto.title !== task.title) changes.push("title");
@@ -269,7 +294,7 @@ export class TaskService {
       );
     }
 
-    return new TaskResponse({ ...updated, ...taskExtras }, "Task updated successfully");
+    return new TaskResponse({ ...updated, ...taskExtras } as any, "Task updated successfully");
   }
 
   async updateStatus(userId: string, taskId: string, dto: UpdateTaskStatusDto) {
@@ -296,13 +321,13 @@ export class TaskService {
     }
 
     const updatedTask = await changeTaskStatus(task.status, dto.status, this.pg, dto.sectionId, task);
-    const taskExtras = await this.queryTaskHelper(userId, updatedTask);
+    const taskExtras = await this.queryTaskHelper(userId, updatedTask as any);
 
     this.fireTaskNotification("updated", userId, taskId, undefined, ["status"]).catch((err) =>
       console.error("Failed to send task status notification:", err),
     );
 
-    return new TaskResponse({ ...updatedTask, ...taskExtras }, "Task status updated successfully");
+    return new TaskResponse({ ...updatedTask, ...taskExtras } as any, "Task status updated successfully");
   }
 
   async updateAssignees(userId: string, taskId: string, dto: UpdateTaskAssigneesDto) {
@@ -352,8 +377,8 @@ export class TaskService {
       }
     }
 
-    const taskExtras = await this.queryTaskHelper(userId, updatedTask);
-    return new TaskResponse({ ...updatedTask, ...taskExtras }, "Task assignees updated successfully");
+    const taskExtras = await this.queryTaskHelper(userId, updatedTask as any);
+    return new TaskResponse({ ...updatedTask, ...taskExtras } as any, "Task assignees updated successfully");
   }
 
   async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
@@ -440,8 +465,8 @@ export class TaskService {
         },
       });
 
-      const taskExtras = await this.queryTaskHelper(userId, movedTask.task);
-      return new TaskResponse({ ...movedTask.task, ...taskExtras }, "Task moved successfully");
+      const taskExtras = await this.queryTaskHelper(userId, movedTask.task as any);
+      return new TaskResponse({ ...movedTask.task, ...taskExtras } as any, "Task moved successfully");
     }
 
     // Calculate new position in target section
@@ -488,8 +513,8 @@ export class TaskService {
       },
     );
 
-    const taskExtras = await this.queryTaskHelper(userId, movedTask.task);
-    return new TaskResponse({ ...movedTask.task, ...taskExtras }, "Task moved successfully");
+    const taskExtras = await this.queryTaskHelper(userId, movedTask.task as any);
+    return new TaskResponse({ ...movedTask.task, ...taskExtras } as any, "Task moved successfully");
   }
 
   async importTask(userId: string, taskId: string, dto: ImportTaskDto) {
@@ -577,8 +602,8 @@ export class TaskService {
       ...buildGetTaskQuery(),
     });
 
-    const taskExtras = await this.queryTaskHelper(userId, updatedTask);
-    return new TaskResponse({ ...updatedTask, ...taskExtras }, "Task imported successfully");
+    const taskExtras = await this.queryTaskHelper(userId, updatedTask as any);
+    return new TaskResponse({ ...updatedTask, ...taskExtras } as any, "Task imported successfully");
   }
 
   async remove(userId: string, taskId: string, dto: DeleteTaskDto) {
