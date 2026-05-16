@@ -40,15 +40,7 @@ async function bootstrap() {
     app.use(morgan("dev")); // Can change to 'combined' or 'common' for different logging formats
   }
   app.use(cookieParser());
-  app.use(
-    express.json({
-      limit: "10mb",
-      // Capture the raw body for routes that need HMAC signature verification (e.g. Notion webhook).
-      verify: (req: any, _res, buf) => {
-        if (buf?.length) req.rawBody = buf;
-      },
-    }),
-  );
+  app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // Enable API versioning and graceful shutdown hooks

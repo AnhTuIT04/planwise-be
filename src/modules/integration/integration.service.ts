@@ -26,7 +26,6 @@ import { CalendarAdapter } from "./adapters/calendar.adapter";
 import { GmailAdapter } from "./adapters/gmail.adapter";
 import { NotionAdapter } from "./adapters/notion.adapter";
 import { CalendarWebhookService } from "./webhook/calendar.webhook";
-import { GmailWebhookService } from "./webhook/gmail.webhook";
 import {
   ConnectionDetailsResponseDto,
   EventResponseDto,
@@ -50,8 +49,6 @@ export class IntegrationService {
     private readonly notionAdapter: NotionAdapter,
     @Inject(forwardRef(() => CalendarWebhookService))
     private readonly webhookService: CalendarWebhookService,
-    @Inject(forwardRef(() => GmailWebhookService))
-    private readonly gmailWebhookService: GmailWebhookService,
   ) {
     // Register adapters
     this.adapters.set(IntegrationProvider.GOOGLE_CALENDAR, this.calendarAdapter);
@@ -176,11 +173,6 @@ export class IntegrationService {
         })
         .catch((err) => {
           this.logger.error(`Initial sync failed for ${userId}/${provider}: ${err.message}`);
-        });
-      this.gmailWebhookService
-        .registerWatch(userId, connection.id)
-        .catch((err) => {
-          this.logger.error(`Gmail watch registration failed for ${userId}: ${err.message}`);
         });
     }
     // else if (provider === IntegrationProvider.NOTION) {
