@@ -7,19 +7,23 @@ import {
   Body,
   Param,
   Query,
+  Req,
   Res,
   Headers,
   HttpCode,
   HttpStatus,
   Logger,
 } from "@nestjs/common";
+import type { RawBodyRequest } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import { IntegrationProvider } from "prisma/client/pg";
 import { GetCurrentUserId } from "@/decorators/get-current-user.decorator";
 import { Public } from "@/decorators/public.decorator";
 import { IntegrationService } from "./integration.service";
 import { CalendarWebhookService } from "./webhook/calendar.webhook";
+import { GmailWebhookService } from "./webhook/gmail.webhook";
+import { NotionWebhookService } from "./webhook/notion.webhook";
 import {
   OAuthCallbackDto,
   CreateEventDto,
@@ -42,6 +46,8 @@ export class IntegrationController {
   constructor(
     private readonly integrationService: IntegrationService,
     private readonly webhookService: CalendarWebhookService,
+    private readonly gmailWebhookService: GmailWebhookService,
+    private readonly notionWebhookService: NotionWebhookService,
   ) {}
 
   // ==================== Connection Management ====================
@@ -179,6 +185,7 @@ export class IntegrationController {
       q: query.q,
       labelIds: query.labelIds,
       maxResults: query.maxResults,
+      pageToken: query.pageToken,
     });
   }
 
@@ -246,5 +253,38 @@ export class IntegrationController {
   @ApiOperation({ summary: "Google Calendar webhook receiver" })
   async googleWebhook(@Headers() headers: Record<string, string>, @Body() body: unknown): Promise<void> {
     await this.webhookService.handleGoogleWebhook(headers, body);
+  }
+
+  @Post("webhook/gmail")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Gmail Pub/Sub push receiver" })
+  async gmailWebhook(
+    @Query() query: Record<string, string | undefined>,
+    @Body() body: any,
+  ): Promise<void> {
+    await this.gmailWebhookService.handleGmailPush(query, body);
+  }
+
+  @Post("webhook/notion")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Notion webhook receiver (verification handshake + events)" })
+  async notionWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers() headers: Record<string, string | undefined>,
+    @Body() body: any,
+  ): Promise<{ verification_token: string } | void> {
+    // Notion verification handshake: echo the token back.
+    const handshake = this.notionWebhookService.handleVerificationHandshake(body);
+    if (handshake) return handshake;
+
+    const signature = headers["x-notion-signature"] || headers["X-Notion-Signature"];
+    if (!this.notionWebhookService.verifySignature(signature, req.rawBody)) {
+      this.logger.warn("Notion webhook signature verification failed");
+      return;
+    }
+
+    await this.notionWebhookService.handleNotionWebhook(body);
   }
 }

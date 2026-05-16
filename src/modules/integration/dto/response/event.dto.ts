@@ -68,6 +68,9 @@ export class EventResponseDto {
   @ApiProperty()
   status!: string | null;
 
+  @ApiProperty({ required: false, nullable: true })
+  colorId!: string | null;
+
   @ApiProperty()
   syncedAt!: Date;
 }

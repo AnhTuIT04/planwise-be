@@ -28,6 +28,11 @@ export class ListMessagesQueryDto {
   @IsNumber()
   @Type(() => Number)
   maxResults?: number;
+
+  @ApiPropertyOptional({ description: "Cursor token from Google Gmail for paginating to the next page" })
+  @IsOptional()
+  @IsString()
+  pageToken?: string;
 }
 
 export class CreateMessageDto {

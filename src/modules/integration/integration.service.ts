@@ -26,6 +26,7 @@ import { CalendarAdapter } from "./adapters/calendar.adapter";
 import { GmailAdapter } from "./adapters/gmail.adapter";
 import { NotionAdapter } from "./adapters/notion.adapter";
 import { CalendarWebhookService } from "./webhook/calendar.webhook";
+import { GmailWebhookService } from "./webhook/gmail.webhook";
 import {
   ConnectionDetailsResponseDto,
   EventResponseDto,
@@ -49,6 +50,8 @@ export class IntegrationService {
     private readonly notionAdapter: NotionAdapter,
     @Inject(forwardRef(() => CalendarWebhookService))
     private readonly webhookService: CalendarWebhookService,
+    @Inject(forwardRef(() => GmailWebhookService))
+    private readonly gmailWebhookService: GmailWebhookService,
   ) {
     // Register adapters
     this.adapters.set(IntegrationProvider.GOOGLE_CALENDAR, this.calendarAdapter);
@@ -173,6 +176,11 @@ export class IntegrationService {
         })
         .catch((err) => {
           this.logger.error(`Initial sync failed for ${userId}/${provider}: ${err.message}`);
+        });
+      this.gmailWebhookService
+        .registerWatch(userId, connection.id)
+        .catch((err) => {
+          this.logger.error(`Gmail watch registration failed for ${userId}: ${err.message}`);
         });
     }
     // else if (provider === IntegrationProvider.NOTION) {
@@ -365,6 +373,7 @@ export class IntegrationService {
           isAllDay: event.isAllDay,
           location: event.location,
           status: event.status,
+          colorId: event.colorId,
           rawData: event.rawData as Prisma.JsonObject,
           lastModifiedByApp: false,
           lastModifiedAt: new Date(),
@@ -377,6 +386,7 @@ export class IntegrationService {
           isAllDay: event.isAllDay,
           location: event.location,
           status: event.status,
+          colorId: event.colorId,
           rawData: event.rawData as Prisma.JsonObject,
           lastModifiedByApp: false,
           lastModifiedAt: new Date(),
@@ -445,6 +455,7 @@ export class IntegrationService {
             isAllDay: true,
             location: true,
             status: true,
+            colorId: true,
             syncedAt: true,
           },
           where: {
@@ -488,6 +499,7 @@ export class IntegrationService {
         isAllDay: event.isAllDay,
         location: event.location,
         status: event.status,
+        colorId: event.colorId,
         rawData: event.rawData as Prisma.JsonObject,
         lastModifiedByApp: true,
         lastModifiedAt: new Date(),
@@ -504,6 +516,7 @@ export class IntegrationService {
         isAllDay: true,
         location: true,
         status: true,
+        colorId: true,
         syncedAt: true,
       },
     });
@@ -549,6 +562,7 @@ export class IntegrationService {
         isAllDay: event.isAllDay,
         location: event.location,
         status: event.status,
+        colorId: event.colorId,
         rawData: event.rawData as Prisma.JsonObject,
         lastModifiedByApp: true,
         lastModifiedAt: new Date(),
@@ -611,7 +625,7 @@ export class IntegrationService {
     userId: string,
     provider: IntegrationProvider,
     connectionId: string,
-    options: { maxResults?: number; q?: string; labelIds?: string[] },
+    options: { maxResults?: number; q?: string; labelIds?: string[]; pageToken?: string },
   ): Promise<ConnectionMessageDetailsResponseDto[]> {
     if (provider !== IntegrationProvider.GOOGLE_GMAIL) {
       throw new BadRequestException("Messages API currently supports GOOGLE_GMAIL only");
@@ -621,16 +635,18 @@ export class IntegrationService {
     const accessToken = await this.getValidAccessToken(connection, provider);
     const adapter = this.getAdapter(provider);
 
-    const result: { messages: any[] } = await adapter.list(accessToken, {
+    const result: { messages: any[]; nextPageToken?: string } = await adapter.list(accessToken, {
       maxResults: options.maxResults,
       q: options.q,
       labelIds: options.labelIds,
+      pageToken: options.pageToken,
     });
 
     return [
       {
         connectionId: connection.id,
         messages: result.messages.map((message: IntegrationGmailData) => this.mapMessageToResponse(message)),
+        nextPageToken: result.nextPageToken,
       },
     ];
   }

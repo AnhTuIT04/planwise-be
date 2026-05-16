@@ -340,6 +340,7 @@ model IntegrationEvent {
   isAllDay          Boolean               @default(false)
   location          String?
   status            String? // confirmed, tentative, cancelled
+  colorId           String? // Google Calendar color ID (1-11), stable across syncs
   rawData           Json? // Full event data from provider
   lastModifiedByApp Boolean               @default(false) // For preventing sync loops
   lastModifiedAt    DateTime

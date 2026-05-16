@@ -239,7 +239,7 @@ export class CalendarWebhookService {
     const accessToken = await this.integrationService.getValidAccessToken(connection, provider);
 
     if (provider === IntegrationProvider.GOOGLE_CALENDAR) {
-      const callbackUrl = `${this.webhookBaseUrl}/api/v1/integrations/webhook/google`;
+      const callbackUrl = `${this.webhookBaseUrl}/integrations/webhook/google`;
       const registration = await this.calendarAdapter.registerWebhook(accessToken, callbackUrl, "primary");
 
       // Store webhook metadata

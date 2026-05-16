@@ -49,4 +49,7 @@ export class ConnectionMessageDetailsResponseDto {
 
   @ApiProperty({ type: [MessageIntegrationResponseDto] })
   messages!: MessageIntegrationResponseDto[];
+
+  @ApiPropertyOptional({ description: "Token to fetch the next page from Google Gmail" })
+  nextPageToken?: string;
 }
