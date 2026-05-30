@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { PgService } from "~/database/pg.service";
-import { CreateCommentDto } from "./dto/comment.dto";
+import { SocketEmitter } from "~/realtime/socket.emitter";
+import { CreateCommentDto, CommentDto } from "./dto/comment.dto";
 
 @Injectable()
 export class CommentService {
-  constructor(private readonly pg: PgService) {}
+  constructor(
+    private readonly pg: PgService,
+    private readonly emitter: SocketEmitter,
+  ) {}
 
   async create(userId: string, taskId: string, dto: CreateCommentDto) {
     // Verify task exists
@@ -40,6 +44,30 @@ export class CommentService {
         author: true,
       },
     });
+
+    const serializedComment = new CommentDto({ ...comment, replies: [] });
+
+    // Emit socket event to project members
+    try {
+      const taskProjects = await this.pg.taskProject.findMany({
+        where: { taskId },
+        select: { projectId: true },
+      });
+      const projectIds = new Set(taskProjects.map((p) => p.projectId));
+      projectIds.add(task.originalProjectId);
+
+      console.log(`[Socket BE] Emitting comment:created to project rooms:`, Array.from(projectIds));
+
+      for (const pid of projectIds) {
+        this.emitter.to(`project:${pid}`).emit("comment:created", {
+          taskId,
+          comment: serializedComment,
+        });
+      }
+    } catch (e) {
+      // Gracefully handle emitter failures
+      console.error("Failed to emit comment:created socket event", e);
+    }
 
     return { ...comment, replies: [] };
   }
@@ -101,9 +129,43 @@ export class CommentService {
       throw new ForbiddenException("You are not allowed to delete this comment");
     }
 
+    const taskId = comment.taskId;
+
+    // Fetch projects to emit delete event before deleting
+    let projectIds = new Set<string>();
+    try {
+      const taskProjects = await this.pg.taskProject.findMany({
+        where: { taskId },
+        select: { projectId: true },
+      });
+      const task = await this.pg.task.findUnique({
+        where: { id: taskId },
+        select: { originalProjectId: true },
+      });
+      projectIds = new Set(taskProjects.map((p) => p.projectId));
+      if (task) {
+        projectIds.add(task.originalProjectId);
+      }
+    } catch (e) {
+      console.error("Failed to gather projects for socket deletion event", e);
+    }
+
     await this.pg.comment.delete({
       where: { id: commentId },
     });
+
+    // Emit delete socket event
+    try {
+      console.log(`[Socket BE] Emitting comment:deleted to project rooms:`, Array.from(projectIds));
+      for (const pid of projectIds) {
+        this.emitter.to(`project:${pid}`).emit("comment:deleted", {
+          taskId,
+          commentId,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to emit comment:deleted socket event", e);
+    }
 
     return { success: true };
   }
