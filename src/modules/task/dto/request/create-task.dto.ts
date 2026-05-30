@@ -13,7 +13,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 
-import { TaskStatus, PriorityLevel } from "prisma/client";
+import { TaskStatus, PriorityLevel } from "prisma/client/pg";
 
 class SubtaskDto {
   @IsNotEmpty()
@@ -72,18 +72,18 @@ export class CreateTaskDto {
   @IsOptional()
   @IsEnum(TaskStatus)
   @ApiPropertyOptional({
+    enum: TaskStatus,
     example: TaskStatus.TODO,
     description: "The status of the task",
-    enum: TaskStatus,
   })
   readonly status?: TaskStatus;
 
   @IsOptional()
   @IsEnum(PriorityLevel)
   @ApiPropertyOptional({
+    enum: PriorityLevel,
     example: PriorityLevel.HIGH,
     description: "The priority level of the task",
-    enum: PriorityLevel,
   })
   readonly priority?: PriorityLevel;
 

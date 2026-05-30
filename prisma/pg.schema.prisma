@@ -1,0 +1,291 @@
+generator PgClient {
+  provider = "prisma-client-js"
+  output   = "client/pg"
+}
+
+datasource pg {
+  provider = "postgresql"
+  url      = env("POSTGRES_DATABASE_URL")
+}
+
+model User {
+  id                     String                  @id @default(uuid())
+  email                  String                  @unique
+  password               String?
+  fullname               String
+  avatarUrl              String?
+  verified               Boolean                 @default(false)
+  workspaceId            String
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  comments               Comment[]
+  oauthAccounts          OAuthAccount[]
+  ownedProjects          Project[]               @relation("UserOwnsProjects")
+  receivedInvitations    ProjectInvitation[]     @relation("UserInvitee")
+  sentInvitations        ProjectInvitation[]     @relation("UserInviter")
+  memberships            ProjectMember[]         @relation("UserProjectMemberships")
+  supervisedTasks        Task[]                  @relation("TaskSupervisor")
+  assignedTasks          TaskAssignee[]
+  integrationConnections IntegrationConnection[]
+}
+
+model OAuthAccount {
+  id       String       @id @default(uuid())
+  provider AuthProvider
+  userId   String
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model Project {
+  id            String              @id @default(uuid())
+  name          String
+  logoUrl       String?
+  description   String?
+  isPersonal    Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  ownerId       String
+  owner         User                @relation("UserOwnsProjects", fields: [ownerId], references: [id], onDelete: Cascade)
+  invitations   ProjectInvitation[]
+  members       ProjectMember[]     @relation("ProjectHasMembers")
+  roles         Role[]
+  channels      Channel[]
+  sections      Section[]
+  originalTasks Task[]              @relation("OriginalProjectTasks")
+  tasks         TaskProject[]
+}
+
+model Section {
+  id        String        @id @default(uuid())
+  name      String
+  position  String
+  createdAt DateTime      @default(now())
+  projectId String
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     TaskSection[]
+}
+
+model Task {
+  id                String         @id @default(uuid())
+  title             String
+  description       String?
+  status            TaskStatus     @default(TODO)
+  priority          PriorityLevel  @default(NORMAL)
+  estimate          Int            @default(1200)
+  spent             Int            @default(0)
+  lastStarted       DateTime?
+  deadline          DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  originalProjectId String
+  parentTaskId      String?
+  supervisorId      String?
+  comments          Comment[]
+  originalProject   Project        @relation("OriginalProjectTasks", fields: [originalProjectId], references: [id], onDelete: Cascade)
+  parentTask        Task?          @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks          Task[]         @relation("TaskSubtasks")
+  supervisor        User?          @relation("TaskSupervisor", fields: [supervisorId], references: [id])
+  assignees         TaskAssignee[]
+  projects          TaskProject[]
+  sections          TaskSection[]
+}
+
+model TaskProject {
+  taskId    String
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, projectId])
+}
+
+model TaskSection {
+  taskId    String
+  sectionId String
+  position  String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, sectionId])
+}
+
+model TaskAssignee {
+  taskId String
+  userId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+}
+
+model Channel {
+  id        String      @id @default(uuid())
+  name      String
+  type      ChannelType
+  projectId String
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  mediaUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  authorId  String
+  taskId    String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model ProjectInvitation {
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  inviterId String
+  projectId String
+  inviteeId String
+  roleId    String
+  invitee   User             @relation("UserInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  inviter   User             @relation("UserInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      Role             @relation(fields: [roleId], references: [id])
+
+  @@id([inviteeId, projectId])
+}
+
+model ProjectMember {
+  userId    String
+  projectId String
+  roleId    String
+  project   Project @relation("ProjectHasMembers", fields: [projectId], references: [id], onDelete: Cascade)
+  role      Role    @relation(fields: [roleId], references: [id])
+  user      User    @relation("UserProjectMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+}
+
+model Role {
+  id          String              @id @default(uuid())
+  name        String
+  permissions String              @default("[]")
+  default     Boolean             @default(false)
+  projectId   String
+  invitations ProjectInvitation[]
+  members     ProjectMember[]
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([name, projectId])
+}
+
+enum AuthProvider {
+  GOOGLE
+  GITHUB
+}
+
+enum TaskStatus {
+  TODO
+  RUNNING
+  DONE
+  ARCHIVED
+}
+
+enum PriorityLevel {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+  VIDEO
+}
+
+// ==================== INTEGRATIONS ====================
+// Generic integration system for Google Calendar, Notion, Gmail, etc.
+
+model IntegrationConnection {
+  id                String              @id @default(uuid())
+  provider          IntegrationProvider
+  accountIdentifier String              // e.g., email or account ID from provider
+  accessToken       String              @pg.Text
+  refreshToken      String?             @pg.Text
+  tokenExpiresAt    DateTime?
+  scopes            String[]            // Granted OAuth scopes
+  metadata          Json?               // Provider-specific data (e.g., calendar IDs)
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhooks          IntegrationWebhook[]
+  syncStates        IntegrationSyncState[]
+  events            IntegrationEvent[]
+
+  @@unique([userId, provider, accountIdentifier])
+  @@index([userId, provider])
+}
+
+model IntegrationWebhook {
+  id           String              @id @default(uuid())
+  channelId    String              @unique // Provider's channel/webhook ID
+  resourceId   String?             // Provider's resource ID
+  resourceType String              // e.g., "calendar", "database", "mailbox"
+  expiresAt    DateTime
+  createdAt    DateTime            @default(now())
+  connectionId String
+  connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([connectionId])
+}
+
+model IntegrationSyncState {
+  id            String              @id @default(uuid())
+  resourceType  String              // e.g., "calendar_events", "notion_pages", "gmail_messages"
+  resourceId    String              // e.g., specific calendar ID
+  syncToken     String?             @pg.Text // For incremental sync
+  lastSyncedAt  DateTime?
+  connectionId  String
+  connection    IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, resourceType, resourceId])
+}
+
+// Local cache of synced events (prevents hitting API on every request)
+model IntegrationEvent {
+  id                  String              @id @default(uuid())
+  externalId          String              // ID from provider (Google event ID, etc.)
+  provider            IntegrationProvider // local cache events timemin-max
+  title               String
+  description         String?             @pg.Text
+  startTime           DateTime
+  endTime             DateTime
+  isAllDay            Boolean             @default(false)
+  location            String?
+  status              String?             // confirmed, tentative, cancelled
+  rawData             Json?               // Full event data from provider
+  lastModifiedByApp   Boolean             @default(false) // For preventing sync loops
+  lastModifiedAt      DateTime
+  syncedAt            DateTime            @default(now())
+  connectionId        String
+  connection          IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, provider, externalId])
+  @@index([connectionId, startTime, endTime])
+}
+
+enum IntegrationProvider {
+  GOOGLE_CALENDAR
+  GOOGLE_GMAIL
+  NOTION
+}

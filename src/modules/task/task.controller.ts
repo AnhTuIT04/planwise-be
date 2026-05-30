@@ -12,12 +12,14 @@ import { ImportTaskDto } from "./dto/request/import-task.dto";
 import { DeleteTaskDto } from "./dto/request/delete-task.dto";
 import { UpdateTaskAssigneesDto } from "./dto/request/update-task-assignees.dto";
 import { TaskResponseDto } from "./dto/response/task-response.dto";
-
+import { Permission } from '@/common/enum/permission.enum';
+import { RequirePermission } from "@/decorators/require-permission.decorator";
 @Controller("task")
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
   @Post()
+  @RequirePermission(Permission.TASK_CREATE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new task" })
   @ApiResponse({
@@ -41,6 +43,7 @@ export class TaskController {
   }
 
   @Patch(":id")
+  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update a task (not subtask)" })
   @ApiResponse({
@@ -53,6 +56,7 @@ export class TaskController {
   }
 
   @Patch(":id/status")
+  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update task status (not subtask)" })
   @ApiResponse({
@@ -65,6 +69,7 @@ export class TaskController {
   }
 
   @Patch(":id/assignees")
+  @RequirePermission(Permission.TASK_ASSIGN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Update the assignees of a task (not subtask)" })
   @ApiResponse({
@@ -77,6 +82,7 @@ export class TaskController {
   }
 
   @Patch(":id/move")
+  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Move a task to a different section (not subtask)" })
   @ApiResponse({
@@ -89,6 +95,7 @@ export class TaskController {
   }
 
   @Post(":id/import")
+  @RequirePermission(Permission.TASK_UPDATE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Import a task to a different project (not subtask)" })
   @ApiResponse({
@@ -101,6 +108,7 @@ export class TaskController {
   }
 
   @Delete(":id")
+  @RequirePermission(Permission.TASK_DELETE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Delete a task (not subtask)" })
   @ApiResponse({

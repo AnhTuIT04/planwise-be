@@ -8,6 +8,7 @@ import { EmailModule } from "@/modules/email/email.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
+import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
 import { GoogleAuthGuard } from "./guards/oauth.guard";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { GithubStrategy } from "./strategies/github.strategy";
@@ -26,7 +27,7 @@ import { GithubStrategy } from "./strategies/github.strategy";
     UsersModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleAuthGuard, GithubStrategy],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy, GoogleAuthGuard, GithubStrategy],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

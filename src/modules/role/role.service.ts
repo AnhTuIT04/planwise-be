@@ -1,30 +1,52 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from "@nestjs/common";
 
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
+import { PermissionUtils } from "@/common/utils/permission.utils";
+import { DEFAULT_ROLE_PERMISSIONS, Permission } from "@/common/enum/permission.enum";
 import { CreateRoleDto } from "./dto/request/create-role.dto";
 import { UpdateRoleDto } from "./dto/request/update-role.dto";
 import { RoleResponseDto, RolesListResponseDto } from "./dto/response/role-response.dto";
+import { PermissionChecker } from "@/middleware/permission-checker.service";
 
 @Injectable()
 export class RoleService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly pg: PgService,
+    private readonly permissionChecker: PermissionChecker,
+  ) {}
 
   async create(userId: string, dto: CreateRoleDto) {
-    // Check if user has access to the project
-    const project = await this.db.project.findFirst({
+    // Check if user is project owner or admin
+    const project = await this.pg.project.findFirst({
       where: {
         id: dto.projectId,
-        members: { some: { userId } },
+      },
+      include: {
+        members: {
+          where: { userId },
+          include: { role: true },
+        },
       },
     });
 
     if (!project) {
-      throw new ForbiddenException("Project not found or you don't have access");
+      throw new ForbiddenException("Project not found");
+    }
+
+    const userMember = project.members[0];
+    if (!userMember) {
+      throw new ForbiddenException("You are not a member of this project");
+    }
+
+    // Check if user has PROJECT_MANAGE_ROLES permission
+    const userPermissions = PermissionUtils.parsePermissions(userMember.role.permissions);
+    if (!PermissionUtils.hasPermission(userPermissions, Permission.PROJECT_MANAGE_ROLES)) {
+      throw new ForbiddenException("You do not have permission to create roles in this project");
     }
 
     // Check if role name already exists in the project
-    const existingRole = await this.db.role.findFirst({
+    const existingRole = await this.pg.role.findFirst({
       where: {
         name: dto.name,
         projectId: dto.projectId,
@@ -35,10 +57,20 @@ export class RoleService {
       throw new BadRequestException("Role with this name already exists in the project");
     }
 
-    const role = await this.db.role.create({
+    // Validate permissions - ensure only valid permissions are used
+    const permissions = dto.permissions || [];
+    const invalidPermissions = permissions.filter((p) => !Object.values(Permission).includes(p as Permission));
+
+    if (invalidPermissions.length > 0) {
+      throw new BadRequestException(
+        `Invalid permissions: ${invalidPermissions.join(", ")}. Available permissions: ${Object.values(Permission).join(", ")}`,
+      );
+    }
+
+    const role = await this.pg.role.create({
       data: {
         name: dto.name,
-        permissions: JSON.stringify(dto.permissions || []),
+        permissions: PermissionUtils.stringifyPermissions(permissions),
         projectId: dto.projectId,
       },
     });
@@ -47,11 +79,21 @@ export class RoleService {
   }
 
   async update(userId: string, roleId: string, dto: UpdateRoleDto) {
-    const existingRole = await this.db.role.findFirst({
+    const existingRole = await this.pg.role.findFirst({
       where: {
         id: roleId,
         project: {
           members: { some: { userId } },
+        },
+      },
+      include: {
+        project: {
+          include: {
+            members: {
+              where: { userId },
+              include: { role: true },
+            },
+          },
         },
       },
     });
@@ -60,9 +102,21 @@ export class RoleService {
       throw new NotFoundException("Role not found or you don't have access");
     }
 
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: existingRole.projectId },
+      Permission.PROJECT_MANAGE_ROLES,
+    );
+
+    // Check if user has PROJECT_MANAGE_ROLES permission
+    const userMember = existingRole.project.members[0];
+    const userPermissions = PermissionUtils.parsePermissions(userMember.role.permissions);
+    if (!PermissionUtils.hasPermission(userPermissions, Permission.PROJECT_MANAGE_ROLES)) {
+      throw new ForbiddenException("You do not have permission to update roles in this project");
+    }
+
     // If updating name, check for duplicates
     if (dto.name && dto.name !== existingRole.name) {
-      const duplicateRole = await this.db.role.findFirst({
+      const duplicateRole = await this.pg.role.findFirst({
         where: {
           name: dto.name,
           projectId: existingRole.projectId,
@@ -75,11 +129,22 @@ export class RoleService {
       }
     }
 
-    const updatedRole = await this.db.role.update({
+    // Validate permissions if provided
+    if (dto.permissions) {
+      const invalidPermissions = dto.permissions.filter((p) => !Object.values(Permission).includes(p as Permission));
+
+      if (invalidPermissions.length > 0) {
+        throw new BadRequestException(
+          `Invalid permissions: ${invalidPermissions.join(", ")}. Available permissions: ${Object.values(Permission).join(", ")}`,
+        );
+      }
+    }
+
+    const updatedRole = await this.pg.role.update({
       where: { id: roleId },
       data: {
         ...(dto.name && { name: dto.name }),
-        ...(dto.permissions && { permissions: JSON.stringify(dto.permissions) }),
+        ...(dto.permissions && { permissions: PermissionUtils.stringifyPermissions(dto.permissions) }),
       },
     });
 
@@ -88,7 +153,7 @@ export class RoleService {
 
   async remove(userId: string, roleId: string) {
     // Check if role exists and user has access
-    const role = await this.db.role.findFirst({
+    const role = await this.pg.role.findFirst({
       where: {
         id: roleId,
         project: {
@@ -103,13 +168,16 @@ export class RoleService {
     if (!role) {
       throw new NotFoundException("Role not found or you don't have access");
     }
-
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: role.projectId },
+      Permission.PROJECT_MANAGE_ROLES,
+    );
     // Prevent deletion of default roles
     if (role.default) {
       throw new BadRequestException("Cannot delete default roles");
     }
 
-    const defaultMemberRole = await this.db.role.findFirst({
+    const defaultMemberRole = await this.pg.role.findFirst({
       where: {
         name: "Member",
         default: true,
@@ -120,7 +188,7 @@ export class RoleService {
     }
 
     // Reassign members to default role before deletion
-    await this.db.$transaction(async (tx) => {
+    await this.pg.$transaction(async (tx) => {
       if (role.members.length > 0) {
         await tx.projectMember.updateMany({
           where: {
@@ -131,6 +199,11 @@ export class RoleService {
           },
         });
       }
+      // Reassign invitations to default role
+      await tx.projectInvitation.updateMany({
+        where: { roleId: roleId },
+        data: { roleId: defaultMemberRole.id },
+      });
 
       await tx.role.delete({
         where: { id: roleId },

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
-import { PriorityLevel, TaskStatus } from "prisma/client";
+import { PriorityLevel, TaskStatus } from "prisma/client/pg";
 import { ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
 import { GetSubtaskQueryResult } from "../../query/get-subtask.query";

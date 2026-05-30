@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 
 import { midpoint } from "@/common/utils";
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { GetProjectTasksQueryDto } from "@/modules/project/dto/request/query/get-project-tasks-query.dto";
 import { TasksListResponseDto } from "@/modules/task/dto/response/task-response.dto";
@@ -11,13 +11,18 @@ import { MoveSectionDto } from "./dto/request/move-section.dto";
 import { buildGetSectionQuery } from "./query/get-section.query";
 import { buildGetTaskQuery, GetTaskQueryResult } from "../task/query/get-task.query";
 import { SectionResponseDto } from "./dto/response/section-response.dto";
+import { PermissionChecker } from "@/middleware/permission-checker.service";
+import { Permission } from "@/common/enum/permission.enum";
 
 @Injectable()
 export class SectionService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private pg: PgService,
+    private readonly permissionChecker: PermissionChecker,
+  ) {}
 
   async create(userId: string, dto: CreateSectionDto) {
-    const project = await this.db.project.findFirst({
+    const project = await this.pg.project.findFirst({
       where: {
         id: dto.projectId,
         members: { some: { userId } },
@@ -31,7 +36,7 @@ export class SectionService {
     });
 
     if (!project) throw new ForbiddenException("Project not found or you do not have access");
-
+    await this.permissionChecker.requirePermission({ userId, projectId: dto.projectId }, Permission.SECTION_CREATE);
     let position: string;
     if (project.sections.length === 0) {
       position = midpoint(null, null);
@@ -43,7 +48,7 @@ export class SectionService {
       position = midpoint(project.sections[dto.insertAt - 1].position, project.sections[dto.insertAt].position);
     }
 
-    const section = await this.db.section.create({
+    const section = await this.pg.section.create({
       data: {
         name: dto.name,
         projectId: dto.projectId,
@@ -56,7 +61,7 @@ export class SectionService {
   }
 
   async update(userId: string, sectionId: string, dto: UpdateSectionDto) {
-    const section = await this.db.section.findFirst({
+    const section = await this.pg.section.findFirst({
       where: {
         id: sectionId,
         project: {
@@ -66,8 +71,8 @@ export class SectionService {
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
-
-    const updatedProject = await this.db.section.update({
+    await this.permissionChecker.requirePermission({ userId, projectId: section.projectId }, Permission.SECTION_UPDATE);
+    const updatedProject = await this.pg.section.update({
       where: { id: sectionId },
       data: {
         name: dto.name,
@@ -79,7 +84,7 @@ export class SectionService {
   }
 
   async moveSection(userId: string, sectionId: string, dto: MoveSectionDto) {
-    const section = await this.db.section.findFirst({
+    const section = await this.pg.section.findFirst({
       where: {
         id: sectionId,
         project: {
@@ -113,7 +118,7 @@ export class SectionService {
       newPosition = midpoint(sections[dto.moveTo - 1].position, sections[dto.moveTo].position);
     }
 
-    const movedSection = await this.db.section.update({
+    const movedSection = await this.pg.section.update({
       where: { id: sectionId },
       data: {
         position: newPosition,
@@ -125,7 +130,7 @@ export class SectionService {
   }
 
   async remove(userId: string, sectionId: string) {
-    const section = await this.db.section.findUnique({
+    const section = await this.pg.section.findUnique({
       where: {
         id: sectionId,
         project: {
@@ -135,8 +140,9 @@ export class SectionService {
     });
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
+    await this.permissionChecker.requirePermission({ userId, projectId: section.projectId }, Permission.SECTION_DELETE);
 
-    await this.db.section.delete({
+    await this.pg.section.delete({
       where: { id: sectionId },
     });
 
@@ -144,7 +150,7 @@ export class SectionService {
   }
 
   async getSectionTasks(userId: string, sectionId: string, dto: GetProjectTasksQueryDto) {
-    const section = await this.db.section.findFirst({
+    const section = await this.pg.section.findFirst({
       where: {
         id: sectionId,
         project: {
@@ -158,7 +164,9 @@ export class SectionService {
 
     if (!section) throw new ForbiddenException("Section not found or does not belong to the project");
 
-    const tasks = await this.db.taskSection.findMany({
+    await this.permissionChecker.requirePermission({ userId, projectId: section.projectId }, Permission.TASK_READ);
+
+    const tasks = await this.pg.taskSection.findMany({
       where: {
         sectionId,
         task: {
@@ -181,7 +189,7 @@ export class SectionService {
       },
     });
 
-    const tasksInWorkspace = await this.db.taskProject.findMany({
+    const tasksInWorkspace = await this.pg.taskProject.findMany({
       where: {
         project: {
           ownerId: userId,

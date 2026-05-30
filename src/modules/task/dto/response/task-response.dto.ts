@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
-import { PriorityLevel, TaskStatus } from "prisma/client";
+import { PriorityLevel, TaskStatus } from "prisma/client/pg";
 import { PaginationResponseDto, ResponseDto } from "@/common/dto/response.dto";
 import { UserBasicDto } from "@/modules/auth/dto/response/user-basic-response.dto";
 import { ProjectBasicDto } from "@/modules/project/dto/response/project-basic-response.dto";

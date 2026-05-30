@@ -15,7 +15,7 @@ export class RoleController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: "Create a new role" })
+  @ApiOperation({ summary: "Create a new role in a project" })
   @ApiResponse({
     status: 201,
     type: RoleResponseDto,
@@ -27,7 +27,7 @@ export class RoleController {
 
   @Patch(":id")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Update a role" })
+  @ApiOperation({ summary: "Update a role in a project" })
   @ApiResponse({
     status: 200,
     type: RoleResponseDto,
@@ -39,7 +39,7 @@ export class RoleController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Delete a role" })
+  @ApiOperation({ summary: "Delete a role in a project" })
   @ApiResponse({
     status: 200,
     type: MessageResponseDto,

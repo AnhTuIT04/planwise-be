@@ -1,4 +1,4 @@
-import { Prisma, Project } from "prisma/client";
+import { Prisma, Project } from "prisma/client/pg";
 
 export function buildGetTaskQuery() {
   return {

@@ -1,5 +1,6 @@
-import { IsString, IsNotEmpty, IsEmail, IsOptional } from "class-validator";
+import { IsString, IsNotEmpty, IsEmail, IsOptional, IsEnum } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { InvitationStatus } from "prisma/client/pg";
 
 export class InviteMemberDto {
   @IsNotEmpty()
@@ -15,4 +16,15 @@ export class InviteMemberDto {
     description: "Role id, if not provided, default role `MEMBER` will be assigned",
   })
   readonly roleId?: string;
+}
+
+export class ResponseInvitationDto {
+  @IsNotEmpty()
+  @IsEnum(InvitationStatus)
+  @ApiProperty({
+    enum: InvitationStatus,
+    example: InvitationStatus.ACCEPTED,
+    description: "Response to the invitation, e.g., 'accepted' or 'declined'",
+  })
+  readonly response: InvitationStatus;
 }

@@ -34,9 +34,9 @@ export class CreateSubtaskDto {
   @IsOptional()
   @IsEnum(TaskStatus)
   @ApiPropertyOptional({
+    enum: TaskStatus,
     example: TaskStatus.TODO,
     description: "The status of the subtask",
-    enum: TaskStatus,
   })
   readonly status?: TaskStatus;
 

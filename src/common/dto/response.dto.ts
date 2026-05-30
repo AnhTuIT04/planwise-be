@@ -52,3 +52,13 @@ export class PaginationResponseDto<T> extends ResponseDto<T[]> {
     this.pagination = new PaginationDto(page, limit, totalItems);
   }
 }
+
+export class CursorPaginationResponseDto<T> extends ResponseDto<T[]> {
+  @ApiProperty({ description: "Cursor for fetching the next set of results", example: "2026-02-01T09:20:00Z" })
+  readonly nextCursor: string | number | null;
+
+  constructor(data: T[], nextCursor: string | number | null, message: string = "Operation completed successfully.") {
+    super(data, message);
+    this.nextCursor = nextCursor;
+  }
+}

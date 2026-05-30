@@ -1,3 +1,5 @@
+import "reflect-metadata";
+
 import { ValidationPipe } from "@nestjs/common";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { ExpressAdapter } from "@nestjs/platform-express";
@@ -13,6 +15,7 @@ import { AppModule } from "@/app.module";
 import { AppConfig } from "@/config/app.config";
 import { configSwagger } from "@/config/swagger.config";
 import { GlobalExceptionFilter } from "@/filters/global-exception.filter";
+import { SocketAdapter } from "@/modules/realtime/socket.adapter";
 
 /**
  * Bootstrap function to initialize and configure the NestJS application
@@ -24,7 +27,8 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
 
   // Extract application configuration from ConfigService
-  const { NODE_ENV, PORT, API_PREFIX, API_VERSION, CORS_ORIGIN } = app.get(ConfigService).get<AppConfig>("env")!;
+  const configService = app.get<ConfigService>(ConfigService);
+  const { NODE_ENV, PORT, WS_PORT, API_PREFIX, API_VERSION, CORS_ORIGIN } = configService.get<AppConfig>("env")!;
 
   // Configure CORS (Cross-Origin Resource Sharing) with allowed methods and origins
   app.enableCors({
@@ -65,10 +69,14 @@ async function bootstrap() {
   // Configure Swagger/OpenAPI documentation
   configSwagger(app, API_PREFIX, API_VERSION);
 
+  // Set up WebSocket adapter for real-time communication
+  app.useWebSocketAdapter(new SocketAdapter(WS_PORT, CORS_ORIGIN));
+
   // Start the HTTP server on the configured port
   await app.listen(PORT);
   const DISPLAY_URL = `http://localhost:${PORT}`;
   console.info(`Application is running on: ${DISPLAY_URL}`);
+  console.info(`Socket server is running on: http://localhost:${WS_PORT}`);
   console.info(`API documentation available at: ${DISPLAY_URL}/${API_PREFIX}/${API_VERSION}/docs`);
 
   return app;

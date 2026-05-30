@@ -1,7 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 
-import { TaskStatus } from "prisma/client";
-import { DatabaseService } from "@/modules/database/database.service";
+import { TaskStatus } from "prisma/client/pg";
+import { PgService } from "@/modules/database/pg.service";
 import { moveToFirstPosition } from "@/modules/task/utils/change-position";
 import { GetSubtaskStatusQueryResult } from "../query/get-subtask-status.query";
 import { buildGetSubtaskQuery } from "../query/get-subtask.query";
@@ -11,19 +11,15 @@ function getDurationInSecondsFrom(time: Date = new Date()): number {
   return Math.floor(durationInMilliseconds / 1000);
 }
 
-async function changeStatusFrom_TODO_To_RUNNING(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
+async function changeStatusFrom_TODO_To_RUNNING(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
   const runningSubtask = task.parentTask!.subtasks.find((st) => st.status === TaskStatus.RUNNING);
   if (runningSubtask) {
-    return db.$transaction(
+    return pg.$transaction(
       async (tx) => {
         await tx.task.update({
           where: { id: runningSubtask.id },
           data: {
-            status: TaskStatus.DONE,
+            status: TaskStatus.TODO,
             spent: getDurationInSecondsFrom(runningSubtask.lastStarted ?? undefined) + runningSubtask.spent,
           },
         });
@@ -44,7 +40,7 @@ async function changeStatusFrom_TODO_To_RUNNING(
     );
   }
 
-  return await db.$transaction(
+  return await pg.$transaction(
     async (tx) => {
       await moveToFirstPosition(tx, task.parentTaskId!, sectionId);
       return tx.task.update({
@@ -69,12 +65,8 @@ async function changeStatusFrom_TODO_To_RUNNING(
   );
 }
 
-async function changeStatusFrom_TODO_To_DONE(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
-  return db.task.update({
+async function changeStatusFrom_TODO_To_DONE(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
+  return pg.task.update({
     where: { id: task.id },
     data: {
       status: TaskStatus.DONE,
@@ -83,12 +75,8 @@ async function changeStatusFrom_TODO_To_DONE(
   });
 }
 
-async function changeStatusFrom_RUNNING_To_TODO(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
-  return db.task.update({
+async function changeStatusFrom_RUNNING_To_TODO(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
+  return pg.task.update({
     where: { id: task.id },
     data: {
       status: TaskStatus.TODO,
@@ -104,12 +92,8 @@ async function changeStatusFrom_RUNNING_To_TODO(
   });
 }
 
-async function changeStatusFrom_RUNNING_To_DONE(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
-  return db.task.update({
+async function changeStatusFrom_RUNNING_To_DONE(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
+  return pg.task.update({
     where: { id: task.id },
     data: {
       status: TaskStatus.DONE,
@@ -125,13 +109,9 @@ async function changeStatusFrom_RUNNING_To_DONE(
   });
 }
 
-async function changeStatusFrom_DONE_To_TODO(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
+async function changeStatusFrom_DONE_To_TODO(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
   if (task.parentTask!.status === TaskStatus.DONE) {
-    return db.task.update({
+    return pg.task.update({
       where: { id: task.id },
       data: {
         status: TaskStatus.TODO,
@@ -145,7 +125,7 @@ async function changeStatusFrom_DONE_To_TODO(
     });
   }
 
-  return db.task.update({
+  return pg.task.update({
     where: { id: task.id },
     data: {
       status: TaskStatus.TODO,
@@ -154,66 +134,46 @@ async function changeStatusFrom_DONE_To_TODO(
   });
 }
 
-async function changeStatusFrom_DONE_To_RUNNING(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
+async function changeStatusFrom_DONE_To_RUNNING(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
   throw new BadRequestException("Cannot change status from DONE to RUNNING.");
 }
 
-async function changeStatusFrom_TODO_To_ARCHIVED(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
+async function changeStatusFrom_TODO_To_ARCHIVED(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
   throw new BadRequestException("Only parentTask tasks can be archived.");
 }
 
-async function changeStatusFrom_DONE_To_ARCHIVED(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
+async function changeStatusFrom_DONE_To_ARCHIVED(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
   throw new BadRequestException("Only parentTask tasks can be archived.");
 }
 
 async function changeStatusFrom_RUNNING_To_ARCHIVED(
-  db: DatabaseService,
+  pg: PgService,
   task: GetSubtaskStatusQueryResult,
   sectionId: string,
 ) {
   throw new BadRequestException("Cannot archive a task that is RUNNING. Please change its status first.");
 }
 
-async function changeStatusFrom_ARCHIVED_To_TODO(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
+async function changeStatusFrom_ARCHIVED_To_TODO(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
   throw new BadRequestException("Only parentTask tasks can be unarchived.");
 }
 
 async function changeStatusFrom_ARCHIVED_To_RUNNING(
-  db: DatabaseService,
+  pg: PgService,
   task: GetSubtaskStatusQueryResult,
   sectionId: string,
 ) {
   throw new BadRequestException("Cannot change status from ARCHIVED to RUNNING.");
 }
 
-async function changeStatusFrom_ARCHIVED_To_DONE(
-  db: DatabaseService,
-  task: GetSubtaskStatusQueryResult,
-  sectionId: string,
-) {
+async function changeStatusFrom_ARCHIVED_To_DONE(pg: PgService, task: GetSubtaskStatusQueryResult, sectionId: string) {
   throw new BadRequestException("Cannot change status from ARCHIVED to DONE.");
 }
 
 export async function changeStatus(
   fromStatus: TaskStatus,
   toStatus: TaskStatus,
-  db: DatabaseService,
+  pg: PgService,
   task: GetSubtaskStatusQueryResult,
   sectionId: string,
 ) {
@@ -236,5 +196,5 @@ export async function changeStatus(
   };
 
   const handler = handlers[`changeStatusFrom_${fromStatus}_To_${toStatus}`];
-  return await handler(db, task, sectionId);
+  return await handler(pg, task, sectionId);
 }

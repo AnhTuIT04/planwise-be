@@ -1,8 +1,21 @@
-import { Controller, Post, Res, Body, UseGuards, Get, Req, HttpCode, HttpStatus, Patch } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Res,
+  Body,
+  UseGuards,
+  Get,
+  Req,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import type { Response } from "express";
 import { GithubAuthGuard, GoogleAuthGuard } from "./guards/oauth.guard";
+import { JwtRefreshGuard } from "./guards/jwt-refresh.guard";
 
 import { AppConfig } from "@/config/app.config";
 import { Public } from "@/decorators/public.decorator";
@@ -36,8 +49,19 @@ export class AuthController {
     res.cookie("esiwnalp_keton", accessToken, this.getCookieOptions());
   }
 
+  private setRefreshTokenToCookie(res: Response, refreshToken: string) {
+    res.cookie("esiwnalp_hserfr", refreshToken, {
+      ...this.getCookieOptions(),
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+  }
+
   private clearAccessTokenCookie(res: Response) {
     res.clearCookie("esiwnalp_keton", this.getCookieOptions());
+  }
+
+  private clearRefreshTokenCookie(res: Response) {
+    res.clearCookie("esiwnalp_hserfr", this.getCookieOptions());
   }
 
   constructor(
@@ -72,8 +96,9 @@ export class AuthController {
     description: "Email verified successfully and user logged in.",
   })
   async verifyEmail(@Body() verifyEmailDto: VerifyOtpDto, @Res() res: Response) {
-    const { accessToken, user } = await this.authService.verifyEmail(verifyEmailDto);
+    const { accessToken, refreshToken, user } = await this.authService.verifyEmail(verifyEmailDto);
     this.setAccessTokenToCookie(res, accessToken);
+    this.setRefreshTokenToCookie(res, refreshToken);
 
     return res.json(new UserResponseDto(user, "Email verified successfully. You are now logged in."));
   }
@@ -217,8 +242,9 @@ export class AuthController {
     description: "Sign-in successful.",
   })
   async signin(@Body() signInDto: SignInDto, @Res() res: Response) {
-    const { accessToken, user } = await this.authService.signin(signInDto);
+    const { accessToken, refreshToken, user } = await this.authService.signin(signInDto);
     this.setAccessTokenToCookie(res, accessToken);
+    this.setRefreshTokenToCookie(res, refreshToken);
     return res.json(new UserResponseDto(user, "Sign-in successful."));
   }
 
@@ -233,7 +259,29 @@ export class AuthController {
   })
   logout(@Res() res: Response) {
     this.clearAccessTokenCookie(res);
+    this.clearRefreshTokenCookie(res);
     return res.json(new MessageResponseDto("Signed out successfully."));
+  }
+
+  @Post("refresh")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Refresh access token using refresh token" })
+  @ApiResponse({
+    status: 200,
+    description: "New access token generated successfully.",
+  })
+  async refresh(@Req() req: any, @Res() res: Response) {
+    const refreshToken = req.cookies["esiwnalp_hserfr"];
+
+    if (!refreshToken) {
+      throw new UnauthorizedException("Refresh token not found");
+    }
+
+    const accessToken = await this.authService.refreshAccessToken(refreshToken);
+    this.setAccessTokenToCookie(res, accessToken);
+    console.log("New access token generated via refresh token.");
+    return res.json({ accessToken, message: "Access token refreshed successfully." });
   }
 
   // -------------------------------

@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 import { CreateSubtaskDto } from "./dto/request/create-subtask.dto";
 import { UpdateSubtaskDto } from "./dto/request/update-subtask.dto";
-import { TaskStatus } from "prisma/client";
+import { TaskStatus } from "prisma/client/pg";
 import { MessageResponseDto } from "@/common/dto/message.dto";
 import { UpdateTaskStatusDto } from "../task/dto/request/update-task-status.dto";
 import { changeStatus } from "./utils/change-status";
@@ -11,14 +11,18 @@ import { buildGetSubtaskStatusQuery } from "./query/get-subtask-status.query";
 import { UpdateSubtaskAssigneesDto } from "./dto/request/update-subtask-assignees.dto";
 import { SubtaskResponseDto } from "./dto/response/subtask-response.dto";
 import { buildGetSubtaskQuery, GetSubtaskQueryResult } from "./query/get-subtask.query";
-
+import { PermissionChecker } from "@/middleware/permission-checker.service";
+import { Permission } from "@/common/enum/permission.enum";
 @Injectable()
 export class SubtaskService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private pg: PgService,
+    private readonly permissionChecker: PermissionChecker,
+  ) {}
 
   async create(userId: string, createSubtaskDto: CreateSubtaskDto) {
     const { parentTaskId, ...data } = createSubtaskDto;
-    const parentTask = await this.db.task.findFirst({
+    const parentTask = await this.pg.task.findFirst({
       where: {
         id: parentTaskId,
         sections: {
@@ -37,8 +41,11 @@ export class SubtaskService {
     if (!parentTask) {
       throw new Error("Parent task not found or you do not have permission to access it");
     }
-
-    const newSubtask: GetSubtaskQueryResult = await this.db.$transaction(
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: parentTask.originalProjectId },
+      Permission.SUBTASK_CREATE,
+    );
+    const newSubtask: GetSubtaskQueryResult = await this.pg.$transaction(
       async (tx) => {
         if (data.status && data.status === TaskStatus.TODO && parentTask.status === TaskStatus.DONE) {
           await tx.task.update({
@@ -81,7 +88,7 @@ export class SubtaskService {
   }
 
   async update(userId: string, subtaskId: string, updateSubtaskDto: UpdateSubtaskDto) {
-    const subtask = await this.db.task.findFirst({
+    const subtask = await this.pg.task.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
@@ -106,8 +113,11 @@ export class SubtaskService {
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
-
-    const updatedSubtask : GetSubtaskQueryResult = await this.db.task.update({
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: subtask.originalProjectId },
+      Permission.SUBTASK_UPDATE,
+    );
+    const updatedSubtask: GetSubtaskQueryResult = await this.pg.task.update({
       where: { id: subtaskId },
       data: {
         title: updateSubtaskDto.title,
@@ -128,7 +138,7 @@ export class SubtaskService {
   }
 
   async changeStatus(userId: string, subtaskId: string, dto: UpdateTaskStatusDto) {
-    const subtask = await this.db.task.findFirst({
+    const subtask = await this.pg.task.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
@@ -149,17 +159,27 @@ export class SubtaskService {
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: subtask.originalProjectId },
+      Permission.SUBTASK_UPDATE,
+    );
 
     if (subtask.status === dto.status) {
       throw new BadRequestException("Subtask is already in the requested status");
     }
 
-    const updatedSubtask : GetSubtaskQueryResult = await changeStatus(subtask.status, dto.status, this.db, subtask, dto.sectionId);
+    const updatedSubtask: GetSubtaskQueryResult = await changeStatus(
+      subtask.status,
+      dto.status,
+      this.pg,
+      subtask,
+      dto.sectionId,
+    );
     return new SubtaskResponseDto(updatedSubtask, "Subtask status updated successfully");
   }
 
   async updateAssignees(userId: string, subtaskId: string, dto: UpdateSubtaskAssigneesDto) {
-    const subtask = await this.db.task.findFirst({
+    const subtask = await this.pg.task.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
@@ -184,8 +204,11 @@ export class SubtaskService {
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
-
-    const updatedSubtask : GetSubtaskQueryResult = await this.db.task.update({
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: subtask.originalProjectId },
+      Permission.TASK_ASSIGN,
+    );
+    const updatedSubtask: GetSubtaskQueryResult = await this.pg.task.update({
       where: { id: subtaskId },
       data: {
         assignees: {
@@ -204,7 +227,7 @@ export class SubtaskService {
   }
 
   async remove(userId: string, subtaskId: string) {
-    const subtask = await this.db.task.findFirst({
+    const subtask = await this.pg.task.findFirst({
       where: {
         id: subtaskId,
         parentTask: {
@@ -224,8 +247,11 @@ export class SubtaskService {
     if (!subtask) {
       throw new Error("Subtask not found or you do not have permission to access it");
     }
-
-    await this.db.task.delete({
+    await this.permissionChecker.requirePermission(
+      { userId, projectId: subtask.originalProjectId },
+      Permission.SUBTASK_DELETE,
+    );
+    await this.pg.task.delete({
       where: { id: subtaskId },
     });
 

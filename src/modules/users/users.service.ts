@@ -1,16 +1,16 @@
 import { Injectable } from "@nestjs/common";
 
-import { Prisma } from "prisma/client";
+import { Prisma } from "prisma/client/pg";
 import { midpoint } from "@/common/utils";
 import { DefaultRole } from "@/common/enum/default-role.enum";
-import { DatabaseService } from "@/modules/database/database.service";
+import { PgService } from "@/modules/database/pg.service";
 
 @Injectable()
 export class UsersService {
-  constructor(private db: DatabaseService) {}
+  constructor(private pg: PgService) {}
 
   async create(data: Omit<Prisma.UserCreateInput, "workspaceId">) {
-    return this.db.$transaction(
+    return this.pg.$transaction(
       async (tx) => {
         const newProject = await tx.project.create({
           data: {
@@ -72,21 +72,21 @@ export class UsersService {
   }
 
   async findByEmail(email: string) {
-    return this.db.user.findUnique({ where: { email } });
+    return this.pg.user.findUnique({ where: { email } });
   }
 
   async findById(id: string) {
-    return this.db.user.findUnique({ where: { id } });
+    return this.pg.user.findUnique({ where: { id } });
   }
 
   async update(id: string, data: Omit<Prisma.UserUpdateInput, "workspaceId">) {
-    return this.db.user.update({
+    return this.pg.user.update({
       where: { id },
       data,
     });
   }
 
   async delete(id: string) {
-    return this.db.user.delete({ where: { id } });
+    return this.pg.user.delete({ where: { id } });
   }
 }

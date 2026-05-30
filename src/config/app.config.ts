@@ -45,6 +45,12 @@ export class AppConfig {
   @Max(65535)
   PORT: number = 8080;
 
+  /** WebSocket server port (valid port range: 0-65535) */
+  @IsNumber()
+  @Min(0)
+  @Max(65535)
+  WS_PORT: number = 8080;
+
   /** Domain name for CORS and cookie settings */
   @IsString()
   DOMAIN: string;
@@ -64,6 +70,9 @@ export class AppConfig {
   /** Secret key for JWT token signing and verification */
   @IsString()
   JWT_SECRET: string;
+
+  @IsString()
+  REFRESH_TOKEN_SECRET: string;
 
   /** JWT access token expiration time (e.g., '15m', '1h', 3600) */
   @IsString()
@@ -120,6 +129,28 @@ export class AppConfig {
   /** GitHub OAuth callback URL */
   @IsString()
   GITHUB_CALLBACK_URL: string;
+
+  // ==================== Integration Configuration ====================
+
+  /** Frontend URL for OAuth redirects */
+  @IsString()
+  FE_REDIRECT_URL: string;
+
+  /** Base URL for webhook callbacks (must be publicly accessible) */
+  @IsString()
+  WEBHOOK_BASE_URL: string;
+
+  /** Google Calendar OAuth client ID */
+  @IsString()
+  GOOGLE_CALENDAR_CLIENT_ID: string;
+
+  /** Google Calendar OAuth client secret */
+  @IsString()
+  GOOGLE_CALENDAR_CLIENT_SECRET: string;
+
+  /** Google Calendar OAuth callback URL */
+  @IsString()
+  GOOGLE_CALENDAR_REDIRECT_URL: string;
 }
 
 /**

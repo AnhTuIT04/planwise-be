@@ -16,6 +16,11 @@ import { ProjectModule } from "./modules/project/project.module";
 import { RoleModule } from "./modules/role/role.module";
 import { CommentModule } from "./modules/comment/comment.module";
 import { SubtaskModule } from "./modules/subtask/subtask.module";
+import { PermissionModule } from "./modules/permission/permission.module";
+import { PermissionMiddlewareModule } from "@/middleware/permission-middleware.module";
+import { RealtimeModule } from "./modules/realtime/realtime.module";
+import { ChannelModule } from "./modules/channel/channel.module";
+import { IntegrationModule } from "./modules/integration/integration.module";
 
 @Module({
   imports: [
@@ -37,6 +42,11 @@ import { SubtaskModule } from "./modules/subtask/subtask.module";
     TaskModule,
     SubtaskModule,
     CommentModule,
+    PermissionModule,
+    PermissionMiddlewareModule,
+    RealtimeModule,
+    ChannelModule,
+    IntegrationModule,
   ],
   controllers: [AppController],
   providers: [
