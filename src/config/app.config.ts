@@ -67,6 +67,20 @@ export class AppConfig {
   @IsString()
   JWT_ACCESS_TOKEN_EXPIRATION!: string | number;
 
+  /** Secret key for admin JWT token signing and verification (separate from user JWT) */
+  @IsString()
+  ADMIN_JWT_SECRET!: string;
+
+  /** Initial admin account email (used by the pg:seed-admin script only) */
+  @IsOptional()
+  @IsString()
+  ADMIN_EMAIL?: string;
+
+  /** Initial admin account password (used by the pg:seed-admin script only) */
+  @IsOptional()
+  @IsString()
+  ADMIN_PASSWORD?: string;
+
   /** Email service username for sending verification emails */
   @IsString()
   EMAIL_VERIFIER_USER!: string;
