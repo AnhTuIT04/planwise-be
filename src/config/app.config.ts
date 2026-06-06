@@ -123,6 +123,11 @@ export class AppConfig {
   /** Base URL for webhook endpoints (e.g., for receiving notifications from third-party services) */
   @IsString()
   WEBHOOK_BASE_URL!: string;
+
+  /** Google Gemini API Key */
+  @IsOptional()
+  @IsString()
+  GEMINI_API_KEY?: string;
 }
 
 /**
