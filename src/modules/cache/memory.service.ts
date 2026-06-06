@@ -76,4 +76,15 @@ export class MemoryService implements ICacheService {
   async del(key: string): Promise<void> {
     this.cache.delete(key);
   }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async tryLock(key: string, ttlSeconds: number): Promise<boolean> {
+    const existing = this.cache.get(key);
+    if (existing && (!existing.expiresAt || existing.expiresAt > Date.now())) {
+      return false;
+    }
+
+    this.cache.set(key, { value: "1", expiresAt: Date.now() + ttlSeconds * 1000 });
+    return true;
+  }
 }

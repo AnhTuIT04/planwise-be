@@ -20,15 +20,44 @@ const mongo = new MongoPrismaClient();
 
 const PASSWORD = "123456";
 
+// Staggered signup days (days ago) so the admin dashboard growth chart shows a
+// story: early adopters at the start of the 30-day window, recent joiners that
+// light up the "new this week" metrics.
 const SEED_USERS = [
-  { name: "Alice", email: "alice@gmail.com" },
-  { name: "Bob", email: "bob@gmail.com" },
-  { name: "Tung", email: "tung@gmail.com" },
-  { name: "Tuan", email: "tuan@gmail.com" },
-  { name: "Tu", email: "tu@gmail.com" },
+  { name: "Alice", email: "alice@gmail.com", joinedDaysAgo: 29 },
+  { name: "Bob", email: "bob@gmail.com", joinedDaysAgo: 24 },
+  { name: "Tung", email: "tung@gmail.com", joinedDaysAgo: 16 },
+  { name: "Tuan", email: "tuan@gmail.com", joinedDaysAgo: 8 },
+  { name: "Tu", email: "tu@gmail.com", joinedDaysAgo: 3 },
 ] as const;
 
 const SEED_EMAILS = SEED_USERS.map((u) => u.email);
+
+const ADMIN_PASSWORD = "admin123456";
+
+const SEED_ADMINS = [
+  { fullname: "Administrator", email: "admin@planwise.id.vn", createdDaysAgo: 30 },
+  { fullname: "Sarah Operations", email: "sarah.ops@planwise.id.vn", createdDaysAgo: 18 },
+  { fullname: "Minh Support", email: "minh.support@planwise.id.vn", createdDaysAgo: 6 },
+] as const;
+
+const COMMENT_SNIPPETS = [
+  "I can pick this up tomorrow morning.",
+  "Blocked on the API change — pinged the backend channel.",
+  "Done on my side, please review when you have a minute.",
+  "Splitting this into two subtasks, it's bigger than estimated.",
+  "Great progress here 👏",
+  "Can we bump the priority? Customer asked about it twice.",
+  "Added repro steps in the description.",
+  "This overlaps with the work in the other section — syncing offline.",
+  "Pushed a draft, feedback welcome.",
+  "Deadline looks tight, anyone able to pair on this?",
+  "Confirmed with design, we're good to ship.",
+  "Leaving notes here so we don't lose context.",
+  "Tested on staging, looks solid.",
+  "Renamed for clarity and updated the estimate.",
+  "Waiting on the vendor reply before this can move.",
+];
 
 // Pool of project blueprints. There are more than 5 * 6 = 30 picks needed across
 // runs, so each user randomly draws a subset and the role-name triplet of each
@@ -526,6 +555,20 @@ function minutesAgo(m: number): Date {
   return new Date(Date.now() - m * 60 * 1000);
 }
 
+function daysAgoAt(days: number, hour?: number): Date {
+  const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  d.setHours(hour ?? randInt(8, 21), randInt(0, 59), randInt(0, 59), 0);
+  return d;
+}
+
+/** Random date between two dates, never in the future. */
+function randomDateBetween(from: Date, to: Date): Date {
+  const lo = from.getTime();
+  const hi = Math.min(to.getTime(), Date.now());
+  if (hi <= lo) return new Date(lo);
+  return new Date(lo + Math.random() * (hi - lo));
+}
+
 // ---------- types ----------
 
 interface SeededUser {
@@ -534,6 +577,7 @@ interface SeededUser {
   fullname: string;
   avatarUrl: string | null;
   workspaceId: string;
+  createdAt: Date;
 }
 
 interface SeededProjectRole {
@@ -620,11 +664,14 @@ async function createUsers(): Promise<SeededUser[]> {
 
   for (const u of SEED_USERS) {
     const avatarUrl = `https://i.pravatar.cc/150?u=${encodeURIComponent(u.email)}`;
+    // Staggered signup timestamps make the dashboard growth chart tell a story.
+    const joinedAt = daysAgoAt(u.joinedDaysAgo);
     const created = await pg.$transaction(async (tx) => {
       const project = await tx.project.create({
         data: {
           name: `${u.name}'s Workspace`,
           isPersonal: true,
+          createdAt: joinedAt,
           owner: {
             create: {
               email: u.email,
@@ -633,6 +680,7 @@ async function createUsers(): Promise<SeededUser[]> {
               avatarUrl,
               verified: true,
               workspaceId: "",
+              createdAt: joinedAt,
             },
           },
           sections: { create: [{ name: "Default", position: nextPosition(null) }] },
@@ -670,8 +718,9 @@ async function createUsers(): Promise<SeededUser[]> {
       fullname: created.fullname,
       avatarUrl: created.avatarUrl,
       workspaceId: created.workspaceId,
+      createdAt: joinedAt,
     });
-    console.log(`  ✓ ${u.name} (${u.email})`);
+    console.log(`  ✓ ${u.name} (${u.email}) — joined ${u.joinedDaysAgo}d ago`);
   }
 
   return out;
@@ -737,7 +786,7 @@ async function seedMyTasks(user: SeededUser) {
     let taskPos: string | null = null;
     for (let i = 0; i < count; i++) {
       taskPos = nextPosition(taskPos);
-      const bp = personalTaskBlueprint();
+      const bp = personalTaskBlueprint(user.createdAt);
       await pg.task.create({
         data: {
           title: rand(PERSONAL_TASK_TITLES),
@@ -760,14 +809,22 @@ async function seedMyTasks(user: SeededUser) {
   console.log(`  ✓ my-tasks for ${user.email}: ${sections.length} sections`);
 }
 
-function personalTaskBlueprint() {
+function personalTaskBlueprint(userCreatedAt?: Date) {
   const now = new Date();
   const updatedDaysAgo = randInt(0, 30);
   const updatedAt = new Date(now);
   updatedAt.setDate(updatedAt.getDate() - updatedDaysAgo);
   updatedAt.setHours(randInt(8, 20), randInt(0, 59), 0, 0);
-  const createdAt = new Date(updatedAt);
+  let createdAt = new Date(updatedAt);
   createdAt.setDate(createdAt.getDate() - randInt(0, 10));
+
+  // Tasks can't predate the account that owns the workspace.
+  if (userCreatedAt && createdAt < userCreatedAt) {
+    createdAt = new Date(userCreatedAt.getTime() + randInt(5, 600) * 60 * 1000);
+  }
+  if (updatedAt < createdAt) {
+    updatedAt.setTime(Math.min(createdAt.getTime() + randInt(1, 48) * 60 * 60 * 1000, now.getTime()));
+  }
 
   const status = pickWeighted([
     { value: TaskStatus.TODO, weight: 5 },
@@ -805,9 +862,17 @@ async function seedSharedProject(
   blueprint: ProjectBlueprint,
   owner: SeededUser,
   memberPool: SeededUser[],
+  projectCreatedAt: Date,
 ): Promise<SeededProject> {
-  // Pick 2–3 additional members from the pool
-  const additional = pickN(memberPool, randInt(2, 3));
+  // Vary team size per project (2–6 incl. owner) so the admin project list and
+  // "top projects" chart don't show identical member counts everywhere.
+  const additionalCount = pickWeighted([
+    { value: 1, weight: 2 },
+    { value: 2, weight: 3 },
+    { value: 3, weight: 3 },
+    { value: 4, weight: 2 },
+  ]);
+  const additional = pickN(memberPool, Math.min(additionalCount, memberPool.length));
   const sectionNames = ["Backlog", "In Progress", "Review", "Done"];
 
   // Create project + roles + sections in one transaction so the project never
@@ -820,6 +885,7 @@ async function seedSharedProject(
         logoUrl: blueprint.logoUrl,
         isPersonal: false,
         ownerId: owner.id,
+        createdAt: projectCreatedAt,
         sections: {
           create: sectionNames.map((n, i) => {
             // Pre-compute deterministic ascending positions
@@ -890,7 +956,7 @@ async function seedSharedProject(
     let taskPos: string | null = null;
     for (let i = 0; i < tasksPerSection[sIdx]; i++) {
       taskPos = nextPosition(taskPos);
-      const bp = projectTaskBlueprint(sIdx);
+      const bp = projectTaskBlueprint(sIdx, projectCreatedAt);
       const title = rand(blueprint.taskTitles);
       const assigneeIds = pickN(memberUserIds, randInt(1, Math.min(2, memberUserIds.length)));
 
@@ -926,15 +992,15 @@ async function seedSharedProject(
       contentType: ContentType;
       createdAt: Date;
     }[] = [];
+    // Spread messages between project creation (capped at 14 days back) and now.
+    const messagesFrom = new Date(Math.max(projectCreatedAt.getTime(), Date.now() - 14 * 24 * 60 * 60 * 1000));
     for (let i = 0; i < count; i++) {
-      // Spread createdAt over last 14 days; older for earlier indices.
-      const minutesBack = randInt(0, 14 * 24 * 60);
       docs.push({
         channelId: chId,
         senderId: rand(memberUserIds),
         content: rand(blueprint.messageSnippets),
         contentType: ContentType.TEXT,
-        createdAt: minutesAgo(minutesBack),
+        createdAt: randomDateBetween(messagesFrom, new Date()),
       });
     }
     await mongo.message.createMany({ data: docs });
@@ -965,7 +1031,7 @@ async function seedSharedProject(
   };
 }
 
-function projectTaskBlueprint(sectionIdx: number) {
+function projectTaskBlueprint(sectionIdx: number, projectCreatedAt?: Date) {
   // Section 0=Backlog, 1=In Progress, 2=Review, 3=Done — bias status by column.
   const status =
     sectionIdx === 0
@@ -991,8 +1057,17 @@ function projectTaskBlueprint(sectionIdx: number) {
   const updatedAt = new Date(now);
   updatedAt.setDate(updatedAt.getDate() - updatedDaysAgo);
   updatedAt.setHours(randInt(8, 19), randInt(0, 59), 0, 0);
-  const createdAt = new Date(updatedAt);
+  let createdAt = new Date(updatedAt);
   createdAt.setDate(createdAt.getDate() - randInt(1, 14));
+
+  // Tasks can't predate their project.
+  if (projectCreatedAt && createdAt < projectCreatedAt) {
+    createdAt = new Date(projectCreatedAt.getTime() + randInt(1, 48) * 60 * 60 * 1000);
+    if (createdAt > now) createdAt = new Date(projectCreatedAt.getTime() + randInt(5, 120) * 60 * 1000);
+  }
+  if (updatedAt < createdAt) {
+    updatedAt.setTime(Math.min(createdAt.getTime() + randInt(1, 72) * 60 * 60 * 1000, now.getTime()));
+  }
 
   const estimateMs = randInt(30, 240) * 60 * 1000;
   const ratio = pickWeighted([
@@ -1021,6 +1096,66 @@ function projectTaskBlueprint(sectionIdx: number) {
   }
 
   return { status, priority, estimateMs, spentMs, deadline, createdAt, updatedAt };
+}
+
+// ---------- comments ----------
+
+async function seedComments(projects: SeededProject[]) {
+  console.log("+ Creating task comments…");
+  let total = 0;
+
+  for (const project of projects) {
+    // Comment on roughly a third of the project's tasks.
+    const tasks = await pg.task.findMany({
+      where: { id: { in: pickN(project.taskIds, randInt(8, 14)) } },
+      select: { id: true, createdAt: true },
+    });
+
+    for (const task of tasks) {
+      const commentCount = randInt(1, 4);
+      let parentId: string | null = null;
+
+      for (let i = 0; i < commentCount; i++) {
+        const authorId = rand(project.memberUserIds);
+        const createdAt = randomDateBetween(task.createdAt, new Date());
+        const comment = await pg.comment.create({
+          data: {
+            content: rand(COMMENT_SNIPPETS),
+            authorId,
+            taskId: task.id,
+            createdAt,
+            // ~25% of follow-ups land as a threaded reply to the first comment
+            parentId: parentId && Math.random() < 0.25 ? parentId : null,
+          },
+        });
+        parentId = parentId ?? comment.id;
+        total++;
+      }
+    }
+  }
+
+  console.log(`  ✓ ${total} comments across ${projects.length} projects`);
+}
+
+// ---------- admins ----------
+
+async function seedAdmins() {
+  console.log("+ Creating admin accounts…");
+  const hashed = await hash(ADMIN_PASSWORD, 10);
+
+  for (const a of SEED_ADMINS) {
+    await pg.admin.upsert({
+      where: { email: a.email },
+      update: { password: hashed, fullname: a.fullname },
+      create: {
+        email: a.email,
+        password: hashed,
+        fullname: a.fullname,
+        createdAt: daysAgoAt(a.createdDaysAgo),
+      },
+    });
+    console.log(`  ✓ ${a.fullname} (${a.email})`);
+  }
 }
 
 // ---------- pending invitations ----------
@@ -1371,16 +1506,27 @@ async function main() {
   }
 
   console.log("\n+ Building shared projects…");
+  const now = new Date();
   const allProjects: SeededProject[] = [];
   for (const owner of users) {
     const projectCount = randInt(4, 6);
     const blueprints = pickN(PROJECT_BLUEPRINTS, projectCount);
     const otherUsers = users.filter((u) => u.id !== owner.id);
     for (const bp of blueprints) {
-      const project = await seedSharedProject(bp, owner, otherUsers);
+      // Spread creation between the owner's signup and now, biased toward the
+      // recent half so the dashboard growth chart trends upward.
+      const bias = Math.pow(Math.random(), 0.55);
+      const createdAt = new Date(owner.createdAt.getTime() + bias * (now.getTime() - owner.createdAt.getTime()));
+      const project = await seedSharedProject(bp, owner, otherUsers, createdAt);
       allProjects.push(project);
     }
   }
+
+  console.log();
+  await seedComments(allProjects);
+
+  console.log();
+  await seedAdmins();
 
   console.log();
   await seedPendingInvitations(users, allProjects);
@@ -1407,17 +1553,24 @@ async function main() {
     pendingInvitations: await pg.projectInvitation.count({
       where: { invitee: { email: { in: SEED_EMAILS } }, status: "PENDING" },
     }),
+    comments: await pg.comment.count({
+      where: { author: { email: { in: SEED_EMAILS } } },
+    }),
+    admins: await pg.admin.count(),
   };
 
   console.log("\n=== Done ===");
   console.log(`Users:             ${counts.users}`);
   console.log(`Projects (shared): ${counts.projects}`);
   console.log(`Tasks (all):       ${counts.tasks}`);
+  console.log(`Comments:          ${counts.comments}`);
   console.log(`Channels:          ${counts.channels}`);
   console.log(`Messages (mongo):  ${counts.messages}`);
   console.log(`Notifications:     ${counts.notifications}`);
   console.log(`Pending invites:   ${counts.pendingInvitations}`);
-  console.log(`\nLogin: any of ${SEED_EMAILS.join(", ")} / password "${PASSWORD}"\n`);
+  console.log(`Admins:            ${counts.admins}`);
+  console.log(`\nLogin: any of ${SEED_EMAILS.join(", ")} / password "${PASSWORD}"`);
+  console.log(`Admin login (/admin-sign-in): ${SEED_ADMINS.map((a) => a.email).join(", ")} / password "${ADMIN_PASSWORD}"\n`);
 }
 
 main()
