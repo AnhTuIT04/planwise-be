@@ -211,6 +211,10 @@ export class AuthService {
       throw new UnauthorizedException("Please verify your email before signing in");
     }
 
+    if (user.disabledAt) {
+      throw new UnauthorizedException("Your account has been disabled. Please contact an administrator.");
+    }
+
     const accessToken = this.signAccessTokenToken({ id: user.id, email: user.email });
     return { accessToken, user };
   }

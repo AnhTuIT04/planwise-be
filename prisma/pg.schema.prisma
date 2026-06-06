@@ -15,6 +15,7 @@ model User {
   fullname            String
   avatarUrl           String?
   verified            Boolean             @default(false)
+  disabledAt          DateTime?
   workspaceId         String
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
@@ -30,6 +31,15 @@ model User {
   notifications       Notification[]      @relation("UserNotifications")
 
   integrationConnections IntegrationConnection[]
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  fullname  String   @default("Administrator")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model OAuthAccount {
