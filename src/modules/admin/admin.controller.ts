@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { Public } from "@/decorators/public.decorator";
@@ -7,6 +7,8 @@ import { AdminService } from "./admin.service";
 import { AdminJwtGuard } from "./guards/admin-jwt.guard";
 import { ListUsersQueryDto } from "./dto/request/list-users-query.dto";
 import { ListProjectsQueryDto } from "./dto/request/list-projects-query.dto";
+import { CreateAdminDto } from "./dto/request/create-admin.dto";
+import { AdminResponse, AdminsResponse } from "./dto/response/admin-response.dto";
 import { AdminUsersOffsetResponse, AdminUserDetailResponse } from "./dto/response/admin-user-response.dto";
 import { AdminProjectsOffsetResponse, AdminProjectDetailResponse } from "./dto/response/admin-project-response.dto";
 import { AdminStatsResponse } from "./dto/response/admin-stats-response.dto";
@@ -74,5 +76,22 @@ export class AdminController {
   @ApiResponse({ status: 200, type: AdminProjectDetailResponse, description: "Project info retrieved successfully." })
   getProjectDetail(@Param("id") id: string) {
     return this.adminService.getProjectDetail(id);
+  }
+
+  @Get("admins")
+  @Public()
+  @ApiOperation({ summary: "List all admin accounts" })
+  @ApiResponse({ status: 200, type: AdminsResponse, description: "Admins retrieved successfully." })
+  listAdmins() {
+    return this.adminService.listAdmins();
+  }
+
+  @Post("admins")
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Create a new admin account" })
+  @ApiResponse({ status: 201, type: AdminResponse, description: "Admin created successfully." })
+  createAdmin(@Body() createAdminDto: CreateAdminDto) {
+    return this.adminService.createAdmin(createAdminDto);
   }
 }

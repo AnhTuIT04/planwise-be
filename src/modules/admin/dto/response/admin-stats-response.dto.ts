@@ -21,6 +21,37 @@ class AdminStatsTotalsDto {
 
   @ApiProperty({ description: "Team (non-personal) projects" })
   readonly teamProjects!: number;
+
+  @ApiProperty({ description: "Total tasks across the system (count only)" })
+  readonly tasks!: number;
+}
+
+class AdminStatsAuthMethodsDto {
+  @ApiProperty({ description: "Users signed up with email/password only" })
+  readonly email!: number;
+
+  @ApiProperty({ description: "Users connected with Google OAuth" })
+  readonly google!: number;
+
+  @ApiProperty({ description: "Users connected with GitHub OAuth" })
+  readonly github!: number;
+}
+
+class AdminStatsTopProjectDto {
+  @ApiProperty({ description: "Project id" })
+  readonly id!: string;
+
+  @ApiProperty({ description: "Project name" })
+  readonly name!: string;
+
+  @ApiProperty({ description: "Whether this is a personal workspace project" })
+  readonly isPersonal!: boolean;
+
+  @ApiProperty({ description: "Number of members" })
+  readonly memberCount!: number;
+
+  @ApiProperty({ description: "Number of tasks (count only)" })
+  readonly taskCount!: number;
 }
 
 class AdminStatsGrowthDto {
@@ -104,6 +135,12 @@ export class AdminStatsDto {
   @ApiProperty({ type: () => [AdminStatsDailyPointDto], description: "Daily activity for the last 30 days" })
   readonly daily: AdminStatsDailyPointDto[];
 
+  @ApiProperty({ type: () => AdminStatsAuthMethodsDto, description: "How users authenticate" })
+  readonly authMethods: AdminStatsAuthMethodsDto;
+
+  @ApiProperty({ type: () => [AdminStatsTopProjectDto], description: "Largest projects by member count" })
+  readonly topProjects: AdminStatsTopProjectDto[];
+
   @ApiProperty({ type: () => [AdminStatsRecentUserDto], description: "Most recent signups" })
   readonly recentUsers: AdminStatsRecentUserDto[];
 
@@ -114,12 +151,16 @@ export class AdminStatsDto {
     totals: AdminStatsTotalsDto;
     growth: AdminStatsGrowthDto;
     daily: AdminStatsDailyPointDto[];
+    authMethods: AdminStatsAuthMethodsDto;
+    topProjects: AdminStatsTopProjectDto[];
     recentUsers: ConstructorParameters<typeof AdminStatsRecentUserDto>[0][];
     recentProjects: ConstructorParameters<typeof AdminStatsRecentProjectDto>[0][];
   }) {
     this.totals = stats.totals;
     this.growth = stats.growth;
     this.daily = stats.daily;
+    this.authMethods = stats.authMethods;
+    this.topProjects = stats.topProjects;
     this.recentUsers = stats.recentUsers.map((user) => new AdminStatsRecentUserDto(user));
     this.recentProjects = stats.recentProjects.map((project) => new AdminStatsRecentProjectDto(project));
   }

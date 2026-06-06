@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { hash } from "bcrypt";
 
 import { Prisma } from "prisma/client/pg";
 import { PgService } from "~/database/pg.service";
 import { MessageOnlyResponse } from "@/common/dto/message.dto";
 import { AdminUserStatusFilter, ListUsersQueryDto } from "./dto/request/list-users-query.dto";
 import { ListProjectsQueryDto } from "./dto/request/list-projects-query.dto";
+import { CreateAdminDto } from "./dto/request/create-admin.dto";
+import { AdminResponse, AdminsResponse } from "./dto/response/admin-response.dto";
 import { AdminUsersOffsetResponse, AdminUserDetailResponse } from "./dto/response/admin-user-response.dto";
 import { AdminProjectsOffsetResponse, AdminProjectDetailResponse } from "./dto/response/admin-project-response.dto";
 import { AdminStatsResponse } from "./dto/response/admin-stats-response.dto";
@@ -33,6 +36,10 @@ export class AdminService {
       disabledUsers,
       projects,
       personalProjects,
+      tasks,
+      emailOnlyUsers,
+      oauthCounts,
+      topProjectRows,
       newUsersThisWeek,
       newUsersLastWeek,
       newProjectsThisWeek,
@@ -47,6 +54,19 @@ export class AdminService {
       this.pgService.user.count({ where: { disabledAt: { not: null } } }),
       this.pgService.project.count(),
       this.pgService.project.count({ where: { isPersonal: true } }),
+      this.pgService.task.count(),
+      this.pgService.user.count({ where: { oauthAccounts: { none: {} } } }),
+      this.pgService.oAuthAccount.groupBy({ by: ["provider"], _count: { provider: true } }),
+      this.pgService.project.findMany({
+        orderBy: { members: { _count: "desc" } },
+        take: 6,
+        select: {
+          id: true,
+          name: true,
+          isPersonal: true,
+          _count: { select: { members: true, tasks: true } },
+        },
+      }),
       this.pgService.user.count({ where: { createdAt: { gte: oneWeekAgo } } }),
       this.pgService.user.count({ where: { createdAt: { gte: twoWeeksAgo, lt: oneWeekAgo } } }),
       this.pgService.project.count({ where: { createdAt: { gte: oneWeekAgo } } }),
@@ -94,6 +114,9 @@ export class AdminService {
       if (point) point.projects += 1;
     }
 
+    const providerCount = (provider: string) =>
+      oauthCounts.find((entry) => entry.provider === provider)?._count.provider ?? 0;
+
     return new AdminStatsResponse(
       {
         totals: {
@@ -103,14 +126,58 @@ export class AdminService {
           projects,
           personalProjects,
           teamProjects: projects - personalProjects,
+          tasks,
         },
         growth: { newUsersThisWeek, newUsersLastWeek, newProjectsThisWeek, newProjectsLastWeek },
         daily,
+        authMethods: {
+          email: emailOnlyUsers,
+          google: providerCount("GOOGLE"),
+          github: providerCount("GITHUB"),
+        },
+        topProjects: topProjectRows.map((project) => ({
+          id: project.id,
+          name: project.name,
+          isPersonal: project.isPersonal,
+          memberCount: project._count.members,
+          taskCount: project._count.tasks,
+        })),
         recentUsers,
         recentProjects,
       },
       "Statistics retrieved successfully.",
     );
+  }
+
+  // -------------------------------
+  // ADMIN ACCOUNT MANAGEMENT
+  // -------------------------------
+
+  async listAdmins() {
+    const admins = await this.pgService.admin.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { id: true, email: true, fullname: true, createdAt: true },
+    });
+
+    return new AdminsResponse(admins, "Admins retrieved successfully.");
+  }
+
+  async createAdmin(createAdminDto: CreateAdminDto) {
+    const existing = await this.pgService.admin.findUnique({ where: { email: createAdminDto.email } });
+    if (existing) {
+      throw new ConflictException("This email is already registered as an admin");
+    }
+
+    const hashedPassword = await hash(createAdminDto.password, 10);
+    const admin = await this.pgService.admin.create({
+      data: {
+        email: createAdminDto.email,
+        password: hashedPassword,
+        fullname: createAdminDto.fullname ?? "Administrator",
+      },
+    });
+
+    return new AdminResponse(admin, "Admin created successfully.");
   }
 
   private toDateKey(date: Date) {

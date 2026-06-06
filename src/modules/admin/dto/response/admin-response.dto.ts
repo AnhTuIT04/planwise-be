@@ -27,3 +27,25 @@ export class AdminResponse extends ResponseDto<AdminDto> {
     super(new AdminDto(admin), message);
   }
 }
+
+export class AdminListItemDto extends AdminDto {
+  @ApiProperty({ description: "Timestamp of admin creation", format: "date-time" })
+  readonly createdAt: Date;
+
+  constructor(admin: { id: string; email: string; fullname: string; createdAt: Date }) {
+    super(admin);
+    this.createdAt = admin.createdAt;
+  }
+}
+
+export class AdminsResponse extends ResponseDto<AdminListItemDto[]> {
+  @ApiProperty({ type: () => [AdminListItemDto], description: "List of admin accounts" })
+  declare readonly data: AdminListItemDto[];
+
+  constructor(admins: { id: string; email: string; fullname: string; createdAt: Date }[], message?: string) {
+    super(
+      admins.map((admin) => new AdminListItemDto(admin)),
+      message,
+    );
+  }
+}
