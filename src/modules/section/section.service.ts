@@ -126,8 +126,8 @@ export class SectionService {
       tasks: {
         data: tasksInSection,
         pagination: {
-          page: 1,
-          limit: tasksInSection.length,
+          page: dto.page,
+          limit: dto.limit,
         },
       },
     };

@@ -1,0 +1,17 @@
+services:
+  planwise-be:
+    build: .
+    container_name: planwise-be
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MONGODB_DATABASE_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo:27017/${POSTGRES_DB}?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      - postgres
+      - mongo
+      - mongo-init
+      - redis
+    restart: unless-stopped

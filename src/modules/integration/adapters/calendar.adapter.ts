@@ -22,6 +22,7 @@ interface GoogleEvent {
   location?: string;
   status?: string;
   updated?: string;
+  colorId?: string;
   attendees?: { email: string; responseStatus?: string }[];
 }
 
@@ -321,6 +322,7 @@ export class CalendarAdapter implements IIntegrationAdapter {
       isAllDay,
       location: event.location,
       status: event.status,
+      colorId: event.colorId,
       rawData: event as unknown as Record<string, unknown>,
     };
   }

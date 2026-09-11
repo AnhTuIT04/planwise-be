@@ -13,6 +13,8 @@ import {
 
 interface GmailListResponse {
   messages?: { id: string; threadId: string }[];
+  nextPageToken?: string;
+  resultSizeEstimate?: number;
 }
 
 interface GmailHeader {
@@ -142,7 +144,10 @@ export class GmailAdapter implements IIntegrationAdapter {
     });
   }
 
-  async list(accessToken: string, options: SyncMessageOptions): Promise<{ messages: IntegrationGmailData[] }> {
+  async list(
+    accessToken: string,
+    options: SyncMessageOptions,
+  ): Promise<{ messages: IntegrationGmailData[]; nextPageToken?: string }> {
     const params = new URLSearchParams();
 
     if (options.maxResults) {
@@ -150,6 +155,9 @@ export class GmailAdapter implements IIntegrationAdapter {
     }
     if (options.q) {
       params.set("q", options.q);
+    }
+    if (options.pageToken) {
+      params.set("pageToken", options.pageToken);
     }
     for (const labelId of options.labelIds || []) {
       params.append("labelIds", labelId);
@@ -184,7 +192,7 @@ export class GmailAdapter implements IIntegrationAdapter {
       }),
     );
 
-    return { messages };
+    return { messages, nextPageToken: listData.nextPageToken };
   }
 
   async create(accessToken: string, payload: CreateMessageInput): Promise<IntegrationGmailData> {

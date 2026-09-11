@@ -15,6 +15,7 @@ model User {
   fullname            String
   avatarUrl           String?
   verified            Boolean             @default(false)
+  disabledAt          DateTime?
   workspaceId         String
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
@@ -30,6 +31,15 @@ model User {
   notifications       Notification[]      @relation("UserNotifications")
 
   integrationConnections IntegrationConnection[]
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  fullname  String   @default("Administrator")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model OAuthAccount {
@@ -175,6 +185,10 @@ model Comment {
   taskId    String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
 }
 
 model ProjectInvitation {
@@ -340,6 +354,7 @@ model IntegrationEvent {
   isAllDay          Boolean               @default(false)
   location          String?
   status            String? // confirmed, tentative, cancelled
+  colorId           String? // Google Calendar color ID (1-11), stable across syncs
   rawData           Json? // Full event data from provider
   lastModifiedByApp Boolean               @default(false) // For preventing sync loops
   lastModifiedAt    DateTime

@@ -23,6 +23,9 @@ import { ReviewModule } from "~/review/review.module";
 import { NotificationModule } from "~/notification/notification.module";
 import { IntegrationModule } from "~/integration";
 import { NotionModule } from "~/notion/notion.module";
+import { CommentModule } from "~/comment/comment.module";
+import { AiModule } from "~/ai/ai.module";
+import { AdminModule } from "~/admin/admin.module";
 
 @Module({
   imports: [
@@ -51,6 +54,9 @@ import { NotionModule } from "~/notion/notion.module";
     NotificationModule,
     IntegrationModule,
     NotionModule,
+    CommentModule,
+    AiModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

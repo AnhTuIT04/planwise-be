@@ -265,7 +265,7 @@ export class ProjectService {
           }),
           pagination: {
             page: 1,
-            limit: tasks.length,
+            limit: 20,
           },
         },
       };

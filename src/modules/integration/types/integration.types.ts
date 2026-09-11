@@ -42,6 +42,7 @@ export interface IntegrationCalendarData {
   isAllDay: boolean;
   location?: string;
   status?: string;
+  colorId?: string;
   rawData?: Record<string, unknown>;
 }
 export interface IntegrationGmailData {
@@ -106,6 +107,12 @@ export interface SyncMessageOptions {
   maxResults?: number;
   q?: string;
   labelIds?: string[];
+  pageToken?: string;
+}
+
+export interface SyncMessageResult {
+  messages: IntegrationGmailData[];
+  nextPageToken?: string;
 }
 
 // ==================== Webhook ====================

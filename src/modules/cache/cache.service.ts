@@ -68,4 +68,17 @@ export class CacheService implements ICacheService, OnModuleInit {
       }
     }
   }
+
+  async tryLock(key: string, ttlSeconds: number): Promise<boolean> {
+    try {
+      return await this.activeService.tryLock(key, ttlSeconds);
+    } catch (error) {
+      if (this.activeService === this.redisService) {
+        this.logger.warn("Switching to memory cache due to Redis error");
+        this.activeService = this.memoryService;
+        return await this.memoryService.tryLock(key, ttlSeconds);
+      }
+      throw error;
+    }
+  }
 }

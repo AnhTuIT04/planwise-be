@@ -365,6 +365,7 @@ export class IntegrationService {
           isAllDay: event.isAllDay,
           location: event.location,
           status: event.status,
+          colorId: event.colorId,
           rawData: event.rawData as Prisma.JsonObject,
           lastModifiedByApp: false,
           lastModifiedAt: new Date(),
@@ -377,6 +378,7 @@ export class IntegrationService {
           isAllDay: event.isAllDay,
           location: event.location,
           status: event.status,
+          colorId: event.colorId,
           rawData: event.rawData as Prisma.JsonObject,
           lastModifiedByApp: false,
           lastModifiedAt: new Date(),
@@ -445,6 +447,7 @@ export class IntegrationService {
             isAllDay: true,
             location: true,
             status: true,
+            colorId: true,
             syncedAt: true,
           },
           where: {
@@ -488,6 +491,7 @@ export class IntegrationService {
         isAllDay: event.isAllDay,
         location: event.location,
         status: event.status,
+        colorId: event.colorId,
         rawData: event.rawData as Prisma.JsonObject,
         lastModifiedByApp: true,
         lastModifiedAt: new Date(),
@@ -504,6 +508,7 @@ export class IntegrationService {
         isAllDay: true,
         location: true,
         status: true,
+        colorId: true,
         syncedAt: true,
       },
     });
@@ -549,6 +554,7 @@ export class IntegrationService {
         isAllDay: event.isAllDay,
         location: event.location,
         status: event.status,
+        colorId: event.colorId,
         rawData: event.rawData as Prisma.JsonObject,
         lastModifiedByApp: true,
         lastModifiedAt: new Date(),
@@ -611,7 +617,7 @@ export class IntegrationService {
     userId: string,
     provider: IntegrationProvider,
     connectionId: string,
-    options: { maxResults?: number; q?: string; labelIds?: string[] },
+    options: { maxResults?: number; q?: string; labelIds?: string[]; pageToken?: string },
   ): Promise<ConnectionMessageDetailsResponseDto[]> {
     if (provider !== IntegrationProvider.GOOGLE_GMAIL) {
       throw new BadRequestException("Messages API currently supports GOOGLE_GMAIL only");
@@ -621,16 +627,18 @@ export class IntegrationService {
     const accessToken = await this.getValidAccessToken(connection, provider);
     const adapter = this.getAdapter(provider);
 
-    const result: { messages: any[] } = await adapter.list(accessToken, {
+    const result: { messages: any[]; nextPageToken?: string } = await adapter.list(accessToken, {
       maxResults: options.maxResults,
       q: options.q,
       labelIds: options.labelIds,
+      pageToken: options.pageToken,
     });
 
     return [
       {
         connectionId: connection.id,
         messages: result.messages.map((message: IntegrationGmailData) => this.mapMessageToResponse(message)),
+        nextPageToken: result.nextPageToken,
       },
     ];
   }

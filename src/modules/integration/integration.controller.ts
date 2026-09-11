@@ -179,6 +179,7 @@ export class IntegrationController {
       q: query.q,
       labelIds: query.labelIds,
       maxResults: query.maxResults,
+      pageToken: query.pageToken,
     });
   }
 
